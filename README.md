@@ -1,4 +1,4 @@
-the server part of the website is written in php
+the backend of the website is written in php
 
 the database used is mysql
 
