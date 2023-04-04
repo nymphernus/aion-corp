@@ -1,0 +1,267 @@
+h1{
+    font-size: 45px;
+    margin-bottom: 10px;
+    margin-top: 10px;
+    color:rgb(39, 81, 159);
+}
+.delBtn{
+    padding: 0;
+    border: none;
+    margin-top:10px;
+    font-size: 19px;
+    color: rgb(255, 44, 44);
+    background-color: transparent;
+    cursor: pointer;
+}
+.toggle_btn_monitor{
+    padding: 0;
+    border: none;
+    margin-top:10px;
+    font-size: 25px;
+    color: rgb(61, 61, 227);
+    background-color: transparent;
+    cursor: pointer;
+}
+.toggle_btn_profile{
+    padding: 0;
+    border: none;
+    font-size: 20px;
+    color: blue;
+    background-color: transparent;
+    cursor: pointer;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+.userAssembly h4{
+    color: brown;
+    margin-left: 15px;
+}
+.authCont{
+    width: 100%;
+    height: 90vh;
+	margin-left: auto;
+    margin-right: auto;
+}
+#login_cont,#pass_cont{
+    width: 50%;
+    height: 50%;
+    text-align: center;
+    padding-bottom: 1%;
+    font-size:small;
+    margin: 0 auto;
+    margin-top: 10%;
+}
+#login_cont .entry_field,#pass_cont .entry_field{
+    margin: 1% 0 1% 0;
+	width: 50%;
+	height: 17%;
+	padding-left: 5%;
+    border-radius:20px;
+	border: 0;
+	background: rgba(202, 202, 202, 0.781);
+    transition: .3s;
+	font-size:20px;
+}
+#login_cont .entry_field:hover,#pass_cont .entry_field:hover{
+    cursor: text;
+	box-shadow:0 0 10px 2px rgba(0, 195, 255, 0.5);
+}
+#pass_cont{
+    display: none;
+}
+#login_cont{
+    display: block;
+}
+.toggle_btn{
+    border: 0;
+    text-decoration: none;
+    background-color: rgba(255, 255, 255, 0);
+    color: blue;
+}
+#login_cont button,#pass_cont button{
+    margin-top: 1%;
+    margin-bottom: 1%;
+	font-size:25px;
+    width: 30%;
+    height: 15%;
+    overflow: hidden;
+}
+.wrong_access{
+    font-size:smaller;
+    color:brown;
+}
+.userProfile{
+    width: 90%;
+    height: 90%;
+    text-align: center;
+    line-height: 30px;
+    padding-top: 20px;
+    min-height: 120vh;
+    height: auto;
+    display: block;
+}
+.userProfile h1{
+    font-size: 50px;
+}
+.userData{
+    text-align: left;
+    padding: 2% 0 0 5%;
+    width: 50%;
+    line-height: 70px;
+    font-size: 25px;
+}
+.userProfile div .toggle_btn{
+    color: rgb(135, 135, 135);
+}
+#addressEdit,#numberEdit,#emailEdit,#surnameEdit{
+    padding: 10px;
+    display: none;
+    border-radius: 20px;
+    background-color: rgb(198, 198, 198);
+    backdrop-filter: flur(25px);
+    border: 1px solid rgb(114, 255, 255);
+    width: 45vh;
+    min-height: 10vh;
+    height: auto;
+    position: absolute;
+    text-align: center;
+}
+.userData input[type="text"],.userData input[type="tel"]{
+    margin: 1% 0 1% 0;
+	width: 90%;
+	height: 45px;
+	padding-left: 5%;
+    border-radius:20px;
+	border: 1px solid rgb(114, 255, 255);
+    cursor: text;
+    font-size: 15px;
+}
+.userData form input[type="button"]{
+    color: black;
+    background-color: white;
+    margin: 1% 0 1% 0;
+	width: 40%;
+	height: 45px;
+    border-radius:20px;
+    border: 0;
+    cursor: pointer;
+}
+.userData button{
+    margin: 1% 0 1% 0;
+	width: 40%;
+	height: 45px;
+    border-radius:20px;
+    border: 0;
+    cursor: pointer;
+}
+.userOrder{
+    width: 50%;
+    text-align: left;
+    padding: 2% 0 0 5%;
+    font-size: 25px;
+    line-height: 70px;
+}
+.profileContainer{
+    display: flex;
+    width: 100%;
+    height: 90%
+}
+.cont_profile{
+    height: auto;
+    margin-top: 100px;
+    margin-bottom: 10px;
+    background-color: #9a90e688;
+    /* background-color: #aca2fb74; */
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    position: relative;
+	margin-left: auto;
+    margin-right: auto;
+	width: 85%;
+	justify-content: center;
+    display: flex;
+}
+.userTable table, .orderTable table{
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 7px 11px; 
+}
+.container_profile{
+    width: 100vw;
+    min-height: 100vh;
+    height: auto;
+    overflow: hidden;
+    height: auto;
+    background: linear-gradient(-45deg, #b6f2dd, #aca2fb, #b6f2dd);
+    background-size: 400%;
+    animation: gradient 10s ease infinite;
+}
+.assemblyTable{
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    height: 1vh;
+    line-height: 40px;
+    text-align: center;
+}
+.lineSpan{
+    height: 1px;
+    width: 100%;
+    background-color: black;
+}
+.assemblyTable span{
+    width: 50%;
+}
+.orderTable .contTable,.favoriteTable .contTable{
+    border: 1px solid black;
+    border-radius: 20px;
+    padding: 10px;
+}
+.userAssembly *{
+    margin-bottom: 10px;
+}
+.favoriteTable,.orderTable{
+    line-height: 30px;
+}
+.userOrder a{
+    color: darkred;
+    transition: .3s;
+}
+.userOrder a:hover{
+    color: red;
+}
+.containerMonitor .assemblyTable span{
+    width: 30%;
+}
+.assemblyTable select{
+    padding: 0;
+    border: none;
+    margin-top:10px;
+    font-size: inherit;
+    color: black;
+    background-color: transparent;
+    cursor: pointer;
+}
+.assemblyTable input[type="text"],.assemblyTable input[type="number"]{
+    margin: 1% 0 1% 0;
+	width: 150px;
+	height: 35px;
+	padding-left: 5%;
+    border-radius:10px;
+	border: 1px solid rgb(114, 255, 255);
+    cursor: text;
+    font-size: 15px;
+}
+.assemblyTable input[type="checkbox"]{
+    margin-right: 5%;
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+.assemblyTable label{
+    cursor: pointer;
+}
+.cmpForm{
+    height: 12vh;
+    width: 100%;
+}
