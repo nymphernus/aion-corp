@@ -123,18 +123,18 @@
                         <div class="headline"><p>AION CORPORATION</p></div>
                         <div class="lead">
                             <p>Связь с нами</p>
-                            <a href="https://vk.com/im?media=&sel=-173280979"><img src="assets/images/logo-vk.svg"></a>
-                            <a href="https://wa.me/+79614113718"><img src="assets/images/logo-whatsapp.svg"></a>
-                            <a href="https://t.me/ashwatthaman"><img src="assets/images/logo-telegram.svg"></a>
+                            <a href="https://github.com/nymphernus"><img src="assets/images/logo-vk.svg"></a>
+                            <a href="https://github.com/nymphernus"><img src="assets/images/logo-whatsapp.svg"></a>
+                            <a href="https://github.com/nymphernus"><img src="assets/images/logo-telegram.svg"></a>
                             <p>Горячая линия</p>
-                            <a href="tel:+79897179356">+7 (989) 717-93-56</a>
+                            <a href="tel:+79999999999">+7 (999) 999-99-99</a>
                             <p>Почта</p>
-                            <a href="mailto:aleksey.schumann@gmail.com">aleksey.schumann@gmail.com</a>
+                            <a href="mailto:mail@mail.ru">mail@mail.ru</a>
                         </div>
 
                     
                     </div>
-                    <div class="about_map"><iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d782.2128626799754!2d39.691026742637334!3d47.2530574158968!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x40e3b842e81ee769%3A0xcc371a668740b596!2z0YPQuy4g0JPQsNC60LrQtdC70Y8sIDEwINC60L7RgNC_0YPRgSAxLCDQoNC-0YHRgtC-0LIt0L3QsC3QlNC-0L3Rgywg0KDQvtGB0YLQvtCy0YHQutCw0Y8g0L7QsdC7LiwgMzQ0MDc5!5e0!3m2!1sru!2sru!4v1652767851420!5m2!1sru!2sru" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+                    <div class="about_map"><iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d577348.4519017431!2d36.725910778778385!3d55.57995328139987!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x46b54afc73d4b0c9%3A0x3d44d6cc5757cf4c!2z0JzQvtGB0LrQstCw!5e0!3m2!1sru!2sru!4v1749035032575!5m2!1sru!2sru" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
                 
                 </div>
             </div>
@@ -147,7 +147,7 @@
 
         <footer class="footer">
         <span>© 2022 Aion Corporation</span>
-        <span>Designed by <a href="https://vk.com/aswatthaman">Aleksey Schumann</a></span>
+        <span>Designed by <a href="https://github.com/nymphernus">Aleksey Schumann</a></span>
         </footer>
         <script src="assets/js/slider.js"></script>
         <script src="assets/js/scripts.js"></script>

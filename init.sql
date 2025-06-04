@@ -367,9 +367,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `user_name`, `user_surname`, `user_login`, `user_pass`, `user_group`, `user_address`, `user_email`, `user_number`) VALUES
-(1, 'Алексей', 'Шуман', 'aswatthaman', '8817aa97551f28c5f44f92c08e0d4c07', 'admin', 'г.Ростов-на-Дону, ул.Гаккеля, д.10а', 'dethtaker@mail.ru', '+79897179356'),
-(2, 'Александр', 'Миронов', 'kqqzzz', '6c00bca8e13dab8e7149d7e82836540c', 'user', 'г.Таганрог, ул.Победы, д.15', 'tokoyomo@vk.com', '+78005553535'),
-(12, 'Администратор', NULL, 'admin', '3ea5ea9cd5f2220018e44e1e1449ca98', 'admin', NULL, NULL, NULL);
+(1, 'Администратор', NULL, 'admin', '3ea5ea9cd5f2220018e44e1e1449ca98', 'admin', NULL, NULL, NULL);
 
 --
 -- Индексы сохранённых таблиц
