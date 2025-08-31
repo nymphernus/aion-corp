@@ -1,5 +1,7 @@
 <?php
-    setcookie('user', $user['user_name'], time() - 3600 * 2, "/");
-    setcookie('login', $user['user_group'], time() - 3600 * 2, "/");
+    setcookie('user', '', time() - 3600, "/");
+    setcookie('login', '', time() - 3600, "/");
+    setcookie('uId', '', time() - 3600, "/");
     header('Location: /profile.php');
+    exit();
 ?>

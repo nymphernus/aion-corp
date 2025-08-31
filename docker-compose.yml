@@ -1,25 +1,28 @@
 services:
   db:
-    image: mysql:latest
+    image: bitnami/mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: 1234
       MYSQL_USER: admin
       MYSQL_PASSWORD: 1234
-      MYSQL_DATABASE: aion-bd
+      MYSQL_DATABASE: aion_bd
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql_data:/bitnami/mysql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "/opt/bitnami/scripts/mysql/healthcheck.sh"]
+      timeout: 5s
+      retries: 3
   
   php:
     build: .
     ports:
-      - "8080:80"
-    volumes:
-      - ./src:/var/www/html
+      - "80:80"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   mysql_data:

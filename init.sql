@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- База данных: `u1697528_aion-bd`
+-- База данных: `u1697528_aion_bd`
 --
 
 -- --------------------------------------------------------
@@ -321,7 +321,8 @@ INSERT INTO `favorites` (`favorit_id`, `user_id`, `assembly_id`) VALUES
 CREATE TABLE `orders` (
   `order_id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
-  `assembly_id` int(11) NOT NULL
+  `assembly_id` int(11) NOT NULL,
+  `status` varchar(50) DEFAULT 'Обрабатывается'
 ) ENGINE=InnoDB AVG_ROW_LENGTH=5461 DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
