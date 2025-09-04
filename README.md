@@ -5,9 +5,14 @@
 <h2>Алгоритм установки и запуска проекта</h2>
 <ol>
     <li>Клонируйте проект</li>
-      <code>git clone https://github.com/nymphernus/aion-corp.git
-      cd aion-corp</code>
+        ```bash
+        git clone https://github.com/nymphernus/aion-corp.git
+        cd aion-corp
+        ```
     <li>Запустите контейнеры с помощью Docker Compose:</li>
+        ```bash
+        docker-compose up -d
+        ```
 </ol>
 <h2>Технологии</h2>
 <ul>
