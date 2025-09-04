@@ -4,12 +4,10 @@
 
 <h2>Алгоритм установки и запуска проекта</h2>
 <ol>
-    <li>Установите веб-сервер (например, XAMPP)</li>
-    <li>Клонируйте проект
-      <code>https://github.com/nymphernus/aion-corp.git</code></li>
-    <li>Разместите его в папке вашего веб-сервера (например, в <code>htdocs</code> для XAMPP).</li>
-    <li>Импортируйте базу данных в phpMyAdmin</li>
-    <li>Запустите локальный сервер и откройте index.php в браузере</li>
+    <li>Клонируйте проект</li>
+      <code>git clone https://github.com/nymphernus/aion-corp.git
+      cd aion-corp</code>
+    <li>Запустите контейнеры с помощью Docker Compose:</li>
 </ol>
 <h2>Технологии</h2>
 <ul>
