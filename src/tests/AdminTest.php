@@ -76,9 +76,14 @@ final class AdminTest extends AionTestCase
     public function testAdminDeleteUserWorks(): void
     {
         [$victimLogin, $victimId] = $this->createVictim();
-        $token = $this->loginAsAdmin();
+        $this->loginAsAdmin();
 
-        $del = $this->httpPost('/profile.php', [
+        // Обработчик deleteUser перенесён в admin.php (ШАГ 4)
+        $page = $this->httpGet('/admin.php?tab=users');
+        $this->assertSame(200, $page['code']);
+        $token = $this->extractCsrf($page['body']);
+
+        $del = $this->httpPost('/admin.php?tab=users', [
             'deleteUser' => '1',
             'userId' => (string) $victimId,
             'csrf_token' => $token,

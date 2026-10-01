@@ -11,7 +11,7 @@ if (!defined('ADMIN_CONTEXT')) {
     exit;
 }
 ?>
-                <section class="card">
+                <section class="card admin-panel">
                     <h2>Управление заказами</h2>
 <?php
                     echo "<span class=\"assemblyTable\">

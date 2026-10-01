@@ -112,22 +112,8 @@ if ($userProfile) {
     }
 
     if (isset($_POST['deleteUser']) && $isAdmin) {
-        csrf_verify();
-        $userId = $_POST['userId'] ?? 0;
-
-        $stmt = $mysql->prepare("DELETE FROM orders WHERE user_id = ?");
-        $stmt->bind_param("i", $userId);
-        $stmt->execute();
-
-        $stmt = $mysql->prepare("DELETE FROM favorites WHERE user_id = ?");
-        $stmt->bind_param("i", $userId);
-        $stmt->execute();
-
-        $stmt = $mysql->prepare("DELETE FROM users WHERE user_id = ?");
-        $stmt->bind_param("i", $userId);
-        $stmt->execute();
-
-        header('Location: /profile.php');
+        // Перенесено в admin.php?tab=users (ШАГ 4)
+        header('Location: /admin.php?tab=users');
         exit();
     }
 
@@ -282,8 +268,7 @@ require __DIR__ . '/partials/header.php';
                             <section class="card" id="card-admin" data-section style="display:none;">
                                 <h2>Панель управления</h2>
                                 <div class="admin-grid">
-                                    <input class="btn btn--secondary" value="Управление пользователями" type="button"
-                                        data-action="switch" data-a="userMonitor" data-b="userProfile">
+                                    <a href="/admin.php?tab=users" class="btn btn--secondary" style="text-decoration:none;">Управление пользователями</a>
                                     <a href="/admin.php?tab=orders" class="btn btn--secondary" style="text-decoration:none;">Управление заказами</a>
                                     <a href="/admin.php?tab=components" class="btn btn--secondary" style="text-decoration:none;">Управление комплектующими</a>
                                 </div>
@@ -385,8 +370,6 @@ require __DIR__ . '/partials/header.php';
                     <?php if ($isAdmin): ?>
                         <div class="userProfile" id="userMonitor" style="display:none;">
                             <h1>Управление пользователями</h1>
-                            <input class="toggle_btn_profile" value="Вернуться в профиль" type="button"
-                                data-action="switch" data-a="userProfile" data-b="userMonitor">
                             <div class="containerMonitor">
                                 <?php
                                 echo "<span class=\"assemblyTable\"><span>Имя</span><span>Логин</span><span>Группа</span><span style=\"width:60%\">Адрес</span><span>Номер</span><span></span></span><br><div class=\"lineSpan\"></div>";
@@ -416,7 +399,6 @@ require __DIR__ . '/partials/header.php';
                                 ?>
                             </div>
                         </div>
-
                     <?php endif; ?>
                 <?php endif; ?>
             </div>

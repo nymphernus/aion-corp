@@ -110,6 +110,26 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     exit();
 }
 
+if ($isAdmin && isset($_POST['deleteUser'])) {
+    csrf_verify();
+    $userId = $_POST['userId'] ?? 0;
+
+    $stmt = $mysql->prepare("DELETE FROM orders WHERE user_id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+
+    $stmt = $mysql->prepare("DELETE FROM favorites WHERE user_id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+
+    $stmt = $mysql->prepare("DELETE FROM users WHERE user_id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+
+    header('Location: /admin.php?tab=users');
+    exit();
+}
+
 $pageTitle = 'Админ-панель';
 $extraCss = ['/assets/css/profile.css'];
 $extraJs  = ['/assets/js/scripts.js'];
@@ -132,6 +152,8 @@ if ($tab === 'components') {
     require __DIR__ . '/admin/_tab_components.php';
 } elseif ($tab === 'orders') {
     require __DIR__ . '/admin/_tab_orders.php';
+} elseif ($tab === 'users') {
+    require __DIR__ . '/admin/_tab_users.php';
 } else {
 ?>
                 <section class="card">
