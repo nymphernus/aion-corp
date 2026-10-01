@@ -192,9 +192,7 @@ h1{
     height: auto;
     overflow: hidden;
     height: auto;
-    background: linear-gradient(-45deg, #b6f2dd, #aca2fb, #b6f2dd);
-    background-size: 400%;
-    animation: gradient 10s ease infinite;
+    background: transparent;
 }
 .assemblyTable{
     display: flex;
@@ -203,6 +201,10 @@ h1{
     height: 1vh;
     line-height: 40px;
     text-align: center;
+}
+
+.table-wrap {
+    overflow-x: auto;
 }
 .lineSpan{
     height: 1px;
@@ -264,4 +266,232 @@ h1{
 .cmpForm{
     height: 12vh;
     width: 100%;
+}
+
+/* Минималистичная CRM-панель (3.6.1, локальная компенсация fixed-хедера 90px) */
+
+.profile-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+    max-width: 1280px;
+    margin: 114px auto 24px;
+    padding: 0 24px;
+    align-items: start;
+}
+
+.profile-sidebar {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 20px;
+    position: sticky;
+    top: 114px;
+    z-index: 1;
+    max-height: calc(100vh - 138px);
+    overflow-y: auto;
+}
+
+.profile-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.profile-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.profile-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    color: var(--text);
+    transition: 150ms;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.profile-nav-item:hover {
+    background: var(--bg);
+    text-decoration: none;
+}
+
+.profile-nav-item.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.profile-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.profile-field {
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.profile-field:last-child {
+    border-bottom: none;
+}
+
+.profile-field-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.profile-field-value {
+    font-size: 15px;
+    color: var(--text);
+}
+
+.profile-field-value[data-empty] {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.profile-field-edit {
+    grid-column: 2 / 4;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.profile-field-edit .input {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 15px;
+}
+
+.profile-field-edit--stack {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.profile-field[data-editing] .profile-field-value,
+.profile-field[data-editing] > [data-action="edit"] {
+    display: none;
+}
+
+.profile-field:not([data-editing]) .profile-field-edit {
+    display: none;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+@media (max-width: 768px) {
+    .profile-layout {
+        grid-template-columns: 1fr;
+        margin-top: 114px;
+    }
+    .profile-sidebar {
+        position: static;
+        max-height: none;
+    }
+    #card-builds .table,
+    #card-fav .table {
+        min-width: 480px;
+    }
+}
+
+@media (max-width: 900px) {
+    .admin-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 3.6.1-fix: нейтрализация старых панелей + детали */
+
+#userProfile {
+    background: transparent;
+    border: none;
+    backdrop-filter: none;
+    width: 100%;
+    min-height: auto;
+    height: auto;
+    text-align: left;
+    padding-top: 0;
+    line-height: 1.6;
+}
+
+.cont_profile--plain {
+    margin-top: 0;
+    background: transparent;
+    backdrop-filter: none;
+}
+
+.profile-layout {
+    text-align: left;
+}
+
+.card h2 {
+    text-align: left;
+}
+
+.profile-content {
+    min-height: 50vh;
+}
+
+.profile-content .card {
+    padding: 32px;
+}
+
+.profile-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 40px 16px;
+}
+
+button.profile-nav-item {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    width: 100%;
+}
+
+.edit-form {
+    max-width: 400px;
+}
+
+.edit-form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 12px;
 }

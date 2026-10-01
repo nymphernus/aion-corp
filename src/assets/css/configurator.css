@@ -129,3 +129,46 @@
     width: 100%;
     height: 100%;
 }
+
+/* Адаптив (3.6.4) */
+
+@media (max-width: 1024px) {
+    .shell_cfg {
+        width: 95%;
+    }
+    .about_assembly {
+        width: 35%;
+    }
+}
+
+@media (max-width: 768px) {
+    .shell_cfg {
+        flex-direction: column;
+        width: 100%;
+        margin-top: 110px;
+    }
+    .components {
+        width: 100%;
+    }
+    .kp {
+        flex-direction: column;
+        height: auto;
+        padding: 16px;
+        text-align: center;
+    }
+    .about_assembly {
+        width: 100%;
+        height: auto;
+        margin: 16px 0;
+    }
+    .about_assembly .dv input {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .about_assembly {
+        font-size: 16px;
+        line-height: 32px;
+    }
+}

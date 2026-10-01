@@ -7,12 +7,13 @@
 :root{
 	--clr: #222327;
 }
+/* body переехал в base.css (дизайн-система 3.6.0); здесь оставлено пустым,
+   чтобы тёмный --clr не перебивал светлый фон */
 body {
 	margin: 0;
 	font-family: 'Ubuntu', sans-serif;
 	color: #000;
 	font-weight: normal;
-	background: var(--clr);
 }
 body::-webkit-scrollbar {
 	width: 5px;
@@ -336,10 +337,20 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 	font-size: larger;
 	line-height: 250%;
 }
-.check input{
-	margin-right: 5%;
-	width: 15px;
-	height: 15px;
+.check p {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.check p label {
+    flex: 1;
+}
+.check p input {
+    flex-shrink: 0;
+    margin-top: 4px;
+    margin-right: 0;
+    width: 15px;
+    height: 15px;
 }
 .check label:hover, input:hover{
 	cursor: pointer;
@@ -446,4 +457,123 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 	display: flex;
     justify-content: space-between;
 	padding: 1% 8%;
+}
+
+/* Бургер-меню (3.6.4) */
+
+.nav-burger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 10px;
+}
+
+.nav-burger span {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background: #fff;
+    border-radius: 2px;
+}
+
+/* Адаптив (3.6.4) */
+
+@media (max-width: 1024px) {
+    .header__inner {
+        padding: 0 24px;
+    }
+    .slider__text {
+        left: 5%;
+        width: 90%;
+        max-width: 500px;
+    }
+    .container_select {
+        flex-wrap: wrap;
+    }
+    .container_about {
+        height: auto;
+        min-height: 75vh;
+    }
+    .cont_shell_about {
+        flex-direction: column;
+        padding: 24px;
+    }
+    .about_map {
+        float: none;
+        width: 100%;
+        height: 400px;
+        margin-top: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-burger {
+        display: inline-flex;
+    }
+    .nav {
+        display: none;
+        position: fixed;
+        top: 90px;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: auto;
+        background: rgba(34, 35, 39, 0.97);
+        z-index: 9;
+        padding: 12px 0;
+    }
+    .nav.nav--open {
+        display: flex;
+    }
+    .nav ul {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .nav ul li {
+        width: 100%;
+    }
+    .slider__text {
+        width: calc(100% - 32px);
+        height: auto;
+        padding: 16px;
+    }
+    .slider__text h1 {
+        font-size: 24px;
+    }
+    .cont_shell {
+        width: 100%;
+    }
+    .container_select {
+        flex-direction: column;
+        height: auto;
+    }
+    .container_pc {
+        height: auto;
+        overflow: visible;
+    }
+    .container_pc .cont_shell_back {
+        height: auto;
+    }
+    .price_input {
+        width: 100%;
+        max-width: 100%;
+    }
+    #cfg {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .slider__text h1 {
+        font-size: 20px;
+    }
+    .slider__text p {
+        font-size: 14px;
+    }
 }

@@ -1,0 +1,255 @@
+/**
+ * AION CORP — базовая дизайн-система (минимализм).
+ *
+ * Только ДОБАВЛЯЕТ классы. Существующие style.css/profile.css/configurator.css
+ * не переопределяются и не отменяются.
+ */
+
+:root {
+    --bg: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --text: #111827;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --accent: #2563EB;
+    --accent-hover: #1D4ED8;
+    --accent-light: rgba(37, 99, 235, 0.1);
+    --border: #E5E7EB;
+    --success: #10B981;
+    --error: #EF4444;
+    --warning: #F59E0B;
+    --radius-sm: 8px;
+    --radius: 12px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    min-height: 100vh;
+}
+
+body {
+    font-family: 'Ubuntu', system-ui, sans-serif;
+    background: linear-gradient(180deg,
+        #F8FAFC 0%,
+        #F1F5F9 400px,
+        #F8FAFC 100%);
+    background-attachment: fixed;
+    background-color: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+h1 {
+    font-size: 36px;
+    font-weight: 700;
+    margin: 0 0 24px;
+}
+
+h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 16px;
+}
+
+h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 12px;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+/* Кнопки */
+
+.btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: 150ms;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-family: inherit;
+}
+
+.btn--primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn--primary:hover {
+    background: var(--accent-hover);
+}
+
+.btn--secondary {
+    background: white;
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn--secondary:hover {
+    border-color: var(--text-secondary);
+}
+
+.btn--ghost {
+    background: transparent;
+    color: var(--accent);
+}
+
+.btn--danger {
+    background: var(--error);
+    color: white;
+}
+
+.btn--sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Поля ввода */
+
+.input {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    width: 100%;
+    background: white;
+    transition: 150ms;
+    font-family: inherit;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+/* Карточки */
+
+.card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+}
+
+/* Формы */
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Таблицы */
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.table tbody tr:hover {
+    background: var(--bg);
+}
+
+/* Бейджи */
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.badge--success {
+    background: rgba(16,185,129,0.1);
+    color: #059669;
+}
+
+.badge--warning {
+    background: rgba(245,158,11,0.1);
+    color: #D97706;
+}
+
+.badge--error {
+    background: rgba(239,68,68,0.1);
+    color: #DC2626;
+}
+
+/* Алерты */
+
+.alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+}
+
+.alert--error {
+    background: rgba(239,68,68,0.1);
+    color: #991B1B;
+    border: 1px solid rgba(239,68,68,0.2);
+}
+
+/* Адаптив (3.6.4) */
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+input,
+button,
+textarea,
+select {
+    font-size: 16px;
+}
+
+.btn {
+    min-height: 44px;
+}
+
+.card {
+    overflow-x: auto;
+}

@@ -26,6 +26,7 @@ $isLoggedIn = isset($_SESSION['user_id']);
 <head>
     <meta charset="utf-8">
     <title><?= escape($pageTitle) ?></title>
+    <link rel="stylesheet" href="/assets/css/base.css">
     <link rel="stylesheet" href="/assets/css/style.css">
 <?php foreach ($extraCss as $css): ?>
     <link rel="stylesheet" href="<?= escape($css) ?>">
@@ -37,6 +38,7 @@ $isLoggedIn = isset($_SESSION['user_id']);
     <header class="header">
         <div class="header__inner">
             <a href="/"><div><img class="logo" src="/assets/images/logo.png" alt="logo"></div></a>
+            <button type="button" class="nav-burger" data-action="menu" aria-label="Меню"><span></span><span></span><span></span></button>
             <div class="nav">
                 <ul>
                     <li class="list">

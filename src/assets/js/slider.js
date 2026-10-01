@@ -35,3 +35,13 @@ function left() {
     }, 500)
 }
 setInterval(left, 7000)
+
+// Пересчёт позиций при ресайзе: viewport измерен один раз при загрузке,
+// без этого на другой ширине второй слайд торчит из-под первого
+window.addEventListener('resize', function() {
+    viewport = document.getElementById("main__container").offsetWidth;
+    var cur = document.querySelectorAll(".slide");
+    for (var i = 0; i < cur.length; i++) {
+        cur[i].style.left = (i * viewport) + "px";
+    }
+});

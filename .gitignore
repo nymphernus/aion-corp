@@ -4,3 +4,4 @@ vendor/
 node_modules/
 *.log
 tests/phpunit.phar
+src/tests/.phpunit.result.cache
