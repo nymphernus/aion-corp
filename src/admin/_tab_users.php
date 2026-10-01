@@ -34,7 +34,6 @@ if (!defined('ADMIN_CONTEXT')) {
                             <th>Группа</th>
                             <th>Адрес</th>
                             <th>Номер</th>
-                            <th></th>
                         </tr></thead><tbody>";
                     if ($result) {
                         while ($row = $result->fetch_array()) {
@@ -56,11 +55,6 @@ if (!defined('ADMIN_CONTEXT')) {
                                 . "<td>" . htmlspecialchars($row['user_group'] ?? '') . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_address'] ?? '') . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_number'] ?? '') . "</td>"
-                                . "<td><form method=\"POST\" class=\"row-form\">"
-                                . "<input type=\"hidden\" name=\"csrf_token\" value=\"" . escape($_SESSION['csrf_token']) . "\">"
-                                . "<input name=\"userId\" type=\"hidden\" value=\"" . htmlspecialchars($row['user_id'] ?? '') . "\">"
-                                . "<button class=\"delBtn\" name=\"deleteUser\" type=\"submit\">Удалить</button>"
-                                . "</form></td>"
                                 . "</tr>";
                         }
                     }

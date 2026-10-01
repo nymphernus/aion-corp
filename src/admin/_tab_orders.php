@@ -43,7 +43,6 @@ if (!defined('ADMIN_CONTEXT')) {
                                 <th>Сборка</th>
                                 <th>Стоимость</th>
                                 <th>Статус</th>
-                                <th></th>
                             </tr></thead><tbody>";
                         if ($result) {
                             while ($row = $result->fetch_array()) {
@@ -51,7 +50,6 @@ if (!defined('ADMIN_CONTEXT')) {
                                 if ($row['asm_id'] > 3) {
                                     $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
                                 }
-                                $formId = 'ordForm' . (int) $row['order_id'];
                                 // 3.7-h-1: данные строки для модалки заказа
                                 $rowData = json_encode([
                                     'modal' => 'order',
@@ -72,20 +70,13 @@ if (!defined('ADMIN_CONTEXT')) {
                                     . "<td>" . htmlspecialchars($row['user_address'] ?? '') . "</td>"
                                     . "<td>" . htmlspecialchars($row['assembly_name'] ?? '') . "</td>"
                                     . "<td>" . htmlspecialchars($row['assembly_price'] ?? '') . "</td>"
-                                    // select и кнопка — в одной форме через HTML5-атрибут form
-                                    . "<td><select class=\"input\" size=\"1\" name=\"status\" form=\"$formId\">"
-                                    . "<option " . ((($row['status'] ?? '') == 'Обрабатывается') ? 'selected' : '') . " value=\"Обрабатывается\">Обрабатывается</option>"
-                                    . "<option " . ((($row['status'] ?? '') == 'Собирается') ? 'selected' : '') . " value=\"Собирается\">Собирается</option>"
-                                    . "<option " . ((($row['status'] ?? '') == 'Доставляется') ? 'selected' : '') . " value=\"Доставляется\">Доставляется</option>"
-                                    . "<option " . ((($row['status'] ?? '') == 'Выполнен') ? 'selected' : '') . " value=\"Выполнен\">Выполнен</option>"
-                                    // 3.7-h-1: статус из модалки должен отображаться и в строке
-                                    . "<option " . ((($row['status'] ?? '') == 'Отменён') ? 'selected' : '') . " value=\"Отменён\">Отменён</option>"
-                                    . "</select></td>"
-                                    . "<td><form method=\"POST\" id=\"$formId\" class=\"row-form\">"
-                                    . "<input type=\"hidden\" name=\"csrf_token\" value=\"" . escape($_SESSION['csrf_token']) . "\">"
-                                    . "<input type=\"hidden\" name=\"orderId\" value=\"" . htmlspecialchars($row['order_id'] ?? '') . "\">"
-                                    . "<button class=\"delBtn\" style=\"color:blue;\" name=\"editOrderStatus\" type=\"submit\" value=\"" . htmlspecialchars($row['order_id'] ?? '') . "\">Сохранить</button>"
-                                    . "</form></td>"
+                                    // 3.7-f-2-4: статус стал бейджем, смена - в модалке заказа
+                                    . "<td><span class=\"badge " . match ($row['status'] ?? '') {
+                                        'Выполнен' => 'badge--success',
+                                        'Доставляется', 'Собирается' => 'badge--warning',
+                                        'Отменён' => 'badge--error',
+                                        default => '',
+                                    } . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
                                     . "</tr>";
                             }
                         }
