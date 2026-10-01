@@ -56,6 +56,8 @@ if (!isset($allowedTabs[$tab])) {
 // Обработчики POST (перенесено из profile.php, SQL без изменений)
 if ($isAdmin && isset($_POST['addComponent'])) {
     csrf_verify();
+    // 3.7-d: пустой editComponentId = INSERT, заполненный = UPDATE
+    $editId = (int) ($_POST['editComponentId'] ?? 0);
     $name = $_POST['nm'] ?? '';
     $price = (int) ($_POST['pr'] ?? 0);
     $amount = (int) ($_POST['col'] ?? 0);
@@ -111,7 +113,7 @@ if ($isAdmin && isset($_POST['addComponent'])) {
             }
         }
 
-        // 3.7-c: один INSERT вместо INSERT + отдельных UPDATE
+        // 3.7-c: типы выводятся из набора колонок (i для числовых, s для остальных)
         $intCols = ['component_price', 'amount', 'category_id', 'socket_id', 'tdp',
             'frequency_mhz', 'video_core', 'capacity_gb', 'wattage', 'rpm'];
         $cols = array_keys($fields);
@@ -119,10 +121,22 @@ if ($isAdmin && isset($_POST['addComponent'])) {
         foreach ($cols as $c) {
             $types .= in_array($c, $intCols, true) ? 'i' : 's';
         }
-        $sql = "INSERT INTO `components` (`" . implode('`,`', $cols) . '`) VALUES('
-            . implode(',', array_fill(0, count($cols), '?')) . ')';
-        $stmt = db_prepare($mysql, $sql, $types, ...array_values($fields));
+        if ($editId > 0) {
+            // 3.7-d: UPDATE всех 19 колонок — при смене категории поля,
+            // не входящие в новый маппинг, обнуляются ($fields = null)
+            $sql = "UPDATE `components` SET `" . implode('`=?,`', $cols) . '`=?'
+                . " WHERE `component_id`=?";
+            // PHP не даёт позиционный аргумент после ... — id дописываем в массив
+            $args = array_values($fields);
+            $args[] = $editId;
+            $stmt = db_prepare($mysql, $sql, $types . 'i', ...$args);
+        } else {
+            $sql = "INSERT INTO `components` (`" . implode('`,`', $cols) . '`) VALUES('
+                . implode(',', array_fill(0, count($cols), '?')) . ')';
+            $stmt = db_prepare($mysql, $sql, $types, ...array_values($fields));
+        }
         $stmt->execute();
+        csrf_rotate();
     }
     header('Location: /admin.php?tab=components');
     exit();

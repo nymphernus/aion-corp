@@ -119,3 +119,84 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// 3.7-d: «Редактировать» — та же модалка в режиме edit.
+// submit остаётся name="addComponent": бэкенд различает режим
+// по заполненному editComponentId.
+document.addEventListener('click', function(e) {
+    var editBtn = e.target.closest('[data-action="edit-component"]');
+    if (!editBtn) return;
+    e.preventDefault();
+
+    var data;
+    try {
+        data = JSON.parse(editBtn.dataset.component);
+    } catch (err) {
+        console.error('Invalid component JSON', err);
+        return;
+    }
+
+    var modal = document.getElementById('addComponentModal');
+    if (!modal) return;
+
+    modal.querySelector('#modalTitle').textContent = 'Редактировать комплектующий';
+    modal.querySelector('#editComponentId').value = data.id;
+    modal.querySelector('#modalSubmit').textContent = 'Сохранить';
+
+    var setVal = function(name, val) {
+        var el = modal.querySelector('[name="' + name + '"]');
+        if (!el) return;
+        if (el.type === 'checkbox') {
+            el.checked = !!val;
+        } else {
+            el.value = val ?? '';
+        }
+    };
+
+    setVal('nm', data.name);
+    setVal('pr', data.price);
+    setVal('col', data.amount);
+    setVal('cat', data.category_id);
+    setVal('description', data.description);
+    setVal('manufacturer', data.manufacturer);
+    setVal('model', data.model);
+    setVal('socket', data.socket_id);
+    setVal('tdp', data.tdp);
+    setVal('frequency_mhz', data.frequency_mhz);
+    setVal('video_core', data.video_core);
+    setVal('ram_type', data.ram_type);
+    setVal('capacity_gb', data.capacity_gb);
+    setVal('memory_type', data.memory_type);
+    setVal('wattage', data.wattage);
+    setVal('interface', data.interface);
+    setVal('form_factor', data.form_factor);
+    setVal('rpm', data.rpm);
+    setVal('cooler_type', data.cooler_type);
+
+    // change на категории — покажет группы, релевантные этой категории
+    var catSelect = modal.querySelector('[name="cat"]');
+    if (catSelect) {
+        catSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    modal.showModal();
+});
+
+// 3.7-d: «+ Добавить» после edit — выйти из режима редактирования
+document.addEventListener('click', function(e) {
+    var openBtn = e.target.closest('[data-action="open-modal"]');
+    if (!openBtn) return;
+    if (openBtn.dataset.modal !== 'addComponentModal') return;
+
+    var modal = document.getElementById('addComponentModal');
+    modal.querySelector('#modalTitle').textContent = 'Добавить комплектующий';
+    modal.querySelector('#editComponentId').value = '';
+    modal.querySelector('#modalSubmit').textContent = 'Добавить';
+    modal.querySelector('form').reset();
+
+    var catSelect = modal.querySelector('[name="cat"]');
+    if (catSelect) {
+        catSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    // showModal вызывается в существующем обработчике open-modal
+});
+

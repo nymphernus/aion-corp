@@ -50,22 +50,56 @@ if ($result) {
                                     <th>Название</th>
                                     <th>Количество</th>
                                     <th>Стоимость</th>
+                                    <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
 <?php
-                                $sql = "SELECT * FROM components,categories WHERE components.category_id = categories.category_id ORDER BY `components`.`component_id` ASC";
+                                // 3.7-d: явный список колонок — нужен для data-component (edit)
+                                $sql = "SELECT components.component_id, components.component_name, components.component_price,
+                                               components.amount, components.category_id, categories.category_name,
+                                               components.description, components.manufacturer, components.model,
+                                               components.socket_id, components.tdp, components.frequency_mhz,
+                                               components.video_core, components.ram_type, components.capacity_gb,
+                                               components.memory_type, components.wattage, components.interface,
+                                               components.form_factor, components.rpm, components.cooler_type
+                                        FROM components,categories WHERE components.category_id = categories.category_id ORDER BY `components`.`component_id` ASC";
                                 $stmt = $mysql->prepare($sql);
                                 $stmt->execute();
                                 $result = $stmt->get_result();
                                 if ($result) {
                                     while ($row = $result->fetch_array()) {
+                                        $editData = json_encode([
+                                            'id' => $row['component_id'],
+                                            'name' => $row['component_name'],
+                                            'price' => $row['component_price'],
+                                            'amount' => $row['amount'],
+                                            'category_id' => $row['category_id'],
+                                            'description' => $row['description'],
+                                            'manufacturer' => $row['manufacturer'],
+                                            'model' => $row['model'],
+                                            'socket_id' => $row['socket_id'],
+                                            'tdp' => $row['tdp'],
+                                            'frequency_mhz' => $row['frequency_mhz'],
+                                            'video_core' => $row['video_core'],
+                                            'ram_type' => $row['ram_type'],
+                                            'capacity_gb' => $row['capacity_gb'],
+                                            'memory_type' => $row['memory_type'],
+                                            'wattage' => $row['wattage'],
+                                            'interface' => $row['interface'],
+                                            'form_factor' => $row['form_factor'],
+                                            'rpm' => $row['rpm'],
+                                            'cooler_type' => $row['cooler_type'],
+                                        ]);
                                         echo "<tr>"
                                             . "<td>" . htmlspecialchars($row['component_id'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['category_name'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['component_name'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['amount'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['component_price'] ?? '') . "</td>"
+                                            . "<td><button type=\"button\" class=\"btn btn--ghost btn--sm\""
+                                            . " data-action=\"edit-component\""
+                                            . " data-component='" . escape($editData) . "'>Редактировать</button></td>"
                                             . "</tr>";
                                     }
                                 }
@@ -86,7 +120,9 @@ if ($result) {
                 <dialog id="addComponentModal" class="modal">
                     <form method="post" class="modal-form" action="/admin.php?tab=components">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
-                        <h2>Добавить комплектующий</h2>
+                        <h2 id="modalTitle">Добавить комплектующий</h2>
+                        <!-- 3.7-d: пустой = INSERT, заполненный = UPDATE -->
+                        <input type="hidden" name="editComponentId" id="editComponentId" value="">
 
                         <!-- Всегда видны: обязательные поля -->
                         <div class="modal-row">
@@ -265,7 +301,7 @@ if ($result) {
 
                         <div class="modal-actions">
                             <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
-                            <button type="submit" name="addComponent" class="btn btn--primary">Добавить</button>
+                            <button type="submit" name="addComponent" id="modalSubmit" class="btn btn--primary">Добавить</button>
                         </div>
                     </form>
                 </dialog>
