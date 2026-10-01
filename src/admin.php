@@ -150,6 +150,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     $stmt = $mysql->prepare("UPDATE orders SET status = ? WHERE order_id = ?");
     $stmt->bind_param("si", $status, $orderId);
     $stmt->execute();
+    csrf_rotate();
     header('Location: /admin.php?tab=orders');
     exit();
 }
@@ -170,6 +171,7 @@ if ($isAdmin && isset($_POST['deleteUser'])) {
     $stmt->bind_param("i", $userId);
     $stmt->execute();
 
+    csrf_rotate();
     header('Location: /admin.php?tab=users');
     exit();
 }
