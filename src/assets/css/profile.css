@@ -339,6 +339,48 @@ h1{
     margin-left: auto;
 }
 
+/* 3.7-f-2-3: нативный аккордеон админ-вкладок в сайдбаре профиля */
+.profile-nav-group summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.profile-nav-group summary::-webkit-details-marker {
+    display: none;
+}
+
+.profile-nav-group summary::after {
+    content: '▾';
+    margin-left: auto;
+    transition: transform 150ms;
+}
+
+.profile-nav-group[open] summary::after {
+    transform: rotate(180deg);
+}
+
+.profile-nav-sub {
+    padding-left: 20px;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.profile-nav-subitem {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.profile-nav-subitem:hover {
+    background: var(--bg);
+    color: var(--text);
+    text-decoration: none;
+}
+
 /* 3.7-h: секции внутри модалок (детали заказа, данные пользователя) */
 .modal-section {
     padding: 16px;
