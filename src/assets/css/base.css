@@ -43,6 +43,19 @@ body {
     font-size: 16px;
     line-height: 1.6;
     margin: 0;
+    /* 3.7-f-2: колоночный флекс — футер прижат к низу на коротких страницах */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.wrapper {
+    /* 3.7-f-2: растягивает контент, .footer с margin-top:auto уходит вниз */
+    flex: 1 0 auto;
+}
+
+.footer {
+    margin-top: auto;
 }
 
 h1 {
@@ -211,6 +224,13 @@ a {
 /* 3.7-f-3: POST-форма внутри ячейки (заказы/пользователи) */
 .table td .row-form {
     margin: 0;
+}
+
+/* 3.7-f-2: в админ-таблицах 6-7 колонок, при padding 16px таблица заказов
+   не влезала в карточку и .table-wrap давал горизонтальный скролл */
+.admin-panel .table th,
+.admin-panel .table td {
+    padding: 12px 10px;
 }
 
 /* Пагинация (3.7-f-5) */
