@@ -378,8 +378,14 @@ CREATE TABLE `users` (
   `user_pass` varchar(255) NOT NULL,
   `user_group` varchar(10) NOT NULL,
   `user_address` varchar(1000) DEFAULT NULL,
+  `user_region` varchar(100) DEFAULT NULL,
   `user_email` varchar(50) DEFAULT NULL,
-  `user_number` varchar(13) DEFAULT NULL
+  `user_number` varchar(13) DEFAULT NULL,
+  `user_city` varchar(100) DEFAULT NULL,
+  `user_street` varchar(150) DEFAULT NULL,
+  `user_house` varchar(20) DEFAULT NULL,
+  `user_apartment` varchar(20) DEFAULT NULL,
+  `user_postal_code` varchar(10) DEFAULT NULL
 ) ENGINE=MyISAM AVG_ROW_LENGTH=172 DEFAULT CHARSET=utf8;
 
 --
