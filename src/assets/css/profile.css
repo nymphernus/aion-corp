@@ -339,11 +339,50 @@ h1{
     margin-left: auto;
 }
 
-/* 3.7-f-4b-5: вспомогательные ссылки над кнопками модалки */
-.modal-links {
-    display: flex;
-    gap: 12px;
-    margin-top: 20px;
+/* 3.7-f-4c-1: .modal-links удалён вместе со ссылкой «Мои заказы» —
+   в админской модалке пользователя такой перехода быть не должно */
+
+/* 3.7-f-4c-2: широкий вариант модалки — для данных, которые не влезают
+   в 500px (пользователь: имя, фамилия, логин, группа, адрес, телефон) */
+.modal--wide {
+    max-width: 760px;
+}
+
+/* Секции раскладываются по две в ряд, короткие секции встают рядом, а не
+   растягиваются на всю ширину. Скопировано в #editUserModal, чтобы
+   остальные модалки не изменились. */
+#editUserModal .modal-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 24px;
+    align-items: start;
+}
+
+#editUserModal .modal-form > h2,
+#editUserModal .modal-actions {
+    grid-column: 1 / -1;
+}
+
+#editUserModal .modal-section {
+    margin-bottom: 0;
+}
+
+/* секция с несколькими полями: поля внутри неё тоже в 2 колонки */
+#editUserModal .modal-section--cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
+}
+
+#editUserModal .modal-section--cols h3 {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 700px) {
+    #editUserModal .modal-form,
+    #editUserModal .modal-section--cols {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* 3.7-f-2-3: нативный аккордеон админ-вкладок в сайдбаре профиля */

@@ -14,14 +14,16 @@
                     3.7-h-2: модалка пользователя — имя, группа, контакты, адрес.
                     Логин только для чтения. Отправляет name="editUser".
                 -->
-                <dialog id="editUserModal" class="modal">
+                <!-- 3.7-f-4c-2: modal--wide — 760px и две колонки секций, иначе
+                     данные пользователя в 500px не помещались -->
+                <dialog id="editUserModal" class="modal modal--wide">
                     <form method="post" class="modal-form" action="/admin.php?tab=users">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                         <input type="hidden" name="editUserId" id="editUserId" value="">
 
                         <h2>Пользователь: <span id="editUserLogin"></span></h2>
 
-                        <div class="modal-section">
+                        <div class="modal-section modal-section--cols">
                             <h3>Основные данные</h3>
                             <div class="form-group">
                                 <label class="form-label" for="editUserName">Имя</label>
@@ -60,13 +62,6 @@
                                 <input class="input" name="user_number" id="editUserNumber" maxlength="13"
                                        pattern="\+7\s?[\(]{0,1}\d{3}[\)]{0,1}\s?\d{3}[\-]{0,1}\d{2}[\-]{0,1}\d{2}">
                             </div>
-                        </div>
-
-                        <!-- 3.7-f-4b-5: переход в собственные заказы. Это заказы того, кто
-                             сейчас в сессии: у редактируемого пользователя свои
-                             смотреть негде, профиль показывает только свои. -->
-                        <div class="modal-links">
-                            <a href="/profile.php?section=orders" class="btn btn--ghost btn--sm">Мои заказы</a>
                         </div>
 
                         <div class="modal-actions">
