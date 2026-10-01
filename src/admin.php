@@ -205,6 +205,25 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     exit();
 }
 
+// 3.7-h-1: смена статуса из модалки заказа. Существующий editOrderStatus
+// (кнопки в строках таблицы) не меняем — здесь свой обработчик с
+// валидацией статуса по белому списку.
+if ($isAdmin && isset($_POST['editOrder'])) {
+    csrf_verify();
+    $orderId = (int) ($_POST['orderId'] ?? 0);
+    $status = (string) ($_POST['status'] ?? '');
+    $allowed = ['Обрабатывается', 'Собирается', 'Доставляется', 'Выполнен', 'Отменён'];
+
+    if ($orderId > 0 && in_array($status, $allowed, true)) {
+        $stmt = db_prepare($mysql, "UPDATE `orders` SET `status` = ? WHERE `order_id` = ?", "si", $status, $orderId);
+        $stmt->execute();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=orders');
+    exit();
+}
+
 if ($isAdmin && isset($_POST['deleteUser'])) {
     csrf_verify();
     $userId = $_POST['userId'] ?? 0;

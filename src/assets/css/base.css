@@ -221,6 +221,12 @@ a {
     transition: background 150ms;
 }
 
+/* 3.7-h: клик по строке заказов и пользователей (модалки 3.7-h-1/h-2) */
+.table tbody tr[data-row] {
+    cursor: pointer;
+    transition: background 150ms;
+}
+
 /* 3.7-f-3: POST-форма внутри ячейки (заказы/пользователи) */
 .table td .row-form {
     margin: 0;

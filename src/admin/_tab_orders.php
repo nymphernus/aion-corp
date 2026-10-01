@@ -26,7 +26,10 @@ if (!defined('ADMIN_CONTEXT')) {
                     if ($checkResult && $checkResult->num_rows > 0) {
                         // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
 
-                        $sql = "SELECT user_name,user_surname,user_address,assembly_name,assembly_price,order_id,status,assembly.assembly_id FROM users,assembly,orders
+                        $sql = "SELECT user_name,user_surname,user_address,assembly_name,assembly_price,order_id,status,
+                                       users.user_id AS buyer_id, assembly.assembly_id AS asm_id,
+                                       orders.created_at, users.user_email, users.user_number
+                                FROM users,assembly,orders
                                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id
                                 ORDER BY `orders`.`order_id` ASC LIMIT ? OFFSET ?";
                         $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
@@ -44,18 +47,25 @@ if (!defined('ADMIN_CONTEXT')) {
                             </tr></thead><tbody>";
                         if ($result) {
                             while ($row = $result->fetch_array()) {
-                                if ($row['assembly_id'] > 3) {
+                                // 3.7-h-1: колонка переименована в asm_id, условие обновлено
+                                if ($row['asm_id'] > 3) {
                                     $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
                                 }
                                 $formId = 'ordForm' . (int) $row['order_id'];
-                                // 3.7-f-4: данные строки для клика (модалка — в 3.7-h)
+                                // 3.7-h-1: данные строки для модалки заказа
                                 $rowData = json_encode([
+                                    'modal' => 'order',
                                     'id' => $row['order_id'],
-                                    'user' => trim(($row['user_name'] ?? '') . ' ' . ($row['user_surname'] ?? '')),
+                                    'user_id' => $row['buyer_id'],
+                                    'buyer' => trim(($row['user_name'] ?? '') . ' ' . ($row['user_surname'] ?? '')),
+                                    'user_email' => $row['user_email'],
+                                    'user_number' => $row['user_number'],
                                     'address' => $row['user_address'],
+                                    'assembly_id' => $row['asm_id'],
                                     'assembly_name' => $row['assembly_name'],
                                     'assembly_price' => $row['assembly_price'],
                                     'status' => $row['status'],
+                                    'created_at' => $row['created_at'],
                                 ]);
                                 echo "<tr data-row='" . escape($rowData) . "'>"
                                     . "<td>" . htmlspecialchars(($row['user_name'] ?? '') . " " . ($row['user_surname'] ?? '')) . "</td>"
@@ -68,6 +78,8 @@ if (!defined('ADMIN_CONTEXT')) {
                                     . "<option " . ((($row['status'] ?? '') == 'Собирается') ? 'selected' : '') . " value=\"Собирается\">Собирается</option>"
                                     . "<option " . ((($row['status'] ?? '') == 'Доставляется') ? 'selected' : '') . " value=\"Доставляется\">Доставляется</option>"
                                     . "<option " . ((($row['status'] ?? '') == 'Выполнен') ? 'selected' : '') . " value=\"Выполнен\">Выполнен</option>"
+                                    // 3.7-h-1: статус из модалки должен отображаться и в строке
+                                    . "<option " . ((($row['status'] ?? '') == 'Отменён') ? 'selected' : '') . " value=\"Отменён\">Отменён</option>"
                                     . "</select></td>"
                                     . "<td><form method=\"POST\" id=\"$formId\" class=\"row-form\">"
                                     . "<input type=\"hidden\" name=\"csrf_token\" value=\"" . escape($_SESSION['csrf_token']) . "\">"
@@ -84,3 +96,76 @@ if (!defined('ADMIN_CONTEXT')) {
                     }
 ?>
                 </section>
+
+                <!--
+                    3.7-h-1: модалка заказа — детали, смена статуса,
+                    ссылки на профиль покупателя и на сборку.
+                    Отправляет name="editOrder" (новый обработчик в admin.php);
+                    существующий editOrderStatus в таблице не тронут.
+                -->
+                <dialog id="editOrderModal" class="modal">
+                    <form method="post" class="modal-form" action="/admin.php?tab=orders">
+                        <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                        <input type="hidden" name="orderId" id="editOrderId" value="">
+
+                        <h2>Заказ №<span id="editOrderNumber"></span></h2>
+
+                        <div class="modal-section">
+                            <h3>Информация о покупателе</h3>
+                            <div class="form-group">
+                                <label class="form-label" for="editOrderBuyer">Покупатель</label>
+                                <div class="modal-value">
+                                    <span id="editOrderBuyer"></span>
+                                    <a href="/admin.php?tab=users" id="editOrderBuyerLink" class="btn btn--ghost btn--sm">Открыть профиль →</a>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Контакты</label>
+                                <div id="editOrderContacts"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Адрес доставки</label>
+                                <div id="editOrderAddress"></div>
+                            </div>
+                        </div>
+
+                        <div class="modal-section">
+                            <h3>Информация о сборке</h3>
+                            <div class="form-group">
+                                <label class="form-label">Сборка</label>
+                                <div class="modal-value">
+                                    <span id="editOrderAssembly"></span>
+                                    <a href="#" id="editOrderAssemblyLink" target="_blank" rel="noopener" class="btn btn--ghost btn--sm">Открыть сборку →</a>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Стоимость</label>
+                                <div><span id="editOrderPrice"></span> руб.</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Создан</label>
+                                <div id="editOrderCreated"></div>
+                            </div>
+                        </div>
+
+                        <div class="modal-section">
+                            <h3>Статус заказа</h3>
+                            <div class="form-group">
+                                <select class="input" name="status" id="editOrderStatusSelect">
+                                    <option value="Обрабатывается">Обрабатывается</option>
+                                    <option value="Собирается">Собирается</option>
+                                    <option value="Доставляется">Доставляется</option>
+                                    <option value="Выполнен">Выполнен</option>
+                                    <option value="Отменён">Отменён</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <div class="modal-actions-right">
+                                <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
+                                <button type="submit" name="editOrder" class="btn btn--primary">Сохранить</button>
+                            </div>
+                        </div>
+                    </form>
+                </dialog>

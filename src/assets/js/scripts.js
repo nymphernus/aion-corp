@@ -189,17 +189,53 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
-// 3.7-f-4 (заглушка, полноценные модалки заказов и пользователей — 3.7-h):
-// клик по строке собирает данные в консоль, ничего не перехватывая.
+// 3.7-h-1: клик по строке заказа — модалка с деталями и сменой статуса
 document.addEventListener('click', function(e) {
     var tr = e.target.closest ? e.target.closest('tr[data-row]') : null;
     if (!tr) return;
     if (e.target.closest('a, button, select, input')) return;
+
+    var data;
     try {
-        console.log('3.7-h: edit-модалка для строки', JSON.parse(tr.dataset.row));
+        data = JSON.parse(tr.dataset.row);
     } catch (err) {
         console.error('Invalid row JSON', err);
+        return;
     }
+
+    var modal = document.getElementById(data.modal === 'user' ? 'editUserModal' : 'editOrderModal');
+    if (!modal) return;                       // модалка пользователей — 3.7-h-2
+
+    var text = function(id, value) {
+        var el = modal.querySelector(id);
+        if (el) el.textContent = (value === null || value === undefined || value === '')
+            ? 'Не указан' : String(value);
+    };
+
+    modal.querySelector('#editOrderId').value = data.id;
+    text('#editOrderNumber', data.id);
+    text('#editOrderBuyer', data.buyer);
+    text('#editOrderAddress', data.address);
+    text('#editOrderAssembly', data.assembly_name);
+    text('#editOrderPrice', data.assembly_price);
+
+    // контакты одной строкой: телефон и почта, что заполнено
+    var contacts = [data.user_number, data.user_email].filter(Boolean).join(' · ');
+    text('#editOrderContacts', contacts);
+    text('#editOrderCreated', data.created_at);
+
+    var asmLink = modal.querySelector('#editOrderAssemblyLink');
+    if (asmLink) {
+        asmLink.href = '/assembly.php?id=' + encodeURIComponent(data.assembly_id);
+    }
+
+    var statusSel = modal.querySelector('#editOrderStatusSelect');
+    if (statusSel) {
+        var found = Array.from(statusSel.options).some(function(o) { return o.value === data.status; });
+        statusSel.value = found ? data.status : 'Обрабатывается';
+    }
+
+    modal.showModal();
 });
 
 // 3.7-f-2: «Удалить» из edit-модалки — закрываем её и открываем подтверждение

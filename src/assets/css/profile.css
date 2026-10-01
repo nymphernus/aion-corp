@@ -339,6 +339,35 @@ h1{
     margin-left: auto;
 }
 
+/* 3.7-h: секции внутри модалок (детали заказа, данные пользователя) */
+.modal-section {
+    padding: 16px;
+    margin-bottom: 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.modal-section h3 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.modal-section .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.modal-value {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 .form-check {
     display: flex;
     align-items: center;
