@@ -216,7 +216,7 @@ require __DIR__ . '/partials/header.php';
                                     <button type="button" class="profile-nav-item" data-action="switch" data-target="card-builds">Мои сборки</button>
                                     <button type="button" class="profile-nav-item" data-action="switch" data-target="card-fav">Избранное</button>
                                     <?php else: ?>
-                                    <button type="button" class="profile-nav-item" data-action="switch" data-target="card-admin">Панель управления</button>
+                                    <a href="/admin.php" class="profile-nav-item">Панель управления</a>
                                     <?php endif; ?>
                                 </nav>
                                 <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
@@ -286,16 +286,9 @@ require __DIR__ . '/partials/header.php';
                                     <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
                                 </div>
                             </section>
-                            <?php if ($isAdmin): ?>
-                            <section class="card" id="card-admin" data-section style="display:none;">
-                                <h2>Панель управления</h2>
-                                <div class="admin-grid">
-                                    <a href="/admin.php?tab=users" class="btn btn--secondary" style="text-decoration:none;">Управление пользователями</a>
-                                    <a href="/admin.php?tab=orders" class="btn btn--secondary" style="text-decoration:none;">Управление заказами</a>
-                                    <a href="/admin.php?tab=components" class="btn btn--secondary" style="text-decoration:none;">Управление комплектующими</a>
-                                </div>
-                            </section>
-                            <?php else: ?>
+                            <!-- 3.7-f-4: промежуточная админ-карточка удалена —
+     в сайдбаре ссылка на /admin.php, внутри админки свой сайдбар с вкладками -->
+                            <?php if (!$isAdmin): ?>
                             <section class="card" id="card-fav" data-section style="display:none;">
                                 <h2>Избранное</h2>
                                             <div class="contTable">
