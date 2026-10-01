@@ -189,6 +189,19 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
+// 3.7-f-2-6: клик по фону вокруг открытой модалки закрывает её.
+// Нативное поведение dialog: клик по самому элементу (мимо содержимого)
+// попадает сюда с e.target === modal. Регистрируется на верхнем уровне,
+// иначе обработчик жил бы внутри другого и не существовал бы на части
+// страниц.
+document.addEventListener('click', function(e) {
+    var openModal = e.target.closest ? e.target.closest('dialog[open]') : null;
+    if (!openModal) return;
+    if (e.target === openModal) {
+        openModal.close();
+    }
+});
+
 // 3.7-h-1: клик по строке заказа — модалка с деталями и сменой статуса
 document.addEventListener('click', function(e) {
     var tr = e.target.closest ? e.target.closest('tr[data-row]') : null;
