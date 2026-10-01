@@ -457,39 +457,6 @@ require __DIR__ . '/partials/header.php';
                         </div>
                     </div>
 
-                    <?php if ($isAdmin): ?>
-                        <div class="userProfile" id="userMonitor" style="display:none;">
-                            <h1>Управление пользователями</h1>
-                            <div class="containerMonitor">
-                                <?php
-                                echo "<span class=\"assemblyTable\"><span>Имя</span><span>Логин</span><span>Группа</span><span style=\"width:60%\">Адрес</span><span>Номер</span><span></span></span><br><div class=\"lineSpan\"></div>";
-                                $sql = "SELECT user_id,user_name, user_login, user_group, user_address, user_number FROM users";
-                                $stmt = $mysql->prepare($sql);
-                                $stmt->execute();
-                                $result = $stmt->get_result();
-                                if ($result) {
-                                    while ($row = $result->fetch_array()) {
-                                        echo "<form method=\"POST\">
-                                                <input type=\"hidden\" name=\"csrf_token\" value=\"" . escape($_SESSION['csrf_token']) . "\">
-                                                <span class=\"assemblyTable\">
-                                                    <span>" . htmlspecialchars($row['user_name'] ?? '') . "</span>
-                                                    <span>" . htmlspecialchars($row['user_login'] ?? '') . "</span>
-                                                    <span>" . htmlspecialchars($row['user_group'] ?? '') . "</span>
-                                                    <span style=\"width:60%\">" . htmlspecialchars($row['user_address'] ?? '') . "</span>
-                                                    <span>" . htmlspecialchars($row['user_number'] ?? '') . "</span>
-                                                    <span>
-                                                        <input style=\"display:none\" name=\"userId\" type=\"hidden\" value=\"" . htmlspecialchars($row['user_id'] ?? '') . "\">
-                                                        <button class=\"delBtn\" name=\"deleteUser\" type=\"submit\">Удалить</button>
-                                                    </span>
-                                                </span>
-                                                <br>
-                                              </form>";
-                                    }
-                                }
-                                ?>
-                            </div>
-                        </div>
-                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>

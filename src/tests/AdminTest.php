@@ -41,9 +41,18 @@ final class AdminTest extends AionTestCase
     public function testAdminPanelVisibleForAdmin(): void
     {
         $this->loginAsAdmin();
-        $page = $this->httpGet('/profile.php');
-        $this->assertSame(200, $page['code']);
-        $this->assertStringContainsString('Управление пользователями', $page['body']);
+        // 3.7-f-4c-6: раньше тест искал «Управление пользователями» в
+        // /profile.php, но это был заголовок мёртвого блока userMonitor с
+        // display:none — админка туда не переехала и панели там не было.
+        // Проверяем настоящую страницу админки и заодно то, что мёртвый
+        // блок не вернулся.
+        $admin = $this->httpGet('/admin.php?tab=users');
+        $this->assertSame(200, $admin['code']);
+        $this->assertStringContainsString('Управление пользователями', $admin['body']);
+
+        $profile = $this->httpGet('/profile.php');
+        $this->assertSame(200, $profile['code']);
+        $this->assertStringNotContainsString('userMonitor', $profile['body']);
     }
 
     public function testNonAdminCannotDeleteUser(): void
