@@ -311,6 +311,8 @@ function openUserModal(data) {
     if (loginSpan) loginSpan.textContent = data.login ?? '';
     uSet('#editUserNameRO', data.login);
     uSet('#editUserName', data.name);
+    // 3.7-f-4c-3: фамилия не обязательна, пустое значение тоже валидно
+    uSet('#editUserSurname', data.surname);
     uSet('#editUserAddress', data.address);
     uSet('#editUserNumber', data.number);
     uSet('#editUserGroup', data.group);
@@ -432,6 +434,8 @@ document.addEventListener('click', function(e) {
         buyerBtn.dataset.user = JSON.stringify({
             id: data.user_id ?? '',
             name: data.user_name ?? data.buyer ?? '',
+            // 3.7-f-4c-3: фамилия покупателя нужна его же модалке
+            surname: data.user_surname ?? '',
             login: data.user_login ?? '',
             group: data.user_group ?? 'user',
             address: data.address ?? '',

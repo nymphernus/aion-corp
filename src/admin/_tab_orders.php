@@ -101,6 +101,7 @@ if (!defined('ADMIN_CONTEXT')) {
                                     'address' => $row['user_address'],
                                     // 3.7-f-4-2: данные покупателя для перехода в его модалку
                                     'user_name' => $row['user_name'],
+                                    'user_surname' => $row['user_surname'],
                                     'user_login' => $row['user_login'],
                                     'user_group' => $row['user_group'],
                                     'assembly_id' => $row['asm_id'],

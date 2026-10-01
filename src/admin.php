@@ -362,6 +362,9 @@ if ($isAdmin && isset($_POST['editUser'])) {
     csrf_verify();
     $editUserId = (int) ($_POST['editUserId'] ?? 0);
     $editName = trim($_POST['user_name'] ?? '');
+    // 3.7-f-4c-3: фамилия не обязательна, но слишком длинное значение
+    // в varchar(30) не влезет, поэтому длина всё равно проверяется
+    $editSurname = trim($_POST['user_surname'] ?? '');
     $editGroup = $_POST['user_group'] ?? '';
     $editAddress = trim($_POST['user_address'] ?? '');
     $editPhone = trim($_POST['user_number'] ?? '');
@@ -379,6 +382,9 @@ if ($isAdmin && isset($_POST['editUser'])) {
     if (!in_array($editGroup, ['user', 'admin'], true)) {
         $fail('group');
     }
+    if (mb_strlen($editSurname, 'UTF-8') > 30) {
+        $fail('surname');
+    }
     if ($editUserId > 0 && $editUserId === (int) ($_SESSION['user_id'] ?? 0) && $editGroup !== 'admin') {
         $fail('self-demote');
     }
@@ -394,7 +400,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
             $fail('missing');
         }
 
-        $stmt = db_prepare($mysql, "UPDATE users SET user_name = ?, user_group = ?, user_address = ?, user_number = ? WHERE user_id = ?", "ssssi", $editName, $editGroup, $editAddress !== '' ? $editAddress : null, $editPhone !== '' ? $editPhone : null, $editUserId);
+        $stmt = db_prepare($mysql, "UPDATE users SET user_name = ?, user_surname = ?, user_group = ?, user_address = ?, user_number = ? WHERE user_id = ?", "sssssi", $editName, $editSurname !== '' ? $editSurname : null, $editGroup, $editAddress !== '' ? $editAddress : null, $editPhone !== '' ? $editPhone : null, $editUserId);
         $stmt->execute();
     } else {
         $fail('missing');

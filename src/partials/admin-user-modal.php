@@ -29,6 +29,13 @@
                                 <label class="form-label" for="editUserName">Имя</label>
                                 <input class="input" name="user_name" id="editUserName" maxlength="20" required>
                             </div>
+                            <!-- 3.7-f-4c-3: maxlength 30 — в users это varchar(30),
+                                 поле 50 в разметке пропустило бы слишком длинное
+                                 значение в колонку -->
+                            <div class="form-group">
+                                <label class="form-label" for="editUserSurname">Фамилия</label>
+                                <input class="input" name="user_surname" id="editUserSurname" maxlength="30">
+                            </div>
                             <div class="form-group">
                                 <label class="form-label" for="editUserNameRO">Логин (не изменяется)</label>
                                 <input class="input" id="editUserNameRO" disabled>
