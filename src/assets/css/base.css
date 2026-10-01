@@ -300,6 +300,10 @@ a {
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
+    /* 3.7-f-3-4: базовый вид серый - модификатор не всегда есть,
+       иначе бейдж выглядел бы как обычный чёрный текст */
+    background: rgba(107, 114, 128, 0.1);
+    color: var(--text-secondary);
 }
 
 .badge--success {

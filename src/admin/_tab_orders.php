@@ -73,9 +73,10 @@ if (!defined('ADMIN_CONTEXT')) {
                                     // 3.7-f-2-4: статус стал бейджем, смена - в модалке заказа
                                     . "<td><span class=\"badge " . match ($row['status'] ?? '') {
                                         'Выполнен' => 'badge--success',
-                                        'Доставляется', 'Собирается' => 'badge--warning',
                                         'Отменён' => 'badge--error',
-                                        default => '',
+                                        // 3.7-f-3-4: «Обрабатывается» тоже цветной,
+                                        // иначе статус не читается как статус
+                                        default => 'badge--warning',
                                     } . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
                                     . "</tr>";
                             }
