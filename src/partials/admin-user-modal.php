@@ -93,16 +93,9 @@
                                 <input class="input" name="user_apartment" id="editUserApartment"
                                        maxlength="20" placeholder="42">
                             </div>
-
-                            <!-- 3.7-i-2: исходная строка адреса только для чтения.
-                                 В новом потоке user_address не обновляется, но
-                                 показывается, пока он есть в базе. Показывает и
-                                 прячет JS - серверных данных о конкретном
-                                 пользователе у этой общей модалки нет. -->
-                            <div class="form-group span-all" id="editUserLegacyWrap" hidden>
-                                <label class="form-label" for="editUserAddressLegacy">Исходный адрес (legacy)</label>
-                                <input class="input" id="editUserAddressLegacy" disabled>
-                            </div>
+                            <!-- FIX-2: показывать legacy-строку user_address
+                                 больше нечем - поле удалено целиком. В базе
+                                 колонка остаётся, но UI её не читает. -->
                         </div>
 
                         <div class="modal-section">

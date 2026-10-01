@@ -319,10 +319,11 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                 </div>
                                 <div class="profile-field" data-field="address">
 <?php
-                                // 3.7-i-3: показываем адрес, собранный из новых
-                                // полей, а не legacy-строку. Fallback на
-                                // user_address - для тех, у кого новые поля ещё
-                                // пусты (не проходил миграцию 3.7-i-1).
+                                // 3.7-i-3: адрес собирается из шести полей.
+                                // 3.7-i-2/FIX-2: fallback на legacy user_address
+                                // убран - новые поля единственный источник
+                                // правды, иначе очищенный пользователем адрес
+                                // воскресал бы из старой строки.
                                 $addrParts = array_filter([
                                     $userProfile['user_postal_code'] ?? '',
                                     $userProfile['user_region'] ?? '',
@@ -331,9 +332,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     !empty($userProfile['user_house']) ? 'д. ' . $userProfile['user_house'] : '',
                                     !empty($userProfile['user_apartment']) ? 'кв. ' . $userProfile['user_apartment'] : '',
                                 ]);
-                                $fullAddress = $addrParts !== []
-                                    ? implode(', ', $addrParts)
-                                    : trim((string) ($userProfile['user_address'] ?? ''));
+                                $fullAddress = implode(', ', $addrParts);
 ?>
                                     <div class="profile-field-label">Адрес</div>
                                     <div class="profile-field-value"<?= $fullAddress === '' ? ' data-empty' : '' ?>><?= $fullAddress !== '' ? escape($fullAddress) : 'Не указано' ?></div>

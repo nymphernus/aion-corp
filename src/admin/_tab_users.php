@@ -71,16 +71,10 @@ if (!defined('ADMIN_CONTEXT')) {
                         </tr></thead><tbody>";
                     if ($result) {
                         while ($row = $result->fetch_array()) {
-                            // 3.7-i-3: адрес берём из разбитых полей, а не из
-                        // legacy-строки: иначе после правки города таблица
-                        // продолжала бы показывать старый user_address.
-                        // Fallback на legacy оставлен для пользователей,
-                        // у которых новые поля ещё не заполнены.
+                            // 3.7-i-3: адрес берём из разбитых полей.
+                        // FIX-2: fallback на legacy убран - новые поля
+                        // единственный источник правды.
                         $addr = trim((string) ($row['user_city'] ?? ''));
-                        if ($addr === '') {
-                            $legacy = trim((string) ($row['user_address'] ?? ''));
-                            $addr = $legacy !== '' ? explode(',', $legacy)[0] : '';
-                        }
                         $shortAddress = $addr !== '' ? $addr : 'Не указан';
 
                         // 3.7-h-2: данные строки для модалки пользователя

@@ -322,15 +322,8 @@ function openUserModal(data) {
     uSet('#editUserStreet', data.street);
     uSet('#editUserHouse', data.house);
     uSet('#editUserApartment', data.apartment);
-    // legacy-строка только для чтения: показываем, если она есть в базе
-    var legacyWrap = modal.querySelector('#editUserLegacyWrap');
-    var legacyInput = modal.querySelector('#editUserAddressLegacy');
-    if (legacyWrap) {
-        legacyWrap.hidden = !data.address;
-    }
-    if (legacyInput) {
-        legacyInput.value = data.address ?? '';
-    }
+    // FIX-2: legacy-строка user_address в модалку больше не выводится -
+    // шесть адресных полей единственный источник правды
     uSet('#editUserNumber', data.number);
     uSet('#editUserGroup', data.group);
 
@@ -460,9 +453,9 @@ document.addEventListener('click', function(e) {
             surname: data.user_surname ?? '',
             login: data.user_login ?? '',
             group: data.user_group ?? 'user',
-            address: data.address ?? '',
             number: data.user_number ?? '',
-            // 3.7-i-2: разбитый адрес покупателя
+            // 3.7-i-2: разбитый адрес покупателя. FIX-2: legacy-строка
+            // address сюда больше не передаётся - её нигде не читают
             postal_code: data.user_postal_code ?? '',
             region: data.user_region ?? '',
             city: data.user_city ?? '',
@@ -471,8 +464,9 @@ document.addEventListener('click', function(e) {
             apartment: data.user_apartment ?? '',
         });
     }
-    // 3.7-i-4: адрес собирается из шести полей, иначе в модалке оставалась
-    // legacy-строка, а у пользователей без неё было пусто
+    // 3.7-i-4: адрес собирается из шести полей.
+    // FIX-2: fallback на legacy user_address убран - если новых полей
+    // нет, адрес считается незаполненным.
     var addrParts = [
         data.user_postal_code,
         data.user_region,
@@ -481,7 +475,7 @@ document.addEventListener('click', function(e) {
         data.user_house ? 'д. ' + data.user_house : '',
         data.user_apartment ? 'кв. ' + data.user_apartment : '',
     ].filter(Boolean);
-    text('#editOrderAddress', addrParts.length ? addrParts.join(', ') : (data.address || 'Не указан'));
+    text('#editOrderAddress', addrParts.join(', '));
     label('#editOrderAssemblyName', data.assembly_name);
     modal.querySelector('#editOrderAssemblyBtn').href = '/assembly.php?id=' + encodeURIComponent(data.assembly_id);
     text('#editOrderPrice', data.assembly_price);
