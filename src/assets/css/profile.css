@@ -278,6 +278,9 @@ h1{
 }
 
 .modal {
+    /* глобальный * { margin: 0 } из style.css обнуляет margin:auto,
+       на котором dialog центрируется — возвращаем */
+    margin: auto;
     border: none;
     border-radius: var(--radius);
     padding: 0;
