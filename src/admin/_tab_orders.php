@@ -18,7 +18,8 @@ if (!defined('ADMIN_CONTEXT')) {
                 <section class="card admin-panel">
                     <h2>Управление заказами</h2>
 
-                    <!-- 3.7-f-4-3: фильтр по статусу, поиск по покупателю, сортировка -->
+                    <!-- 3.7-f-4-3: фильтр по статусу и поиск по покупателю
+                         (3.7-f-4b-4: сортировка убрана) -->
                     <form method="get" class="admin-filters">
                         <input type="hidden" name="tab" value="orders">
 
@@ -37,21 +38,9 @@ if (!defined('ADMIN_CONTEXT')) {
                         <input type="search" name="q" class="input" placeholder="Поиск покупателя..."
                                value="<?= escape((string) ($_GET['q'] ?? '')) ?>">
 
-                        <select name="sort" class="input">
-<?php
-    $orderOptions = ['' => 'Сначала новые', 'date_desc' => 'Сначала новые',
-        'date_asc' => 'Сначала старые', 'price_desc' => 'Цена ↓',
-        'price_asc' => 'Цена ↑', 'id_asc' => 'По номеру'];
-    $curSort = (string) ($_GET['sort'] ?? '');
-    foreach ($orderOptions as $val => $label):
-?>
-                            <option value="<?= escape($val) ?>"<?= $curSort === $val ? ' selected' : '' ?>><?= escape($label) ?></option>
-<?php endforeach; ?>
-                        </select>
-
                         <button type="submit" class="btn btn--primary">Применить</button>
 
-<?php if (trim((string) ($_GET['status'] ?? '')) !== '' || trim((string) ($_GET['q'] ?? '')) !== '' || trim((string) ($_GET['sort'] ?? '')) !== ''): ?>
+<?php if (trim((string) ($_GET['status'] ?? '')) !== '' || trim((string) ($_GET['q'] ?? '')) !== ''): ?>
                         <a href="?tab=orders" class="btn btn--ghost">Сбросить</a>
 <?php endif; ?>
                     </form>

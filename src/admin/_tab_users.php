@@ -18,7 +18,8 @@ if (!defined('ADMIN_CONTEXT')) {
                 <section class="card admin-panel">
                     <h2>Управление пользователями</h2>
 
-                    <!-- 3.7-f-4-3: фильтр по группе, поиск по имени/логину, сортировка -->
+                    <!-- 3.7-f-4-3: фильтр по группе и поиск по имени/логину
+                         (3.7-f-4b-4: сортировка убрана) -->
                     <form method="get" class="admin-filters">
                         <input type="hidden" name="tab" value="users">
 
@@ -35,20 +36,9 @@ if (!defined('ADMIN_CONTEXT')) {
                         <input type="search" name="q" class="input" placeholder="Поиск по имени или логину..."
                                value="<?= escape((string) ($_GET['q'] ?? '')) ?>">
 
-                        <select name="sort" class="input">
-<?php
-    $userOptions = ['' => 'По id', 'id_asc' => 'По id ↑', 'id_desc' => 'По id ↓',
-        'name_asc' => 'Имя (А-Я)', 'name_desc' => 'Имя (Я-А)', 'login_asc' => 'Логин (А-Я)'];
-    $curSort = (string) ($_GET['sort'] ?? '');
-    foreach ($userOptions as $val => $label):
-?>
-                            <option value="<?= escape($val) ?>"<?= $curSort === $val ? ' selected' : '' ?>><?= escape($label) ?></option>
-<?php endforeach; ?>
-                        </select>
-
                         <button type="submit" class="btn btn--primary">Применить</button>
 
-<?php if (trim((string) ($_GET['group'] ?? '')) !== '' || trim((string) ($_GET['q'] ?? '')) !== '' || trim((string) ($_GET['sort'] ?? '')) !== ''): ?>
+<?php if (trim((string) ($_GET['group'] ?? '')) !== '' || trim((string) ($_GET['q'] ?? '')) !== ''): ?>
                         <a href="?tab=users" class="btn btn--ghost">Сбросить</a>
 <?php endif; ?>
                     </form>

@@ -143,15 +143,9 @@ if ($tab === 'components') {
         $listParams[] = $like;
         $listTypes .= 'sss';
     }
-    $orderWhitelist = [
-        'date_desc' => 'orders.created_at DESC, orders.order_id DESC',
-        'date_asc' => 'orders.created_at ASC, orders.order_id ASC',
-        'price_desc' => 'assembly.assembly_price DESC, orders.order_id DESC',
-        'price_asc' => 'assembly.assembly_price ASC, orders.order_id ASC',
-        'id_asc' => 'orders.order_id ASC',
-    ];
-    $sort = (string) ($_GET['sort'] ?? '');
-    $listOrder = $orderWhitelist[$sort] ?? 'orders.created_at DESC, orders.order_id DESC';
+    // 3.7-f-4b-4: сортировка убрана и из UI, и из бэкенда — порядок
+    // фиксированный (свежие сверху), параметр sort больше не читается
+    $listOrder = 'orders.created_at DESC, orders.order_id DESC';
 
     $qs = [];
     if (in_array($fStatus, $statusWhitelist, true)) {
@@ -160,12 +154,9 @@ if ($tab === 'components') {
     if ($fQ !== '') {
         $qs[] = 'q=' . urlencode($fQ);
     }
-    if (isset($orderWhitelist[$sort])) {
-        $qs[] = 'sort=' . $sort;
-    }
     $listQuery = implode('&', $qs);
 } elseif ($tab === 'users') {
-    // 3.7-f-4-3: фильтр по группе, поиск по имени или логину, сортировка
+    // 3.7-f-4-3: фильтр по группе и поиск по имени или логину
     $fGroup = trim((string) ($_GET['group'] ?? ''));
     $fQ = trim((string) ($_GET['q'] ?? ''));
     if (in_array($fGroup, ['user', 'admin'], true)) {
@@ -180,15 +171,8 @@ if ($tab === 'components') {
         $listParams[] = $like;
         $listTypes .= 'ss';
     }
-    $userOrderWhitelist = [
-        'id_asc' => 'users.user_id ASC',
-        'id_desc' => 'users.user_id DESC',
-        'name_asc' => 'users.user_name ASC',
-        'name_desc' => 'users.user_name DESC',
-        'login_asc' => 'users.user_login ASC',
-    ];
-    $sort = (string) ($_GET['sort'] ?? '');
-    $listOrder = $userOrderWhitelist[$sort] ?? 'users.user_id ASC';
+    // 3.7-f-4b-4: сортировка убрана, порядок по умолчанию — по id
+    $listOrder = 'users.user_id ASC';
 
     $qs = [];
     if (in_array($fGroup, ['user', 'admin'], true)) {
@@ -196,9 +180,6 @@ if ($tab === 'components') {
     }
     if ($fQ !== '') {
         $qs[] = 'q=' . urlencode($fQ);
-    }
-    if (isset($userOrderWhitelist[$sort])) {
-        $qs[] = 'sort=' . $sort;
     }
     $listQuery = implode('&', $qs);
 }
