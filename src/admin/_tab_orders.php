@@ -28,7 +28,8 @@ if (!defined('ADMIN_CONTEXT')) {
 
                         $sql = "SELECT user_name,user_surname,user_address,assembly_name,assembly_price,order_id,status,
                                        users.user_id AS buyer_id, assembly.assembly_id AS asm_id,
-                                       orders.created_at, users.user_email, users.user_number
+                                       orders.created_at, users.user_email, users.user_number,
+                                       users.user_login, users.user_group
                                 FROM users,assembly,orders
                                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id
                                 ORDER BY `orders`.`order_id` ASC LIMIT ? OFFSET ?";
@@ -65,6 +66,10 @@ if (!defined('ADMIN_CONTEXT')) {
                                     'user_email' => $row['user_email'],
                                     'user_number' => $row['user_number'],
                                     'address' => $row['user_address'],
+                                    // 3.7-f-4-2: данные покупателя для перехода в его модалку
+                                    'user_name' => $row['user_name'],
+                                    'user_login' => $row['user_login'],
+                                    'user_group' => $row['user_group'],
                                     'assembly_id' => $row['asm_id'],
                                     'assembly_name' => $row['assembly_name'],
                                     'assembly_price' => $row['assembly_price'],

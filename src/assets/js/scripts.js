@@ -282,6 +282,57 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// 3.7-f-4-2: единый открыватель модалки пользователя.
+// Используется и из таблицы пользователей, и из модалки заказа.
+function openUserModal(data) {
+    var modal = document.getElementById('editUserModal');
+    if (!modal || !data) return;
+
+    var uSet = function(id, value) {
+        var el = modal.querySelector(id);
+        if (el) el.value = value ?? '';
+    };
+    uSet('#editUserId', data.id);
+    // #editUserLogin — span в заголовке, не input
+    var loginSpan = modal.querySelector('#editUserLogin');
+    if (loginSpan) loginSpan.textContent = data.login ?? '';
+    uSet('#editUserNameRO', data.login);
+    uSet('#editUserName', data.name);
+    uSet('#editUserAddress', data.address);
+    uSet('#editUserNumber', data.number);
+    uSet('#editUserGroup', data.group);
+
+    var delBtn = modal.querySelector('#editUserDeleteBtn');
+    if (delBtn) {
+        delBtn.dataset.id = data.id;
+        delBtn.dataset.name = data.login ?? '';
+    }
+    modal.showModal();
+}
+
+// 3.7-f-4-2: из модалки заказа — кнопка покупателя открывает его модалку.
+// Данные берём из data-row заказа (без AJAX): сервер отдаёт логин,
+// группу, адрес и телефон покупателя вместе со строкой заказа.
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-action="open-user-from-order"]');
+    if (!btn) return;
+    e.preventDefault();
+
+    var raw = btn.dataset.user;
+    if (!raw) return;
+    var data;
+    try {
+        data = JSON.parse(raw);
+    } catch (err) {
+        console.error('Invalid user JSON', err);
+        return;
+    }
+
+    var orderModal = document.getElementById('editOrderModal');
+    if (orderModal && orderModal.open) orderModal.close();
+    openUserModal(data);
+});
+
 // 3.7-h-1: клик по строке заказа — модалка с деталями и сменой статуса
 document.addEventListener('click', function(e) {
     var tr = e.target.closest ? e.target.closest('tr[data-row]') : null;
@@ -298,29 +349,7 @@ document.addEventListener('click', function(e) {
 
     // 3.7-h-2: строка пользователя открывает свою модалку
     if (data.modal === 'user') {
-        var userModal = document.getElementById('editUserModal');
-        if (!userModal) return;
-
-        var uSet = function(id, value) {
-            var el = userModal.querySelector(id);
-            if (el) el.value = value ?? '';
-        };
-        uSet('#editUserId', data.id);
-        // #editUserLogin — span в заголовке, не input
-        var loginSpan = userModal.querySelector('#editUserLogin');
-        if (loginSpan) loginSpan.textContent = data.login;
-        uSet('#editUserNameRO', data.login);
-        uSet('#editUserName', data.name);
-        uSet('#editUserAddress', data.address);
-        uSet('#editUserNumber', data.number);
-        uSet('#editUserGroup', data.group);
-
-        var delBtn = userModal.querySelector('#editUserDeleteBtn');
-        if (delBtn) {
-            delBtn.dataset.id = data.id;
-            delBtn.dataset.name = data.login;
-        }
-        userModal.showModal();
+        openUserModal(data);
         return;
     }
 
@@ -344,7 +373,20 @@ document.addEventListener('click', function(e) {
     modal.querySelector('#editOrderId').value = data.id;
     text('#editOrderNumber', data.id);
     label('#editOrderBuyerName', data.buyer);
-    modal.querySelector('#editOrderBuyerBtn').dataset.userId = data.user_id ?? '';
+    // 3.7-f-4-2: кладём данные покупателя прямо на кнопку, чтобы переход
+    // в его модалку работал без AJAX
+    var buyerBtn = modal.querySelector('#editOrderBuyerBtn');
+    if (buyerBtn) {
+        buyerBtn.dataset.userId = data.user_id ?? '';
+        buyerBtn.dataset.user = JSON.stringify({
+            id: data.user_id ?? '',
+            name: data.user_name ?? data.buyer ?? '',
+            login: data.user_login ?? '',
+            group: data.user_group ?? 'user',
+            address: data.address ?? '',
+            number: data.user_number ?? '',
+        });
+    }
     text('#editOrderAddress', data.address);
     label('#editOrderAssemblyName', data.assembly_name);
     modal.querySelector('#editOrderAssemblyBtn').href = '/assembly.php?id=' + encodeURIComponent(data.assembly_id);

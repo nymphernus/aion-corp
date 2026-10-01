@@ -376,6 +376,10 @@ require __DIR__ . '/partials/header.php';
             <div class="profile-content">
 <?php
 define('ADMIN_CONTEXT', true);
+// 3.7-f-4-2: модалки пользователя нужны на всех вкладках - из модалки
+// заказа можно перейти к покупателю
+require __DIR__ . '/partials/admin-user-modal.php';
+
 if ($tab === 'components') {
     require __DIR__ . '/admin/_tab_components.php';
 } elseif ($tab === 'orders') {
