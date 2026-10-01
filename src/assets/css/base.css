@@ -202,6 +202,12 @@ a {
     background: var(--bg);
 }
 
+/* 3.7-f-1: клик по строке открывает редактирование */
+.table tbody tr[data-component] {
+    cursor: pointer;
+    transition: background 150ms;
+}
+
 /* Бейджи */
 
 .badge {

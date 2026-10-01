@@ -56,7 +56,6 @@ if ($result) {
                                     <th>Название</th>
                                     <th>Количество</th>
                                     <th>Стоимость</th>
-                                    <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -97,22 +96,14 @@ if ($result) {
                                             'rpm' => $row['rpm'],
                                             'cooler_type' => $row['cooler_type'],
                                         ]);
-                                        echo "<tr>"
+                                        // 3.7-f-1: клик по строке открывает edit-модалку,
+                                        // колонки «Действия» больше нет
+                                        echo "<tr data-component='" . escape($editData) . "'>"
                                             . "<td>" . htmlspecialchars($row['component_id'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['category_name'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['component_name'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['amount'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['component_price'] ?? '') . "</td>"
-                                            . "<td><div style=\"display:flex;gap:8px;\">"
-                                            . "<button type=\"button\" class=\"btn btn--ghost btn--sm\""
-                                            . " data-action=\"edit-component\""
-                                            . " data-component='" . escape($editData) . "'>Редактировать</button>"
-                                            // 3.7-e: id/name уходят в модалку подтверждения
-                                            . "<button type=\"button\" class=\"btn btn--ghost btn--ghost--danger btn--sm\""
-                                            . " data-action=\"delete-component\""
-                                            . " data-id=\"" . (int) $row['component_id'] . "\""
-                                            . " data-name='" . escape($row['component_name'] ?? '') . "'>Удалить</button>"
-                                            . "</div></td>"
                                             . "</tr>";
                                     }
                                 }
@@ -313,8 +304,12 @@ if ($result) {
                         </div>
 
                         <div class="modal-actions">
-                            <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
-                            <button type="submit" name="addComponent" id="modalSubmit" class="btn btn--primary">Добавить</button>
+                            <!-- 3.7-f-2: удаление доступно только в edit-режиме -->
+                            <button type="button" class="btn btn--danger" id="modalDeleteBtn" data-action="open-delete-modal" hidden>Удалить</button>
+                            <div class="modal-actions-right">
+                                <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
+                                <button type="submit" name="addComponent" id="modalSubmit" class="btn btn--primary">Добавить</button>
+                            </div>
                         </div>
                     </form>
                 </dialog>

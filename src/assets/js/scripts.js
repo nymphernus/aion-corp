@@ -119,17 +119,17 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 3.7-d: «Редактировать» — та же модалка в режиме edit.
-// submit остаётся name="addComponent": бэкенд различает режим
-// по заполненному editComponentId.
+// 3.7-f-1/2: открытие edit-модалки кликом по строке таблицы.
+// Клик по ссылке или кнопке внутри строки игнорируем.
 document.addEventListener('click', function(e) {
-    var editBtn = e.target.closest('[data-action="edit-component"]');
-    if (!editBtn) return;
+    var tr = e.target.closest ? e.target.closest('tr[data-component]') : null;
+    if (!tr) return;
+    if (e.target.closest('a, button')) return;
     e.preventDefault();
 
     var data;
     try {
-        data = JSON.parse(editBtn.dataset.component);
+        data = JSON.parse(tr.dataset.component);
     } catch (err) {
         console.error('Invalid component JSON', err);
         return;
@@ -172,6 +172,14 @@ document.addEventListener('click', function(e) {
     setVal('rpm', data.rpm);
     setVal('cooler_type', data.cooler_type);
 
+    // 3.7-f-2: кнопка удаления видима только в edit-режиме
+    var delBtn = modal.querySelector('#modalDeleteBtn');
+    if (delBtn) {
+        delBtn.hidden = false;
+        delBtn.dataset.id = data.id;
+        delBtn.dataset.name = data.name ?? '';
+    }
+
     // change на категории — покажет группы, релевантные этой категории
     var catSelect = modal.querySelector('[name="cat"]');
     if (catSelect) {
@@ -181,17 +189,20 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
-// 3.7-e: «Удалить» — подтверждение в отдельной модалке
+// 3.7-f-2: «Удалить» из edit-модалки — закрываем её и открываем подтверждение
 document.addEventListener('click', function(e) {
-    var delBtn = e.target.closest('[data-action="delete-component"]');
+    var delBtn = e.target.closest('[data-action="open-delete-modal"]');
     if (!delBtn) return;
     e.preventDefault();
 
+    var editModal = document.getElementById('addComponentModal');
     var modal = document.getElementById('deleteComponentModal');
     if (!modal) return;
 
     modal.querySelector('#deleteComponentId').value = delBtn.dataset.id;
     modal.querySelector('#deleteComponentName').textContent = delBtn.dataset.name;
+
+    if (editModal && editModal.open) editModal.close();
     modal.showModal();
 });
 
@@ -206,6 +217,10 @@ document.addEventListener('click', function(e) {
     modal.querySelector('#editComponentId').value = '';
     modal.querySelector('#modalSubmit').textContent = 'Добавить';
     modal.querySelector('form').reset();
+
+    // 3.7-f-2: в add-режиме удаления нет
+    var delBtn = modal.querySelector('#modalDeleteBtn');
+    if (delBtn) delBtn.hidden = true;
 
     var catSelect = modal.querySelector('[name="cat"]');
     if (catSelect) {
