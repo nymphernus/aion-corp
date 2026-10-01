@@ -203,8 +203,36 @@ document.addEventListener('click', function(e) {
         return;
     }
 
-    var modal = document.getElementById(data.modal === 'user' ? 'editUserModal' : 'editOrderModal');
-    if (!modal) return;                       // модалка пользователей — 3.7-h-2
+    // 3.7-h-2: строка пользователя открывает свою модалку
+    if (data.modal === 'user') {
+        var userModal = document.getElementById('editUserModal');
+        if (!userModal) return;
+
+        var uSet = function(id, value) {
+            var el = userModal.querySelector(id);
+            if (el) el.value = value ?? '';
+        };
+        uSet('#editUserId', data.id);
+        // #editUserLogin — span в заголовке, не input
+        var loginSpan = userModal.querySelector('#editUserLogin');
+        if (loginSpan) loginSpan.textContent = data.login;
+        uSet('#editUserNameRO', data.login);
+        uSet('#editUserName', data.name);
+        uSet('#editUserAddress', data.address);
+        uSet('#editUserNumber', data.number);
+        uSet('#editUserGroup', data.group);
+
+        var delBtn = userModal.querySelector('#editUserDeleteBtn');
+        if (delBtn) {
+            delBtn.dataset.id = data.id;
+            delBtn.dataset.name = data.login;
+        }
+        userModal.showModal();
+        return;
+    }
+
+    var modal = document.getElementById('editOrderModal');
+    if (!modal) return;
 
     var text = function(id, value) {
         var el = modal.querySelector(id);
@@ -235,6 +263,23 @@ document.addEventListener('click', function(e) {
         statusSel.value = found ? data.status : 'Обрабатывается';
     }
 
+    modal.showModal();
+});
+
+// 3.7-h-2: «Удалить» из модалки пользователя — отдельное подтверждение
+document.addEventListener('click', function(e) {
+    var delBtn = e.target.closest('[data-action="open-delete-user-modal"]');
+    if (!delBtn) return;
+    e.preventDefault();
+
+    var userModal = document.getElementById('editUserModal');
+    var modal = document.getElementById('deleteUserModal');
+    if (!modal) return;
+
+    modal.querySelector('#deleteUserId').value = delBtn.dataset.id;
+    modal.querySelector('#deleteUserName').textContent = delBtn.dataset.name;
+
+    if (userModal && userModal.open) userModal.close();
     modal.showModal();
 });
 

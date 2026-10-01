@@ -224,6 +224,57 @@ if ($isAdmin && isset($_POST['editOrder'])) {
     exit();
 }
 
+// 3.7-h-2: редактирование профиля пользователя из модалки.
+// Валидация: user_name 2-20 символов (колонка varchar(20)), группа из
+// белого списка, телефон по маске проекта. Разжаловать себя нельзя —
+// иначе админ теряет доступ к панели.
+if ($isAdmin && isset($_POST['editUser'])) {
+    csrf_verify();
+    $editUserId = (int) ($_POST['editUserId'] ?? 0);
+    $editName = trim($_POST['user_name'] ?? '');
+    $editGroup = $_POST['user_group'] ?? '';
+    $editAddress = trim($_POST['user_address'] ?? '');
+    $editPhone = trim($_POST['user_number'] ?? '');
+
+    // ошибки возвращаем на ту же вкладку с сообщением
+    $fail = static function (string $code): void {
+        header('Location: /admin.php?tab=users&error=' . urlencode($code));
+        exit();
+    };
+
+    $nameLen = mb_strlen($editName, 'UTF-8');
+    if ($nameLen < 2 || $nameLen > 20) {
+        $fail('name');
+    }
+    if (!in_array($editGroup, ['user', 'admin'], true)) {
+        $fail('group');
+    }
+    if ($editUserId > 0 && $editUserId === (int) ($_SESSION['user_id'] ?? 0) && $editGroup !== 'admin') {
+        $fail('self-demote');
+    }
+    if ($editPhone !== '' && !preg_match('/^\+7\s?[\(]{0,1}\d{3}[\)]{0,1}\s?\d{3}[\-]{0,1}\d{2}[\-]{0,1}\d{2}$/', $editPhone)) {
+        $fail('phone');
+    }
+
+    if ($editUserId > 0) {
+        // существующий пользователь? (иначе UPDATE молча затронет 0 строк)
+        $check = db_prepare($mysql, "SELECT user_id FROM users WHERE user_id = ?", "i", $editUserId);
+        $check->execute();
+        if (!$check->get_result()->fetch_assoc()) {
+            $fail('missing');
+        }
+
+        $stmt = db_prepare($mysql, "UPDATE users SET user_name = ?, user_group = ?, user_address = ?, user_number = ? WHERE user_id = ?", "ssssi", $editName, $editGroup, $editAddress !== '' ? $editAddress : null, $editPhone !== '' ? $editPhone : null, $editUserId);
+        $stmt->execute();
+    } else {
+        $fail('missing');
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=users');
+    exit();
+}
+
 if ($isAdmin && isset($_POST['deleteUser'])) {
     csrf_verify();
     $userId = $_POST['userId'] ?? 0;
