@@ -18,8 +18,10 @@ if (!defined('ADMIN_CONTEXT')) {
                 <section class="card admin-panel">
                     <h2>Управление пользователями</h2>
 <?php
-                    $sql = "SELECT user_id,user_name, user_login, user_group, user_address, user_number FROM users";
-                    $stmt = $mysql->prepare($sql);
+                    // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
+                    $sql = "SELECT user_id,user_name, user_login, user_group, user_address, user_number FROM users
+                            ORDER BY user_id ASC LIMIT ? OFFSET ?";
+                    $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
                     $stmt->execute();
                     $result = $stmt->get_result();
 
@@ -49,5 +51,6 @@ if (!defined('ADMIN_CONTEXT')) {
                         }
                     }
                     echo "</tbody></table></div>";
+                    echo render_pagination('users', $page, $pages);
 ?>
                 </section>

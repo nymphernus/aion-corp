@@ -24,10 +24,12 @@ if (!defined('ADMIN_CONTEXT')) {
                     $checkResult = $checkStmt->get_result();
 
                     if ($checkResult && $checkResult->num_rows > 0) {
+                        // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
+
                         $sql = "SELECT user_name,user_surname,user_address,assembly_name,assembly_price,order_id,status,assembly.assembly_id FROM users,assembly,orders
                                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id
-                                ORDER BY `orders`.`order_id` ASC";
-                        $stmt = $mysql->prepare($sql);
+                                ORDER BY `orders`.`order_id` ASC LIMIT ? OFFSET ?";
+                        $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
                         $stmt->execute();
                         $result = $stmt->get_result();
 
@@ -67,6 +69,7 @@ if (!defined('ADMIN_CONTEXT')) {
                             }
                         }
                         echo "</tbody></table></div>";
+                        echo render_pagination('orders', $page, $pages);
                     } else {
                         echo "<p>Столбец status отсутствует в таблице orders</p>";
                     }

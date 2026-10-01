@@ -11,6 +11,7 @@
  */
 
 require_once __DIR__ . '/modules/connect.php';
+require_once __DIR__ . '/modules/pagination.php';
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 csrf_token();
@@ -52,6 +53,22 @@ if (!isset($allowedTabs[$tab])) {
     http_response_code(404);
     exit('Раздел не найден');
 }
+
+// 3.7-f-5: пагинация. Считаем ДО вывода HTML: header() в paginate()
+// не сработает после старта вывода (headers already sent), и редирект
+// с page=99 молча превратился бы в пустую таблицу.
+$perPage = 20;
+$countSql = [
+    'components' => 'SELECT COUNT(*) FROM components',
+    'users' => 'SELECT COUNT(*) FROM users',
+    'orders' => 'SELECT COUNT(*) FROM users,assembly,orders
+                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id',
+][$tab];
+$stmt = db_prepare($mysql, $countSql, '');
+$stmt->execute();
+$total = (int) $stmt->get_result()->fetch_row()[0];
+// [$page, $pages, $offset] доступны во всех вкладках через общий scope
+[$page, $pages, $offset] = paginate($tab, $total, $perPage);
 
 // Обработчики POST (перенесено из profile.php, SQL без изменений)
 if ($isAdmin && isset($_POST['deleteComponent'])) {

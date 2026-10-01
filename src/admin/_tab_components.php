@@ -60,6 +60,9 @@ if ($result) {
                             </thead>
                             <tbody>
 <?php
+                                // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
+                                // (нужно до вывода HTML — там же работает редирект page>N)
+
                                 // 3.7-d: явный список колонок — нужен для data-component (edit)
                                 $sql = "SELECT components.component_id, components.component_name, components.component_price,
                                                components.amount, components.category_id, categories.category_name,
@@ -68,8 +71,9 @@ if ($result) {
                                                components.video_core, components.ram_type, components.capacity_gb,
                                                components.memory_type, components.wattage, components.interface,
                                                components.form_factor, components.rpm, components.cooler_type
-                                        FROM components,categories WHERE components.category_id = categories.category_id ORDER BY `components`.`component_id` ASC";
-                                $stmt = $mysql->prepare($sql);
+                                        FROM components,categories WHERE components.category_id = categories.category_id
+                                        ORDER BY `components`.`component_id` ASC LIMIT ? OFFSET ?";
+                                $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
                                 $stmt->execute();
                                 $result = $stmt->get_result();
                                 if ($result) {
@@ -110,6 +114,10 @@ if ($result) {
 ?>
                             </tbody>
                         </table>
+                    </div>
+                    <?= render_pagination('components', $page, $pages) ?>
+                    <div style="color:var(--text-secondary);font-size:13px;text-align:center;">
+                        Показано <?= min($perPage, max(0, $total - $offset)) ?> из <?= $total ?>, страница <?= $page ?> из <?= $pages ?>
                     </div>
                 </section>
 

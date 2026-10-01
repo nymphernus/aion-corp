@@ -213,6 +213,40 @@ a {
     margin: 0;
 }
 
+/* Пагинация (3.7-f-5) */
+
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    margin-top: 24px;
+}
+
+.pagination__item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    transition: background 150ms;
+}
+
+.pagination__item:hover {
+    background: var(--bg);
+    text-decoration: none;
+}
+
+.pagination__item.is-active {
+    background: var(--accent);
+    color: white;
+    font-weight: 500;
+}
+
 /* Бейджи */
 
 .badge {
