@@ -1,0 +1,7 @@
+services:
+  php:
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      XDEBUG_MODE: develop,debug
+      XDEBUG_CONFIG: client_host=host.docker.internal

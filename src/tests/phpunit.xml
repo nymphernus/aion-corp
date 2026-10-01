@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="phpunit.xsd"
+         bootstrap="bootstrap.php"
+         colors="true"
+         testdox="true">
+    <testsuites>
+        <testsuite name="aion">
+            <directory suffix="Test.php">./</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="BASE_URL" value="http://localhost:8080" force="true"/>
+    </php>
+</phpunit>

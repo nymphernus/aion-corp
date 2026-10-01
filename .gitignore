@@ -1,0 +1,6 @@
+.env
+.env.local
+vendor/
+node_modules/
+*.log
+tests/phpunit.phar
