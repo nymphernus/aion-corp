@@ -75,6 +75,14 @@ document.addEventListener('click', function(e) {
         e.preventDefault();
         var cfield = el.closest ? el.closest('.profile-field') : null;
         if (cfield) cfield.removeAttribute('data-editing');
+    } else if (action === 'open-modal') {
+        e.preventDefault();
+        var modal = document.getElementById(el.getAttribute('data-modal'));
+        if (modal && typeof modal.showModal === 'function') modal.showModal();
+    } else if (action === 'close-modal') {
+        e.preventDefault();
+        var dlg = el.closest ? el.closest('dialog') : null;
+        if (dlg && typeof dlg.close === 'function') dlg.close();
     } else if (action === 'menu') {
         e.preventDefault();
         var nav = document.querySelector('.nav');
