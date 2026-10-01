@@ -44,13 +44,52 @@ if ($userProfile) {
 
     if (isset($_POST['changeAddress']) && isset($_SESSION['user_login'])) {
         csrf_verify();
-        $city = $_POST['user_city'] ?? '';
-        $street = $_POST['user_street'] ?? '';
-        $home = $_POST['user_home'] ?? '';
-        $address = "г.$city, ул.$street, д.$home";
+        // 3.7-i-3: адрес разбит на поля. Раньше отсюда собиралась строка
+        // «г.$city, ул.$street, д.$home» в user_address, причём без
+        // проверок, а поле называлось user_home - такой колонки нет.
+        // Теперь пишем в шесть колонок, user_address не трогаем: это
+        // legacy-значение из миграции 3.7-i-1.
+        $addr = [
+            'postal_code' => trim($_POST['user_postal_code'] ?? ''),
+            'region' => trim($_POST['user_region'] ?? ''),
+            'city' => trim($_POST['user_city'] ?? ''),
+            'street' => trim($_POST['user_street'] ?? ''),
+            'house' => trim($_POST['user_house'] ?? ''),
+            'apartment' => trim($_POST['user_apartment'] ?? ''),
+        ];
 
-        $stmt = $mysql->prepare("UPDATE `users` SET `user_address` = ? WHERE `user_login` = ?");
-        $stmt->bind_param("ss", $address, $_SESSION['user_login']);
+        // предельные длины из схемы: users - MyISAM, лишнее обрезалось бы
+        // молча, поэтому проверяем до записи
+        $addrLimits = [
+            'postal_code' => 10,
+            'region' => 100,
+            'city' => 100,
+            'street' => 150,
+            'house' => 20,
+            'apartment' => 20,
+        ];
+        foreach ($addrLimits as $key => $limit) {
+            if (mb_strlen($addr[$key], 'UTF-8') > $limit) {
+                header('Location: /profile.php?error=' . $key);
+                exit();
+            }
+        }
+        // индекс: 5-10 цифр, пустое значение допустимо
+        if ($addr['postal_code'] !== '' && !preg_match('/^\d{5,10}$/', $addr['postal_code'])) {
+            header('Location: /profile.php?error=postal_code');
+            exit();
+        }
+
+        $params = [];
+        foreach ($addr as $value) {
+            $params[] = $value !== '' ? $value : null;
+        }
+        $params[] = $_SESSION['user_login'];
+
+        $stmt = db_prepare($mysql, "UPDATE `users` SET
+                                        user_postal_code = ?, user_region = ?, user_city = ?,
+                                        user_street = ?, user_house = ?, user_apartment = ?
+                                     WHERE `user_login` = ?", "sssssss", ...$params);
         $stmt->execute();
         csrf_rotate();
         header('Location: /profile.php');
@@ -228,6 +267,23 @@ require __DIR__ . '/partials/header.php';
                             <div class="profile-content">
                             <section class="card" id="card-info" data-section<?= $sectionStyle('card-info') ?>>
                                 <h2>Личная информация</h2>
+<?php
+// 3.7-i-3: раньше сообщения об ошибке показывались только на карточке
+// входа (там $_SESSION['error_access']), поэтому залогиненный пользователь
+// о неудачном сохранении адреса не узнавал. Тот же приём, что в админке:
+// код ошибки в GET, текст из карты.
+$profileErrors = [
+    'postal_code' => 'Индекс должен состоять из 5-10 цифр.',
+    'region' => 'Регион не должен быть длиннее 100 символов.',
+    'city' => 'Город не должен быть длиннее 100 символов.',
+    'street' => 'Улица не должна быть длиннее 150 символов.',
+    'house' => 'Дом не должен быть длиннее 20 символов.',
+    'apartment' => 'Квартира не должна быть длиннее 20 символов.',
+];
+if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
+?>
+                                <div class="alert alert--error"><?= escape($profileErrors[$_GET['error']]) ?></div>
+<?php endif; ?>
                                 <div class="profile-field" data-field="name">
                                     <div class="profile-field-label">Имя</div>
                                     <div class="profile-field-value"><?= htmlspecialchars($userProfile['user_name'] ?? '') ?></div>
@@ -262,13 +318,39 @@ require __DIR__ . '/partials/header.php';
                                     <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
                                 </div>
                                 <div class="profile-field" data-field="address">
+<?php
+                                // 3.7-i-3: показываем адрес, собранный из новых
+                                // полей, а не legacy-строку. Fallback на
+                                // user_address - для тех, у кого новые поля ещё
+                                // пусты (не проходил миграцию 3.7-i-1).
+                                $addrParts = array_filter([
+                                    $userProfile['user_postal_code'] ?? '',
+                                    $userProfile['user_region'] ?? '',
+                                    $userProfile['user_city'] ?? '',
+                                    $userProfile['user_street'] ?? '',
+                                    !empty($userProfile['user_house']) ? 'д. ' . $userProfile['user_house'] : '',
+                                    !empty($userProfile['user_apartment']) ? 'кв. ' . $userProfile['user_apartment'] : '',
+                                ]);
+                                $fullAddress = $addrParts !== []
+                                    ? implode(', ', $addrParts)
+                                    : trim((string) ($userProfile['user_address'] ?? ''));
+?>
                                     <div class="profile-field-label">Адрес</div>
-                                    <div class="profile-field-value"<?= empty($userProfile['user_address']) ? ' data-empty' : '' ?>><?= !empty($userProfile['user_address']) ? escape($userProfile['user_address']) : 'Не указано' ?></div>
+                                    <div class="profile-field-value"<?= $fullAddress === '' ? ' data-empty' : '' ?>><?= $fullAddress !== '' ? escape($fullAddress) : 'Не указано' ?></div>
                                     <form class="profile-field-edit profile-field-edit--stack" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                        <input class="input" type="text" name="user_city" placeholder="Город">
-                                        <input class="input" type="text" name="user_street" placeholder="Улица">
-                                        <input class="input" type="text" name="user_home" placeholder="Дом">
+                                        <input class="input" type="text" name="user_postal_code" placeholder="Индекс" maxlength="10"
+                                               inputmode="numeric" value="<?= escape($userProfile['user_postal_code'] ?? '') ?>">
+                                        <input class="input" type="text" name="user_region" placeholder="Регион" maxlength="100"
+                                               value="<?= escape($userProfile['user_region'] ?? '') ?>">
+                                        <input class="input" type="text" name="user_city" placeholder="Город" maxlength="100"
+                                               value="<?= escape($userProfile['user_city'] ?? '') ?>">
+                                        <input class="input" type="text" name="user_street" placeholder="Улица" maxlength="150"
+                                               value="<?= escape($userProfile['user_street'] ?? '') ?>">
+                                        <input class="input" type="text" name="user_house" placeholder="Дом" maxlength="20"
+                                               value="<?= escape($userProfile['user_house'] ?? '') ?>">
+                                        <input class="input" type="text" name="user_apartment" placeholder="Квартира" maxlength="20"
+                                               value="<?= escape($userProfile['user_apartment'] ?? '') ?>">
                                         <div class="edit-form-actions">
                                         <button class="btn btn--primary btn--sm" name="changeAddress" type="submit">Сохранить</button>
                                         <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
