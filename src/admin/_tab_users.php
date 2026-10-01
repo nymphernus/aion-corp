@@ -37,7 +37,11 @@ if (!defined('ADMIN_CONTEXT')) {
                         </tr></thead><tbody>";
                     if ($result) {
                         while ($row = $result->fetch_array()) {
-                            // 3.7-h-2: данные строки для модалки пользователя
+                            // 3.7-f-3-7: сокращённый адрес для таблицы
+                        $addr = trim((string) ($row['user_address'] ?? ''));
+                        $shortAddress = $addr !== '' ? explode(',', $addr)[0] : 'Не указан';
+
+                        // 3.7-h-2: данные строки для модалки пользователя
                         $rowData = json_encode([
                             'modal' => 'user',
                             'id' => $row['user_id'],
@@ -53,7 +57,9 @@ if (!defined('ADMIN_CONTEXT')) {
                                 . "<td>" . htmlspecialchars($row['user_name'] ?? '') . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_login'] ?? '') . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_group'] ?? '') . "</td>"
-                                . "<td>" . htmlspecialchars($row['user_address'] ?? '') . "</td>"
+                                // 3.7-f-3-7: в таблице только город (до запятой),
+                                // полный адрес - в модалке пользователя
+                                . "<td>" . htmlspecialchars($shortAddress) . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_number'] ?? '') . "</td>"
                                 . "</tr>";
                         }

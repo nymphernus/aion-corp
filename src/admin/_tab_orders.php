@@ -50,6 +50,12 @@ if (!defined('ADMIN_CONTEXT')) {
                                 if ($row['asm_id'] > 3) {
                                     $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
                                 }
+                                // 3.7-f-3-7: сокращённый адрес для таблицы
+                                $addr = trim((string) ($row['user_address'] ?? ''));
+                                $shortAddress = $addr !== ''
+                                    ? explode(',', $addr)[0]
+                                    : 'Не указан';
+
                                 // 3.7-h-1: данные строки для модалки заказа
                                 $rowData = json_encode([
                                     'modal' => 'order',
@@ -67,7 +73,9 @@ if (!defined('ADMIN_CONTEXT')) {
                                 ]);
                                 echo "<tr data-row='" . escape($rowData) . "'>"
                                     . "<td>" . htmlspecialchars(($row['user_name'] ?? '') . " " . ($row['user_surname'] ?? '')) . "</td>"
-                                    . "<td>" . htmlspecialchars($row['user_address'] ?? '') . "</td>"
+                                    // 3.7-f-3-7: в таблице только город (первая часть до запятой),
+                                    // полный адрес - в модалке заказа
+                                    . "<td>" . htmlspecialchars($shortAddress) . "</td>"
                                     . "<td>" . htmlspecialchars($row['assembly_name'] ?? '') . "</td>"
                                     . "<td>" . htmlspecialchars($row['assembly_price'] ?? '') . "</td>"
                                     // 3.7-f-2-4: статус стал бейджем, смена - в модалке заказа
