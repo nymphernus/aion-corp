@@ -48,7 +48,16 @@ if (!defined('ADMIN_CONTEXT')) {
                                     $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
                                 }
                                 $formId = 'ordForm' . (int) $row['order_id'];
-                                echo "<tr>"
+                                // 3.7-f-4: данные строки для клика (модалка — в 3.7-h)
+                                $rowData = json_encode([
+                                    'id' => $row['order_id'],
+                                    'user' => trim(($row['user_name'] ?? '') . ' ' . ($row['user_surname'] ?? '')),
+                                    'address' => $row['user_address'],
+                                    'assembly_name' => $row['assembly_name'],
+                                    'assembly_price' => $row['assembly_price'],
+                                    'status' => $row['status'],
+                                ]);
+                                echo "<tr data-row='" . escape($rowData) . "'>"
                                     . "<td>" . htmlspecialchars(($row['user_name'] ?? '') . " " . ($row['user_surname'] ?? '')) . "</td>"
                                     . "<td>" . htmlspecialchars($row['user_address'] ?? '') . "</td>"
                                     . "<td>" . htmlspecialchars($row['assembly_name'] ?? '') . "</td>"

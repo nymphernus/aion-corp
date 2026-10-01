@@ -189,6 +189,19 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
+// 3.7-f-4 (заглушка, полноценные модалки заказов и пользователей — 3.7-h):
+// клик по строке собирает данные в консоль, ничего не перехватывая.
+document.addEventListener('click', function(e) {
+    var tr = e.target.closest ? e.target.closest('tr[data-row]') : null;
+    if (!tr) return;
+    if (e.target.closest('a, button, select, input')) return;
+    try {
+        console.log('3.7-h: edit-модалка для строки', JSON.parse(tr.dataset.row));
+    } catch (err) {
+        console.error('Invalid row JSON', err);
+    }
+});
+
 // 3.7-f-2: «Удалить» из edit-модалки — закрываем её и открываем подтверждение
 document.addEventListener('click', function(e) {
     var delBtn = e.target.closest('[data-action="open-delete-modal"]');

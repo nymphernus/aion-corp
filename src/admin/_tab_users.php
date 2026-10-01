@@ -36,7 +36,18 @@ if (!defined('ADMIN_CONTEXT')) {
                         </tr></thead><tbody>";
                     if ($result) {
                         while ($row = $result->fetch_array()) {
-                            echo "<tr>"
+                            // 3.7-f-4: клик по строке заказов — полноценные модалки в 3.7-h.
+                        // Пока это заглушка: собираем данные строки и логируем их,
+                        // ссылку/кнопку/поле не перехватываем.
+                        $rowData = json_encode([
+                            'id' => $row['user_id'],
+                            'name' => $row['user_name'],
+                            'login' => $row['user_login'],
+                            'group' => $row['user_group'],
+                            'address' => $row['user_address'],
+                            'number' => $row['user_number'],
+                        ]);
+                        echo "<tr data-row='" . escape($rowData) . "'>"
                                 . "<td>" . htmlspecialchars($row['user_name'] ?? '') . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_login'] ?? '') . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_group'] ?? '') . "</td>"
