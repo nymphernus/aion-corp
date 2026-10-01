@@ -216,7 +216,7 @@ require __DIR__ . '/partials/header.php';
                                     <button type="button" class="profile-nav-item" data-action="switch" data-target="card-builds">Мои сборки</button>
                                     <button type="button" class="profile-nav-item" data-action="switch" data-target="card-fav">Избранное</button>
                                     <?php else: ?>
-                                    <a href="/admin.php" class="profile-nav-item">Панель управления</a>
+                                    <a href="/admin.php?tab=users" class="profile-nav-item">Панель управления</a>
                                     <?php endif; ?>
                                 </nav>
                                 <div style="border-top:1px solid var(--border);margin:16px 0;"></div>

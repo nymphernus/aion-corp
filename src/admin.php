@@ -3,7 +3,7 @@
  * Админ-панель AION CORP.
  *
  * URL: /admin.php?tab=users|orders|components
- *  - без ?tab        → 302 на ?tab=components
+ *  - без ?tab        → 302 на ?tab=users (3.7-f-3)
  *  - неизвестный tab → 404
  *  - гость / не админ (свежая группа из БД) → 302 на /profile.php
  *
@@ -44,7 +44,8 @@ $isAdmin = true;
 // Роутинг вкладки
 $tab = $_GET['tab'] ?? '';
 if ($tab === '') {
-    header('Location: /admin.php?tab=components');
+    // 3.7-f-3: вход из профиля ведёт сразу на список пользователей
+    header('Location: /admin.php?tab=users');
     exit();
 }
 
