@@ -138,7 +138,9 @@ body::-webkit-scrollbar-thumb {
 .wrapper{
     overflow: hidden;
 	z-index: 1;
-	background-color: rgb(100, 100, 100);
+	/* фон убран: серый rgb(100,100,100) перебивал светлый градиент из base.css
+	   (body), из-за чего admin.php и assembly.php показывали серый фон */
+	background: transparent;
 }
 .container_pc,.container_conf,.container_about{
 	width: 100vw;
