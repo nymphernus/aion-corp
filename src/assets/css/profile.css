@@ -638,6 +638,21 @@ h1{
     backdrop-filter: none;
 }
 
+/* 3.7-f-1: .cont_profile в legacy-стиле имел width:85% + margin-left/right:auto,
+   из-за чего layout в profile.php сужался на 15% и центрировался, тогда как
+   в admin.php .profile-layout — прямой потомок .wrapper. Возвращаем поток
+   на всю ширину контейнера, чтобы ширины profile и admin совпадали. */
+.cont_profile--plain {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* 3.7-f-1: 100vw шире body при вертикальном скроллбаре -> горизонтальный оверфлоу */
+.container_profile--fluid {
+    width: 100%;
+}
+
 .profile-layout {
     text-align: left;
 }

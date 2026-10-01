@@ -136,7 +136,7 @@ $extraCss = ['/assets/css/profile.css'];
 $extraJs  = ['/assets/js/scripts.js'];
 require __DIR__ . '/partials/header.php';
 ?>
-        <div class="container_profile">
+        <div class="container_profile container_profile--fluid">
             <div class="cont_profile cont_profile--plain">
                 <?php if (empty($_SESSION['user_id'])): ?>
                     <?php
