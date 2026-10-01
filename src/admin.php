@@ -81,9 +81,9 @@ if ($tab === 'components') {
         $compParams[] = $fCat;
         $compTypes .= 'i';
     }
-    // 3.7-f-3-3: сокет применяем только для CPU / материнских плат / кулеров
-    // (или когда категория не выбрана) - скрытый select всё равно шлёт значение
-    $sockRelevant = $fCat === 0 || in_array($fCat, [1, 2, 7], true);
+    // 3.7-f-3-10: сокет применяем только когда категория выбрана и
+    // входит в [1, 2, 7] - скрытый select всё равно шлёт значение
+    $sockRelevant = in_array($fCat, [1, 2, 7], true);
     if ($fSock > 0 && $sockRelevant) {
         $compWhere .= ' AND components.socket_id = ?';
         $compParams[] = $fSock;

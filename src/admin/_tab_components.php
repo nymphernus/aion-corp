@@ -66,7 +66,9 @@ if ($result) {
                             // 3.7-f-3-3: сокет есть только у процессоров, материнских
                             // плат и кулеров - для остальных категорий фильтр скрываем
                             $fCatId = (int) ($_GET['cat'] ?? 0);
-                            $sockRelevant = $fCatId === 0 || in_array($fCatId, [1, 2, 7], true);
+                            // 3.7-f-3-10: показываем строго для CPU/платы/кулера;
+                            // при первой загрузке (категория не выбрана) скрыт
+                            $sockRelevant = in_array($fCatId, [1, 2, 7], true);
                             $sockCatsJs = [1, 2, 7];
 ?>
                             <span id="sockFilterWrap"<?= $sockRelevant ? '' : ' style="display:none"' ?>>

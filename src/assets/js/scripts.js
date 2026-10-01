@@ -189,9 +189,9 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
-// 3.7-f-3-3: фильтр «Сокет» показывается только для CPU / материнских
-// плат / кулеров. Сервер уже прячет его при отрисовке, здесь синхронизация
-// при смене категории без перезагрузки.
+// 3.7-f-3-3/3-10: фильтр «Сокет» показывается только для CPU / платы /
+// кулера. Сервер уже прячет его при отрисовке, здесь синхронизация при
+// смене категории без перезагрузки.
 document.addEventListener('change', function(e) {
     if (e.target.name !== 'cat') return;
     var form = e.target.closest('.admin-filters');
@@ -199,7 +199,7 @@ document.addEventListener('change', function(e) {
     var wrap = form.querySelector('#sockFilterWrap');
     if (!wrap) return;
     var cat = e.target.value;
-    var relevant = cat === '' || cat === '1' || cat === '2' || cat === '7';
+    var relevant = cat === '1' || cat === '2' || cat === '7';
     wrap.style.display = relevant ? '' : 'none';
 });
 
