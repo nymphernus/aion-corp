@@ -139,42 +139,58 @@ require __DIR__ . '/partials/header.php';
         <div class="container_profile">
             <div class="cont_profile cont_profile--plain">
                 <?php if (empty($_SESSION['user_id'])): ?>
-                    <div class="authCont">
+                    <div class="auth-page">
+                        <div class="auth-card card">
                         <div id="login_cont">
-                            <form action="validation/auth.php" method="post" style="width: 100%; height: 100%;">
+                            <h1>Авторизация</h1>
+                            <form action="validation/auth.php" method="post">
                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                <h1>Авторизация</h1>
-                                <input class="entry_field" type="text" name="user_login" placeholder="Введите логин"
-                                    required><br>
-                                <input class="entry_field" type="password" name="user_pass" placeholder="Введите пароль"
-                                    required><br>
-                                <p class="wrong_access"><?php if (isset($_SESSION['error_access'])): ?>
+                                <div class="form-group">
+                                    <label class="form-label" for="auth_login">Логин</label>
+                                    <input class="input" id="auth_login" type="text" name="user_login" placeholder="Введите логин" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="auth_pass">Пароль</label>
+                                    <input class="input" id="auth_pass" type="password" name="user_pass" placeholder="Введите пароль" required>
+                                </div>
+                                <p class="alert alert--error" style="margin-bottom:0;"><?php if (isset($_SESSION['error_access'])): ?>
                                         <?= escape($_SESSION['error_access'] ?? '') ?>
                                     <?php endif; ?>
                                 </p>
-                                <button class="btn_valid" type="submit">Войти</button>
-                                <p>Нет аккаунта? <input class="toggle_btn" value="Зарегистрируйтесь" type="button"
-                                        data-action="switch" data-a="pass_cont" data-b="login_cont"></p>
+                                <button class="btn btn--primary" type="submit">Войти</button>
+                                <div class="auth-switch">
+                                    Нет аккаунта?
+                                    <button type="button" class="btn btn--ghost btn--sm" data-action="switch" data-a="pass_cont" data-b="login_cont">Зарегистрируйтесь</button>
+                                </div>
                             </form>
                         </div>
-                        <div id="pass_cont">
-                            <form action="validation/reg.php" method="post" style="width: 100%; height: 100%;">
+                        <div id="pass_cont" style="display:none;">
+                            <h1>Регистрация</h1>
+                            <form action="validation/reg.php" method="post">
                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                <h1>Регистрация</h1>
-                                <input class="entry_field" type="text" name="user_name" placeholder="Введите имя"
-                                    required><br>
-                                <input class="entry_field" type="text" name="user_login" placeholder="Введите логин"
-                                    required><br>
-                                <input class="entry_field" type="password" name="user_pass" placeholder="Введите пароль"
-                                    required><br>
-                                <p class="wrong_access"><?php if (isset($_SESSION['error_access'])): ?>
+                                <div class="form-group">
+                                    <label class="form-label" for="reg_name">Имя</label>
+                                    <input class="input" id="reg_name" type="text" name="user_name" placeholder="Введите имя" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="reg_login">Логин</label>
+                                    <input class="input" id="reg_login" type="text" name="user_login" placeholder="Введите логин" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="reg_pass">Пароль</label>
+                                    <input class="input" id="reg_pass" type="password" name="user_pass" placeholder="Минимум 8 символов" required>
+                                </div>
+                                <p class="alert alert--error" style="margin-bottom:0;"><?php if (isset($_SESSION['error_access'])): ?>
                                         <?= escape($_SESSION['error_access'] ?? '') ?>
                                     <?php endif; ?>
                                 </p>
-                                <button class="btn_valid" type="submit">Регистрация</button>
-                                <p>Уже зарегистрированы? <input class="toggle_btn" value="Войдите в аккаунт" type="button"
-                                        data-action="switch" data-a="pass_cont" data-b="login_cont"></p>
+                                <button class="btn btn--primary" type="submit">Регистрация</button>
+                                <div class="auth-switch">
+                                    Уже зарегистрированы?
+                                    <button type="button" class="btn btn--ghost btn--sm" data-action="switch" data-a="pass_cont" data-b="login_cont">Войдите в аккаунт</button>
+                                </div>
                             </form>
+                        </div>
                         </div>
                     </div>
                 <?php else: ?>
