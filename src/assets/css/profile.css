@@ -381,25 +381,6 @@ h1{
     text-decoration: none;
 }
 
-/* 3.7-f-2-5: значение-ссылка внутри модалки (сборка, покупатель) */
-.modal-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 15px;
-    color: var(--accent);
-    text-decoration: none;
-}
-
-.modal-link::after {
-    content: '→';
-    font-size: 14px;
-}
-
-.modal-link:hover {
-    text-decoration: underline;
-}
-
 /* 3.7-h: секции внутри модалок (детали заказа, данные пользователя) */
 .modal-section {
     padding: 16px;

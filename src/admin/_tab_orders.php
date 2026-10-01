@@ -104,9 +104,13 @@ if (!defined('ADMIN_CONTEXT')) {
                         <div class="modal-section">
                             <h3>Информация о покупателе</h3>
                             <div class="form-group">
-                                <label class="form-label" for="editOrderBuyer">Покупатель</label>
-                                <!-- 3.7-f-2-5: название само является ссылкой -->
-                                <a href="/admin.php?tab=users" id="editOrderBuyer" class="modal-link"></a>
+                                <label class="form-label" for="editOrderBuyerBtn">Покупатель</label>
+                                <!-- 3.7-f-3-2: кнопка вместо ссылки, клик откроет
+                                     модалку пользователя (f-4) -->
+                                <button type="button" class="btn btn--secondary btn--sm"
+                                        id="editOrderBuyerBtn" data-action="open-user-from-order" data-user-id="">
+                                    <span id="editOrderBuyerName"></span>
+                                </button>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Контакты</label>
@@ -121,9 +125,11 @@ if (!defined('ADMIN_CONTEXT')) {
                         <div class="modal-section">
                             <h3>Информация о сборке</h3>
                             <div class="form-group">
-                                <label class="form-label">Сборка</label>
-                                <!-- 3.7-f-2-5: название само является ссылкой -->
-                                <a href="#" id="editOrderAssemblyLink" target="_blank" rel="noopener" class="modal-link"></a>
+                                <label class="form-label" for="editOrderAssemblyBtn">Сборка</label>
+                                <!-- 3.7-f-3-2: остаётся <a>, но оформлен кнопкой и
+                                     открывается в новой вкладке -->
+                                <a href="#" id="editOrderAssemblyBtn" target="_blank" rel="noopener"
+                                   class="btn btn--secondary btn--sm"><span id="editOrderAssemblyName"></span></a>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Стоимость</label>

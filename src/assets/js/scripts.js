@@ -253,20 +253,21 @@ document.addEventListener('click', function(e) {
             ? 'Не указан' : String(value);
     };
 
-    // 3.7-f-2-5: покупатель и сборка — ссылки, наполняем через href+textContent
-    var link = function(id, href, value) {
+    // 3.7-f-3-2: покупатель — кнопка (откроет модалку пользователя в f-4),
+    // сборка — ссылка-кнопка в новой вкладке
+    var label = function(id, value) {
         var el = modal.querySelector(id);
-        if (!el) return;
-        el.href = href;
-        el.textContent = (value === null || value === undefined || value === '')
+        if (el) el.textContent = (value === null || value === undefined || value === '')
             ? 'Не указан' : String(value);
     };
 
     modal.querySelector('#editOrderId').value = data.id;
     text('#editOrderNumber', data.id);
-    link('#editOrderBuyer', '/admin.php?tab=users', data.buyer);
+    label('#editOrderBuyerName', data.buyer);
+    modal.querySelector('#editOrderBuyerBtn').dataset.userId = data.user_id ?? '';
     text('#editOrderAddress', data.address);
-    link('#editOrderAssemblyLink', '/assembly.php?id=' + encodeURIComponent(data.assembly_id), data.assembly_name);
+    label('#editOrderAssemblyName', data.assembly_name);
+    modal.querySelector('#editOrderAssemblyBtn').href = '/assembly.php?id=' + encodeURIComponent(data.assembly_id);
     text('#editOrderPrice', data.assembly_price);
 
     // контакты одной строкой: телефон и почта, что заполнено
