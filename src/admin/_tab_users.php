@@ -17,13 +17,54 @@ if (!defined('ADMIN_CONTEXT')) {
 ?>
                 <section class="card admin-panel">
                     <h2>Управление пользователями</h2>
+
+                    <!-- 3.7-f-4-3: фильтр по группе, поиск по имени/логину, сортировка -->
+                    <form method="get" class="admin-filters">
+                        <input type="hidden" name="tab" value="users">
+
+                        <select name="group" class="input">
+<?php
+    $groupOptions = ['' => 'Все группы', 'user' => 'Пользователи', 'admin' => 'Администраторы'];
+    $curGroup = (string) ($_GET['group'] ?? '');
+    foreach ($groupOptions as $val => $label):
+?>
+                            <option value="<?= escape($val) ?>"<?= $curGroup === $val ? ' selected' : '' ?>><?= escape($label) ?></option>
+<?php endforeach; ?>
+                        </select>
+
+                        <input type="search" name="q" class="input" placeholder="Поиск по имени или логину..."
+                               value="<?= escape((string) ($_GET['q'] ?? '')) ?>">
+
+                        <select name="sort" class="input">
+<?php
+    $userOptions = ['' => 'По id', 'id_asc' => 'По id ↑', 'id_desc' => 'По id ↓',
+        'name_asc' => 'Имя (А-Я)', 'name_desc' => 'Имя (Я-А)', 'login_asc' => 'Логин (А-Я)'];
+    $curSort = (string) ($_GET['sort'] ?? '');
+    foreach ($userOptions as $val => $label):
+?>
+                            <option value="<?= escape($val) ?>"<?= $curSort === $val ? ' selected' : '' ?>><?= escape($label) ?></option>
+<?php endforeach; ?>
+                        </select>
+
+                        <button type="submit" class="btn btn--primary">Применить</button>
+
+<?php if (trim((string) ($_GET['group'] ?? '')) !== '' || trim((string) ($_GET['q'] ?? '')) !== '' || trim((string) ($_GET['sort'] ?? '')) !== ''): ?>
+                        <a href="?tab=users" class="btn btn--ghost">Сбросить</a>
+<?php endif; ?>
+                    </form>
 <?php
                     // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
-                    // 3.7-h-2: user_email добавлен для модалки пользователя
+                    // 3.7-f-3-11: user_email добавлен для модалки пользователя
+                    // 3.7-f-4-3: $listWhere/$listOrder приходят из admin.php
                     $sql = "SELECT user_id, user_name, user_surname, user_login, user_group,
                                    user_address, user_number, user_email
-                            FROM users ORDER BY user_id ASC LIMIT ? OFFSET ?";
-                    $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
+                            FROM users WHERE 1=1" . $listWhere . "
+                            ORDER BY {$listOrder} LIMIT ? OFFSET ?";
+                    if ($listParams === []) {
+                        $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
+                    } else {
+                        $stmt = db_prepare($mysql, $sql, $listTypes . "ii", ...array_merge($listParams, [$perPage, $offset]));
+                    }
                     $stmt->execute();
                     $result = $stmt->get_result();
 
@@ -65,7 +106,7 @@ if (!defined('ADMIN_CONTEXT')) {
                         }
                     }
                     echo "</tbody></table></div>";
-                    echo render_pagination('users', $page, $pages);
+                    echo render_pagination('users', $page, $pages, $listQuery);
 ?>
                 </section>
 

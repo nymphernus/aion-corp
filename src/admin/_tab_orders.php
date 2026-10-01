@@ -17,6 +17,44 @@ if (!defined('ADMIN_CONTEXT')) {
 ?>
                 <section class="card admin-panel">
                     <h2>Управление заказами</h2>
+
+                    <!-- 3.7-f-4-3: фильтр по статусу, поиск по покупателю, сортировка -->
+                    <form method="get" class="admin-filters">
+                        <input type="hidden" name="tab" value="orders">
+
+                        <select name="status" class="input">
+<?php
+    $statusOptions = ['' => 'Все статусы', 'Обрабатывается' => 'Обрабатывается',
+        'Собирается' => 'Собирается', 'Доставляется' => 'Доставляется',
+        'Выполнен' => 'Выполнен', 'Отменён' => 'Отменён'];
+    $curStatus = (string) ($_GET['status'] ?? '');
+    foreach ($statusOptions as $val => $label):
+?>
+                            <option value="<?= escape($val) ?>"<?= $curStatus === $val ? ' selected' : '' ?>><?= escape($label) ?></option>
+<?php endforeach; ?>
+                        </select>
+
+                        <input type="search" name="q" class="input" placeholder="Поиск покупателя..."
+                               value="<?= escape((string) ($_GET['q'] ?? '')) ?>">
+
+                        <select name="sort" class="input">
+<?php
+    $orderOptions = ['' => 'Сначала новые', 'date_desc' => 'Сначала новые',
+        'date_asc' => 'Сначала старые', 'price_desc' => 'Цена ↓',
+        'price_asc' => 'Цена ↑', 'id_asc' => 'По номеру'];
+    $curSort = (string) ($_GET['sort'] ?? '');
+    foreach ($orderOptions as $val => $label):
+?>
+                            <option value="<?= escape($val) ?>"<?= $curSort === $val ? ' selected' : '' ?>><?= escape($label) ?></option>
+<?php endforeach; ?>
+                        </select>
+
+                        <button type="submit" class="btn btn--primary">Применить</button>
+
+<?php if (trim((string) ($_GET['status'] ?? '')) !== '' || trim((string) ($_GET['q'] ?? '')) !== '' || trim((string) ($_GET['sort'] ?? '')) !== ''): ?>
+                        <a href="?tab=orders" class="btn btn--ghost">Сбросить</a>
+<?php endif; ?>
+                    </form>
 <?php
                     $checkSql = "SHOW COLUMNS FROM orders LIKE 'status'";
                     $checkStmt = $mysql->prepare($checkSql);
@@ -31,9 +69,15 @@ if (!defined('ADMIN_CONTEXT')) {
                                        orders.created_at, users.user_email, users.user_number,
                                        users.user_login, users.user_group
                                 FROM users,assembly,orders
-                                WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id
-                                ORDER BY `orders`.`order_id` ASC LIMIT ? OFFSET ?";
-                        $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
+                                WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id"
+                                . $listWhere . "
+                                ORDER BY {$listOrder} LIMIT ? OFFSET ?";
+                        // 3.7-f-4-3: параметры фильтров идут перед LIMIT/OFFSET
+                        if ($listParams === []) {
+                            $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
+                        } else {
+                            $stmt = db_prepare($mysql, $sql, $listTypes . "ii", ...array_merge($listParams, [$perPage, $offset]));
+                        }
                         $stmt->execute();
                         $result = $stmt->get_result();
 
@@ -95,7 +139,7 @@ if (!defined('ADMIN_CONTEXT')) {
                             }
                         }
                         echo "</tbody></table></div>";
-                        echo render_pagination('orders', $page, $pages);
+                        echo render_pagination('orders', $page, $pages, $listQuery);
                     } else {
                         echo "<p>Столбец status отсутствует в таблице orders</p>";
                     }

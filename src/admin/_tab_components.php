@@ -138,13 +138,13 @@ if ($result) {
                                                components.memory_type, components.wattage, components.interface,
                                                components.form_factor, components.rpm, components.cooler_type
                                         FROM components,categories WHERE components.category_id = categories.category_id"
-                                        . $compWhere . "
-                                        ORDER BY {$orderBy} LIMIT ? OFFSET ?";
+                                        . $listWhere . "
+                                        ORDER BY {$listOrder} LIMIT ? OFFSET ?";
                                 // 3.7-f-2-2: параметры фильтров идут перед LIMIT/OFFSET
-                                if ($compParams === []) {
+                                if ($listParams === []) {
                                     $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
                                 } else {
-                                    $stmt = db_prepare($mysql, $sql, $compTypes . "ii", ...array_merge($compParams, [$perPage, $offset]));
+                                    $stmt = db_prepare($mysql, $sql, $listTypes . "ii", ...array_merge($listParams, [$perPage, $offset]));
                                 }
                                 $stmt->execute();
                                 $result = $stmt->get_result();
@@ -187,7 +187,7 @@ if ($result) {
                             </tbody>
                         </table>
                     </div>
-                    <?= render_pagination('components', $page, $pages, $compQuery) ?>
+                    <?= render_pagination('components', $page, $pages, $listQuery) ?>
                     <div style="color:var(--text-secondary);font-size:13px;text-align:center;">
                         Показано <?= min($perPage, max(0, $total - $offset)) ?> из <?= $total ?>, страница <?= $page ?> из <?= $pages ?>
                     </div>

@@ -60,39 +60,44 @@ if (!isset($allowedTabs[$tab])) {
 // с page=99 молча превратился бы в пустую таблицу.
 $perPage = 10; // 3.7-f-2-2: было 20
 
-// 3.7-f-2-2: фильтры таблицы комплектующих (категория / сокет / поиск).
+// 3.7-f-2-2 / 3.7-f-4-3: фильтры и сортировка админ-таблиц.
 // Условие общее для COUNT, для выборки и для ссылок пагинации.
-$compWhere = '';
-$compParams = [];
-$compTypes = '';
-$compQuery = ''; // строка GET-параметров для сохранения в ссылках
+$listWhere = '';
+$listParams = [];
+$listTypes = '';
+$listQuery = '';  // GET-параметры для сохранения в ссылках
+$listOrder = '';  // ORDER BY из белого списка
+
+// экранирование спецсимволов LIKE, чтобы «%» не стал маской
+$escapeLike = static function (string $value): string {
+    return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+};
 
 if ($tab === 'components') {
     $fCat = (int) ($_GET['cat'] ?? 0);
     $fSock = (int) ($_GET['sock'] ?? 0);
     $fQ = trim((string) ($_GET['q'] ?? ''));
     if ($fQ !== '') {
-        // экранируем спецсимволы LIKE, чтобы «%» не превращался в маску
-        $fQ = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $fQ);
+        $fQ = $escapeLike($fQ);
     }
 
     if ($fCat > 0) {
-        $compWhere .= ' AND components.category_id = ?';
-        $compParams[] = $fCat;
-        $compTypes .= 'i';
+        $listWhere .= ' AND components.category_id = ?';
+        $listParams[] = $fCat;
+        $listTypes .= 'i';
     }
     // 3.7-f-3-10: сокет применяем только когда категория выбрана и
     // входит в [1, 2, 7] - скрытый select всё равно шлёт значение
     $sockRelevant = in_array($fCat, [1, 2, 7], true);
     if ($fSock > 0 && $sockRelevant) {
-        $compWhere .= ' AND components.socket_id = ?';
-        $compParams[] = $fSock;
-        $compTypes .= 'i';
+        $listWhere .= ' AND components.socket_id = ?';
+        $listParams[] = $fSock;
+        $listTypes .= 'i';
     }
     if ($fQ !== '') {
-        $compWhere .= ' AND components.component_name LIKE ?';
-        $compParams[] = '%' . $fQ . '%';
-        $compTypes .= 's';
+        $listWhere .= ' AND components.component_name LIKE ?';
+        $listParams[] = '%' . $fQ . '%';
+        $listTypes .= 's';
     }
 
     // 3.7-f-3-11: сортировка только из белого списка, $_GET в SQL не идёт
@@ -104,9 +109,8 @@ if ($tab === 'components') {
         'name_asc' => 'components.component_name ASC',
     ];
     $sort = (string) ($_GET['sort'] ?? '');
-    $orderBy = $sortWhitelist[$sort] ?? 'components.component_id ASC';
+    $listOrder = $sortWhitelist[$sort] ?? 'components.component_id ASC';
 
-    // строка GET-параметров для сохранения в ссылках пагинации
     $qs = [];
     if ($fCat > 0) {
         $qs[] = 'cat=' . $fCat;
@@ -120,24 +124,101 @@ if ($tab === 'components') {
     if (isset($sortWhitelist[$sort])) {
         $qs[] = 'sort=' . $sort;
     }
-    $compQuery = implode('&', $qs);
+    $listQuery = implode('&', $qs);
+} elseif ($tab === 'orders') {
+    // 3.7-f-4-3: фильтр по статусу, поиск по покупателю, сортировка
+    $fStatus = trim((string) ($_GET['status'] ?? ''));
+    $fQ = trim((string) ($_GET['q'] ?? ''));
+    $statusWhitelist = ['Обрабатывается', 'Собирается', 'Доставляется', 'Выполнен', 'Отменён'];
+    if (in_array($fStatus, $statusWhitelist, true)) {
+        $listWhere .= ' AND orders.status = ?';
+        $listParams[] = $fStatus;
+        $listTypes .= 's';
+    }
+    if ($fQ !== '') {
+        $like = '%' . $escapeLike($fQ) . '%';
+        $listWhere .= ' AND (users.user_name LIKE ? OR users.user_surname LIKE ? OR users.user_login LIKE ?)';
+        $listParams[] = $like;
+        $listParams[] = $like;
+        $listParams[] = $like;
+        $listTypes .= 'sss';
+    }
+    $orderWhitelist = [
+        'date_desc' => 'orders.created_at DESC, orders.order_id DESC',
+        'date_asc' => 'orders.created_at ASC, orders.order_id ASC',
+        'price_desc' => 'assembly.assembly_price DESC, orders.order_id DESC',
+        'price_asc' => 'assembly.assembly_price ASC, orders.order_id ASC',
+        'id_asc' => 'orders.order_id ASC',
+    ];
+    $sort = (string) ($_GET['sort'] ?? '');
+    $listOrder = $orderWhitelist[$sort] ?? 'orders.created_at DESC, orders.order_id DESC';
+
+    $qs = [];
+    if (in_array($fStatus, $statusWhitelist, true)) {
+        $qs[] = 'status=' . urlencode($fStatus);
+    }
+    if ($fQ !== '') {
+        $qs[] = 'q=' . urlencode($fQ);
+    }
+    if (isset($orderWhitelist[$sort])) {
+        $qs[] = 'sort=' . $sort;
+    }
+    $listQuery = implode('&', $qs);
+} elseif ($tab === 'users') {
+    // 3.7-f-4-3: фильтр по группе, поиск по имени или логину, сортировка
+    $fGroup = trim((string) ($_GET['group'] ?? ''));
+    $fQ = trim((string) ($_GET['q'] ?? ''));
+    if (in_array($fGroup, ['user', 'admin'], true)) {
+        $listWhere .= ' AND users.user_group = ?';
+        $listParams[] = $fGroup;
+        $listTypes .= 's';
+    }
+    if ($fQ !== '') {
+        $like = '%' . $escapeLike($fQ) . '%';
+        $listWhere .= ' AND (users.user_name LIKE ? OR users.user_login LIKE ?)';
+        $listParams[] = $like;
+        $listParams[] = $like;
+        $listTypes .= 'ss';
+    }
+    $userOrderWhitelist = [
+        'id_asc' => 'users.user_id ASC',
+        'id_desc' => 'users.user_id DESC',
+        'name_asc' => 'users.user_name ASC',
+        'name_desc' => 'users.user_name DESC',
+        'login_asc' => 'users.user_login ASC',
+    ];
+    $sort = (string) ($_GET['sort'] ?? '');
+    $listOrder = $userOrderWhitelist[$sort] ?? 'users.user_id ASC';
+
+    $qs = [];
+    if (in_array($fGroup, ['user', 'admin'], true)) {
+        $qs[] = 'group=' . $fGroup;
+    }
+    if ($fQ !== '') {
+        $qs[] = 'q=' . urlencode($fQ);
+    }
+    if (isset($userOrderWhitelist[$sort])) {
+        $qs[] = 'sort=' . $sort;
+    }
+    $listQuery = implode('&', $qs);
 }
 
 $countSql = [
-    'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $compWhere,
-    'users' => 'SELECT COUNT(*) FROM users',
+    'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $listWhere,
+    'users' => 'SELECT COUNT(*) FROM users WHERE 1=1' . $listWhere,
     'orders' => 'SELECT COUNT(*) FROM users,assembly,orders
-                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id',
+                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id'
+                 . $listWhere,
 ][$tab];
-if ($compParams === []) {
+if ($listParams === []) {
     $stmt = db_prepare($mysql, $countSql, '');
 } else {
-    $stmt = db_prepare($mysql, $countSql, $compTypes, ...$compParams);
+    $stmt = db_prepare($mysql, $countSql, $listTypes, ...$listParams);
 }
 $stmt->execute();
 $total = (int) $stmt->get_result()->fetch_row()[0];
 // [$page, $pages, $offset] доступны во всех вкладках через общий scope
-[$page, $pages, $offset] = paginate($tab, $total, $perPage, $compQuery);
+[$page, $pages, $offset] = paginate($tab, $total, $perPage, $listQuery);
 
 // Обработчики POST (перенесено из profile.php, SQL без изменений)
 if ($isAdmin && isset($_POST['deleteComponent'])) {
