@@ -95,6 +95,17 @@ if ($tab === 'components') {
         $compTypes .= 's';
     }
 
+    // 3.7-f-3-11: сортировка только из белого списка, $_GET в SQL не идёт
+    $sortWhitelist = [
+        'price_asc' => 'components.component_price ASC',
+        'price_desc' => 'components.component_price DESC',
+        'amount_asc' => 'components.amount ASC',
+        'amount_desc' => 'components.amount DESC',
+        'name_asc' => 'components.component_name ASC',
+    ];
+    $sort = (string) ($_GET['sort'] ?? '');
+    $orderBy = $sortWhitelist[$sort] ?? 'components.component_id ASC';
+
     // строка GET-параметров для сохранения в ссылках пагинации
     $qs = [];
     if ($fCat > 0) {
@@ -105,6 +116,9 @@ if ($tab === 'components') {
     }
     if ($fQ !== '') {
         $qs[] = 'q=' . urlencode((string) ($_GET['q'] ?? ''));
+    }
+    if (isset($sortWhitelist[$sort])) {
+        $qs[] = 'sort=' . $sort;
     }
     $compQuery = implode('&', $qs);
 }

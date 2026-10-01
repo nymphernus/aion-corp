@@ -86,9 +86,29 @@ if ($result) {
                         <input type="search" name="q" class="input" placeholder="Поиск по названию..."
                                value="<?= escape((string) ($_GET['q'] ?? '')) ?>">
 
+                        <!-- 3.7-f-3-11: сортировка, значения проверяются по белому списку в admin.php -->
+                        <select name="sort" class="input">
+<?php
+    $sortOptions = [
+        '' => 'Без сортировки',
+        'price_asc' => 'Цена ↑',
+        'price_desc' => 'Цена ↓',
+        'amount_asc' => 'Количество ↑',
+        'amount_desc' => 'Количество ↓',
+        'name_asc' => 'Название (А-Я)',
+    ];
+    $curSort = (string) ($_GET['sort'] ?? '');
+    foreach ($sortOptions as $val => $label):
+?>
+                            <option value="<?= escape($val) ?>"<?= $curSort === $val ? ' selected' : '' ?>>
+                                <?= escape($label) ?>
+                            </option>
+<?php endforeach; ?>
+                        </select>
+
                         <button type="submit" class="btn btn--primary">Применить</button>
 
-<?php if ((int) ($_GET['cat'] ?? 0) > 0 || (int) ($_GET['sock'] ?? 0) > 0 || trim((string) ($_GET['q'] ?? '')) !== ''): ?>
+<?php if ((int) ($_GET['cat'] ?? 0) > 0 || (int) ($_GET['sock'] ?? 0) > 0 || trim((string) ($_GET['q'] ?? '')) !== '' || trim((string) ($_GET['sort'] ?? '')) !== ''): ?>
                         <a href="?tab=components" class="btn btn--ghost">Сбросить</a>
 <?php endif; ?>
                     </form>
@@ -119,7 +139,7 @@ if ($result) {
                                                components.form_factor, components.rpm, components.cooler_type
                                         FROM components,categories WHERE components.category_id = categories.category_id"
                                         . $compWhere . "
-                                        ORDER BY `components`.`component_id` ASC LIMIT ? OFFSET ?";
+                                        ORDER BY {$orderBy} LIMIT ? OFFSET ?";
                                 // 3.7-f-2-2: параметры фильтров идут перед LIMIT/OFFSET
                                 if ($compParams === []) {
                                     $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
