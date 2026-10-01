@@ -55,7 +55,12 @@
 
                         <div class="modal-section">
                             <h3>Адрес</h3>
-                            <!-- 3.7-i: одно поле будет разбито на город/улицу/дом/индекс -->
+                            <!--
+                                TODO 3.7-i: сейчас одно поле user_address (varchar(1000)).
+                                После миграции колонок region / city / street / house /
+                                apartment / postal_code здесь появятся отдельные
+                                поля, а этот блок будет удалён.
+                            -->
                             <div class="form-group">
                                 <label class="form-label" for="editUserAddress">Адрес</label>
                                 <input class="input" name="user_address" id="editUserAddress" maxlength="1000">
