@@ -64,33 +64,24 @@ if ($isAdmin && isset($_POST['addComponent'])) {
     $videoCore = $_POST['vc'] ?? null;
     $socketId = $_POST['sock'] ?? null;
 
-    // TODO Stage 3.7: MAX(component_id)+1 — race condition, заменить на AUTO_INCREMENT
-    $stmt = $mysql->prepare("SELECT MAX(component_id) FROM components");
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $checklast = $result->fetch_array();
-    $maxID = ($checklast[0] ?? 0) + 1;
-
+    // AUTO_INCREMENT выдаёт id сам — MAX(id)+1 был гонкой (Stage 3.7)
     if (!empty($name) && !empty($price) && !empty($amount) && !empty($categoryId)) {
-        $stmt = $mysql->prepare("INSERT INTO `components` (`component_id`,`component_name`, `component_price`, `amount`, `category_id`) VALUES(?,?,?,?,?)");
-        $stmt->bind_param("isiii", $maxID, $name, $price, $amount, $categoryId);
+        $stmt = db_prepare($mysql, "INSERT INTO `components` (`component_name`, `component_price`, `amount`, `category_id`) VALUES(?,?,?,?)", "siii", $name, $price, $amount, $categoryId);
         $stmt->execute();
+        $newId = $mysql->insert_id;
 
         if ($tdp !== null) {
-            $stmt = $mysql->prepare("UPDATE `components` SET `tdp` = ? WHERE `component_id` = ?");
-            $stmt->bind_param("ii", $tdp, $maxID);
+            $stmt = db_prepare($mysql, "UPDATE `components` SET `tdp` = ? WHERE `component_id` = ?", "ii", $tdp, $newId);
             $stmt->execute();
         }
 
         if ($videoCore !== null) {
-            $stmt = $mysql->prepare("UPDATE `components` SET `video_core` = ? WHERE `component_id` = ?");
-            $stmt->bind_param("si", $videoCore, $maxID);
+            $stmt = db_prepare($mysql, "UPDATE `components` SET `video_core` = ? WHERE `component_id` = ?", "si", $videoCore, $newId);
             $stmt->execute();
         }
 
         if ($socketId !== null) {
-            $stmt = $mysql->prepare("UPDATE `components` SET `socket_id` = ? WHERE `component_id` = ?");
-            $stmt->bind_param("ii", $socketId, $maxID);
+            $stmt = db_prepare($mysql, "UPDATE `components` SET `socket_id` = ? WHERE `component_id` = ?", "ii", $socketId, $newId);
             $stmt->execute();
         }
     }
