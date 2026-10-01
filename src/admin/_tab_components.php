@@ -62,15 +62,24 @@ if ($result) {
 <?php endforeach; ?>
                         </select>
 
-                        <select name="sock" class="input">
-                            <option value="">Все сокеты</option>
+                        <?php
+                            // 3.7-f-3-3: сокет есть только у процессоров, материнских
+                            // плат и кулеров - для остальных категорий фильтр скрываем
+                            $fCatId = (int) ($_GET['cat'] ?? 0);
+                            $sockRelevant = $fCatId === 0 || in_array($fCatId, [1, 2, 7], true);
+                            $sockCatsJs = [1, 2, 7];
+?>
+                            <span id="sockFilterWrap"<?= $sockRelevant ? '' : ' style="display:none"' ?>>
+                                <select name="sock" class="input" id="sockFilter">
+                                    <option value="">Все сокеты</option>
 <?php foreach ($socketRows as $row): ?>
-                            <option value="<?= (int) $row['socket_id'] ?>"
-                                    <?= (int) ($_GET['sock'] ?? 0) === (int) $row['socket_id'] ? 'selected' : '' ?>>
-                                <?= escape($row['socket_type'] ?? '') ?>
-                            </option>
+                                    <option value="<?= (int) $row['socket_id'] ?>"
+                                            <?= (int) ($_GET['sock'] ?? 0) === (int) $row['socket_id'] ? 'selected' : '' ?>>
+                                        <?= escape($row['socket_type'] ?? '') ?>
+                                    </option>
 <?php endforeach; ?>
-                        </select>
+                                </select>
+                            </span>
 
                         <input type="search" name="q" class="input" placeholder="Поиск по названию..."
                                value="<?= escape((string) ($_GET['q'] ?? '')) ?>">

@@ -189,6 +189,20 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
+// 3.7-f-3-3: фильтр «Сокет» показывается только для CPU / материнских
+// плат / кулеров. Сервер уже прячет его при отрисовке, здесь синхронизация
+// при смене категории без перезагрузки.
+document.addEventListener('change', function(e) {
+    if (e.target.name !== 'cat') return;
+    var form = e.target.closest('.admin-filters');
+    if (!form) return;
+    var wrap = form.querySelector('#sockFilterWrap');
+    if (!wrap) return;
+    var cat = e.target.value;
+    var relevant = cat === '' || cat === '1' || cat === '2' || cat === '7';
+    wrap.style.display = relevant ? '' : 'none';
+});
+
 // 3.7-f-2-6: клик по фону вокруг открытой модалки закрывает её.
 // Нативное поведение dialog: клик по самому элементу (мимо содержимого)
 // попадает сюда с e.target === modal. Регистрируется на верхнем уровне,
