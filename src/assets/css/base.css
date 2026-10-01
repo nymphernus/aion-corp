@@ -36,11 +36,11 @@ body {
     /* 3.7-f-2-8: был почти незаметный вертикальный градиент; теперь
        диагональный с читаемым перепадом. --bg (F8FAFC) остаётся
        цветом карточек и прочих поверхностей */
-    background: linear-gradient(135deg,
-        #E8EBF0 0%,
-        #DDE2EA 30%,
-        #E5E9EF 60%,
-        #D8DFE8 100%);
+    background: linear-gradient(145deg,
+        #F8FAFC 0%,
+        #E2E8F0 30%,
+        #CBD5E1 65%,
+        #E2E8F0 100%);
     background-attachment: fixed;
     background-color: var(--bg);
     color: var(--text);
