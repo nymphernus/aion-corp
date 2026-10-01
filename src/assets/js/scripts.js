@@ -346,6 +346,38 @@ document.addEventListener('click', function(e) {
     openUserModal(data);
 });
 
+// 3.7-f-4b-3: открыватель read-only модалки заказа в профиле.
+// Модалка ничего не отправляет — только показывает данные строки.
+function openUserOrderModal(data) {
+    var modal = document.getElementById('userOrderModal');
+    if (!modal || !data) return;
+
+    var setText = function(id, value) {
+        var el = modal.querySelector(id);
+        if (el) {
+            el.textContent = (value === null || value === undefined || value === '')
+                ? 'Не указан' : String(value);
+        }
+    };
+
+    setText('#userOrderNumber', data.order_id);
+    setText('#userOrderAssembly', data.assembly_name);
+    setText('#userOrderPrice', (data.price ?? '') + ' руб.');
+    setText('#userOrderCreated', data.created_at);
+
+    var status = modal.querySelector('#userOrderStatus');
+    if (status) {
+        status.textContent = data.status ?? 'Не указан';
+        status.className = 'badge ' + (
+            data.status === 'Выполнен' ? 'badge--success'
+            : data.status === 'Отменён' ? 'badge--error'
+            : 'badge--warning'
+        );
+    }
+
+    modal.showModal();
+}
+
 // 3.7-h-1: клик по строке заказа — модалка с деталями и сменой статуса
 document.addEventListener('click', function(e) {
     var tr = e.target.closest ? e.target.closest('tr[data-row]') : null;
@@ -363,6 +395,12 @@ document.addEventListener('click', function(e) {
     // 3.7-h-2: строка пользователя открывает свою модалку
     if (data.modal === 'user') {
         openUserModal(data);
+        return;
+    }
+
+    // 3.7-f-4b-3: строка заказа в профиле пользователя — только просмотр
+    if (data.modal === 'user-order') {
+        openUserOrderModal(data);
         return;
     }
 

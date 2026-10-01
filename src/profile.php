@@ -202,11 +202,31 @@ require __DIR__ . '/partials/header.php';
                 <?php else: ?>
                     <?php // 3.7-f-4-1: единый сайдбар (тот же partial, что и в admin.php) ?>
                     <?php $activeTab = 'profile'; ?>
+                    <?php
+                    // 3.7-f-4b-5: секцию можно открыть ссылкой, чтобы из модалки
+                    // пользователя в админке попасть в «Мои заказы» без кликов.
+                    // Значение из GET не идёт в разметку как есть - только по белому
+                    // списку, id секции берётся из массива, а не из запроса.
+                    $sectionMap = ['info' => 'card-info', 'orders' => 'card-builds', 'fav' => 'card-fav'];
+                    $sectionKey = (string) ($_GET['section'] ?? 'info');
+                    $activeSection = $sectionMap[$sectionKey] ?? 'card-info';
+                    // секции заказов и избранного рисуются только обычному
+                    // пользователю; для админа параметр игнорируется, иначе
+                    // ?section=orders скрыл бы единственную карточку и страница
+                    // осталась бы пустой
+                    if ($isAdmin) {
+                        $activeSection = 'card-info';
+                    }
+                    // скрываем секцию, если она не выбранная
+                    $sectionStyle = static function (string $id) use ($activeSection): string {
+                        return $id === $activeSection ? '' : ' style="display:none;"';
+                    };
+                    ?>
                     <div class="userProfile" id="userProfile">
                         <div class="profile-layout">
 <?php require __DIR__ . '/partials/profile-sidebar.php'; ?>
                             <div class="profile-content">
-                            <section class="card" id="card-info" data-section>
+                            <section class="card" id="card-info" data-section<?= $sectionStyle('card-info') ?>>
                                 <h2>Личная информация</h2>
                                 <div class="profile-field" data-field="name">
                                     <div class="profile-field-label">Имя</div>
@@ -272,7 +292,7 @@ require __DIR__ . '/partials/header.php';
                             <!-- 3.7-f-4: промежуточная админ-карточка удалена —
      в сайдбаре ссылка на /admin.php, внутри админки свой сайдбар с вкладками -->
                             <?php if (!$isAdmin): ?>
-                            <section class="card" id="card-fav" data-section style="display:none;">
+                            <section class="card" id="card-fav" data-section<?= $sectionStyle('card-fav') ?>>
                                 <h2>Избранное</h2>
                                             <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
                                             <div class="table-wrap">
@@ -322,53 +342,112 @@ require __DIR__ . '/partials/header.php';
                                                 ?>
                                             </div>
                             </section>
-                            <section class="card" id="card-builds" data-section style="display:none;">
-                                            <h2>Мои сборки</h2>
+                            <section class="card" id="card-builds" data-section<?= $sectionStyle('card-builds') ?>>
+                                            <h2>Мои заказы</h2>
                                             <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
                                             <div class="table-wrap">
                                                 <?php
-                                                $checkSql = "SHOW COLUMNS FROM orders LIKE 'status'";
-                                                $checkStmt = $mysql->prepare($checkSql);
-                                                $checkStmt->execute();
-                                                $checkResult = $checkStmt->get_result();
+                                                // 3.7-f-4b-3: «Мои сборки» -> «Мои заказы».
+                                                // Таблица и раньше брала заказы из orders, но без
+                                                // номера и даты, а название сборки вело на её
+                                                // страницу. Теперь это список заказов, а детали
+                                                // открываются read-only модалкой.
+                                                // Проверка SHOW COLUMNS на status убрана: admin.php
+                                                // и так требует orders.created_at, поэтому такая
+                                                // «защита» лишь прятала бы ошибку.
+                                                $sql = "SELECT o.order_id, o.status, o.created_at,
+                                                               a.assembly_name, a.assembly_price, o.assembly_id
+                                                        FROM orders o
+                                                        JOIN assembly a ON a.assembly_id = o.assembly_id
+                                                        WHERE o.user_id = ?
+                                                        ORDER BY o.created_at DESC";
+                                                $stmt = db_prepare($mysql, $sql, "i", $_SESSION['user_id']);
+                                                $stmt->execute();
+                                                $result = $stmt->get_result();
 
-                                                if ($checkResult && $checkResult->num_rows > 0) {
-                                                    $sql = "SELECT assembly_name,assembly_price,assembly.assembly_id,status FROM users,assembly,orders
-                                                            WHERE assembly.assembly_id = orders.assembly_id AND users.user_id = ? AND orders.user_id = ?
-                                                            ORDER BY `orders`.`order_id` ASC";
-                                                    $stmt = $mysql->prepare($sql);
-                                                    $stmt->bind_param("ii", $_SESSION['user_id'], $_SESSION['user_id']);
-                                                    $stmt->execute();
-                                                    $result = $stmt->get_result();
+                                                $ordRows = [];
+                                                while ($row = $result->fetch_array()) {
+                                                    $ordRows[] = $row;
+                                                }
 
-                                                    $ordRows = [];
-                                                    while ($row = $result->fetch_array()) {
-                                                        $ordRows[] = $row;
-                                                    }
-
-                                                    if (empty($ordRows)) {
-                                                        echo '<div class="profile-empty">Пока нет сборок</div>';
-                                                    } else {
-                                                    echo '<table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th>Статус</th></tr></thead><tbody>';
-
-                                                    foreach ($ordRows as $row) {
-                                                        if ($row['assembly_id'] > 3) {
-                                                            $row['assembly_name'] = "Сборка " . ($row[0] ?? '');
-                                                        }
-                                                        $statusCls = (($row['status'] ?? '') === 'Выполнен') ? 'badge--success' : 'badge--warning';
-                                                        echo "<tr>"
-                                                            . "<td><a href=\"assembly.php?check-purchased={$row['assembly_id']}\">" . htmlspecialchars($row['assembly_name'] ?? '') . "</a></td>"
-                                                            . "<td>" . htmlspecialchars($row['assembly_price'] ?? '') . "</td>"
-                                                            . "<td><span class=\"badge " . $statusCls . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
-                                                            . "</tr>";
-                                                    }
-                                                    echo '</tbody></table>';
-                                                    }
+                                                if (empty($ordRows)) {
+                                                    echo '<div class="profile-empty">Пока нет заказов</div>';
                                                 } else {
-                                                    echo "<p>Статус заказов временно недоступен</p>";
+                                                echo '<table class="table"><thead><tr><th>№</th><th>Сборка</th><th>Стоимость</th><th>Статус</th><th>Дата</th></tr></thead><tbody>';
+
+                                                foreach ($ordRows as $row) {
+                                                    // 3.7-f-4b-3: явное поле вместо хрупкого $row[0]
+                                                    $ordAsmName = $row['assembly_name'] ?? '';
+                                                    if (($row['assembly_id'] ?? 0) > 3) {
+                                                        $ordAsmName = "Сборка " . $ordAsmName;
+                                                    }
+                                                    $statusCls = (($row['status'] ?? '') === 'Выполнен') ? 'badge--success' : 'badge--warning';
+                                                    $ordCreated = ($row['created_at'] ?? '')
+                                                        ? date('d.m.Y H:i', strtotime((string) $row['created_at']))
+                                                        : '';
+                                                    $ordData = json_encode([
+                                                        'modal' => 'user-order',
+                                                        'order_id' => $row['order_id'],
+                                                        'assembly_id' => $row['assembly_id'],
+                                                        'assembly_name' => $ordAsmName,
+                                                        'price' => $row['assembly_price'],
+                                                        'status' => $row['status'],
+                                                        'created_at' => $ordCreated,
+                                                    ], JSON_UNESCAPED_UNICODE);
+                                                    echo "<tr class=\"row-link\" data-row='" . escape($ordData) . "'>"
+                                                        . "<td>" . htmlspecialchars((string) $row['order_id']) . "</td>"
+                                                        . "<td>" . htmlspecialchars($ordAsmName) . "</td>"
+                                                        . "<td>" . htmlspecialchars((string) ($row['assembly_price'] ?? '')) . " руб.</td>"
+                                                        . "<td><span class=\"badge " . $statusCls . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
+                                                        . "<td>" . htmlspecialchars($ordCreated) . "</td>"
+                                                        . "</tr>";
+                                                }
+                                                echo '</tbody></table>';
                                                 }
                                                 ?>
                                             </div>
+
+                                            <!--
+                                                3.7-f-4b-3: просмотр заказа только для чтения.
+                                                Ни формы, ни кнопок сохранения - одна кнопка
+                                                «Закрыть». Все поля заполняет JS из data-row
+                                                строки, поэтому модалка ничего не отправляет.
+                                            -->
+                                            <dialog id="userOrderModal" class="modal">
+                                                <div class="modal-form">
+                                                    <h2>Заказ №<span id="userOrderNumber"></span></h2>
+
+                                                    <div class="modal-section">
+                                                        <h3>Сборка</h3>
+                                                        <div class="form-group">
+                                                            <label class="form-label">Название</label>
+                                                            <div id="userOrderAssembly"></div>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label class="form-label">Стоимость</label>
+                                                            <div id="userOrderPrice"></div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="modal-section">
+                                                        <h3>Заказ</h3>
+                                                        <div class="form-group">
+                                                            <label class="form-label">Статус</label>
+                                                            <div><span class="badge" id="userOrderStatus"></span></div>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label class="form-label">Создан</label>
+                                                            <div id="userOrderCreated"></div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="modal-actions">
+                                                        <div class="modal-actions-right">
+                                                            <button type="button" class="btn btn--secondary" data-action="close-modal">Закрыть</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </dialog>
                             </section>
                                 <?php endif; ?>
                             </div>

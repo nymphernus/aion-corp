@@ -7,10 +7,14 @@
  *   $isAdmin     — bool (если не передан, берётся из сессии)
  *   $userProfile — массив пользователя (profile.php); в admin.php
  *                  используются данные сессии
+ *   $activeSection — id активной секции профиля (card-info / card-builds /
+ *                  card-fav); задаётся profile.php из ?section=
  */
 
 $activeTab = $activeTab ?? 'profile';
 $isAdmin = $isAdmin ?? (($_SESSION['user_group'] ?? '') === 'admin');
+// в admin.php секций профиля нет, поэтому подсветки не будет
+$activeSection = ($activeTab === 'profile') ? ($activeSection ?? 'card-info') : '';
 $userName = $userProfile['user_name'] ?? ($_SESSION['user_name'] ?? '');
 $userLogin = $userProfile['user_login'] ?? ($_SESSION['user_login'] ?? '');
 $userInitial = mb_strtoupper(mb_substr((string) $userName, 0, 1, 'UTF-8'), 'UTF-8');
@@ -28,13 +32,13 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                     </div>
 
                     <nav class="profile-nav">
-                        <a href="/profile.php" class="profile-nav-item<?= $activeTab === 'profile' ? ' active' : '' ?>">Личная информация</a>
+                        <a href="/profile.php" class="profile-nav-item<?= $activeSection === 'card-info' ? ' active' : '' ?>">Личная информация</a>
 
 <?php if (!$isAdmin): ?>
                         <!-- 3.7-f-4-1: для обычного пользователя это вкладки
                              внутри profile.php, поэтому остаются кнопками -->
-                        <button type="button" class="profile-nav-item" data-action="switch" data-target="card-builds">Мои сборки</button>
-                        <button type="button" class="profile-nav-item" data-action="switch" data-target="card-fav">Избранное</button>
+                        <button type="button" class="profile-nav-item<?= $activeSection === 'card-builds' ? ' active' : '' ?>" data-action="switch" data-target="card-builds">Мои заказы</button>
+                        <button type="button" class="profile-nav-item<?= $activeSection === 'card-fav' ? ' active' : '' ?>" data-action="switch" data-target="card-fav">Избранное</button>
 <?php else: ?>
                         <details class="profile-nav-group"<?= $isAdminSection ? ' open' : '' ?>>
                             <summary class="profile-nav-item<?= $isAdminSection ? ' active' : '' ?>">Панель управления</summary>
