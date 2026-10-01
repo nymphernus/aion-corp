@@ -71,9 +71,17 @@ if (!defined('ADMIN_CONTEXT')) {
                         </tr></thead><tbody>";
                     if ($result) {
                         while ($row = $result->fetch_array()) {
-                            // 3.7-f-3-7: сокращённый адрес для таблицы
-                        $addr = trim((string) ($row['user_address'] ?? ''));
-                        $shortAddress = $addr !== '' ? explode(',', $addr)[0] : 'Не указан';
+                            // 3.7-i-3: адрес берём из разбитых полей, а не из
+                        // legacy-строки: иначе после правки города таблица
+                        // продолжала бы показывать старый user_address.
+                        // Fallback на legacy оставлен для пользователей,
+                        // у которых новые поля ещё не заполнены.
+                        $addr = trim((string) ($row['user_city'] ?? ''));
+                        if ($addr === '') {
+                            $legacy = trim((string) ($row['user_address'] ?? ''));
+                            $addr = $legacy !== '' ? explode(',', $legacy)[0] : '';
+                        }
+                        $shortAddress = $addr !== '' ? $addr : 'Не указан';
 
                         // 3.7-h-2: данные строки для модалки пользователя
                         $rowData = json_encode([
@@ -99,8 +107,6 @@ if (!defined('ADMIN_CONTEXT')) {
                                 . "<td>" . htmlspecialchars($row['user_name'] ?? '') . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_login'] ?? '') . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_group'] ?? '') . "</td>"
-                                // 3.7-f-3-7: в таблице только город (до запятой),
-                                // полный адрес - в модалке пользователя
                                 . "<td>" . htmlspecialchars($shortAddress) . "</td>"
                                 . "<td>" . htmlspecialchars($row['user_number'] ?? '') . "</td>"
                                 . "</tr>";
