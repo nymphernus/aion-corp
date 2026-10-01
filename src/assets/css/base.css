@@ -239,6 +239,19 @@ a {
     padding: 12px 10px;
 }
 
+/* 3.7-f-2-2: панель фильтров админ-таблицы */
+.admin-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.admin-filters .input {
+    max-width: 220px;
+}
+
 /* Пагинация (3.7-f-5) */
 
 .pagination {

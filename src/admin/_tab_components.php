@@ -47,6 +47,41 @@ if ($result) {
                         <h1>Управление комплектующими</h1>
                         <button type="button" class="btn btn--primary" data-action="open-modal" data-modal="addComponentModal">+ Добавить</button>
                     </div>
+
+                    <!-- 3.7-f-2-2: фильтры категории / сокета / поиска по названию -->
+                    <form method="get" class="admin-filters">
+                        <input type="hidden" name="tab" value="components">
+
+                        <select name="cat" class="input">
+                            <option value="">Все категории</option>
+<?php foreach ($catRows as $row): ?>
+                            <option value="<?= (int) $row['category_id'] ?>"
+                                    <?= (int) ($_GET['cat'] ?? 0) === (int) $row['category_id'] ? 'selected' : '' ?>>
+                                <?= escape($row['category_name'] ?? '') ?>
+                            </option>
+<?php endforeach; ?>
+                        </select>
+
+                        <select name="sock" class="input">
+                            <option value="">Все сокеты</option>
+<?php foreach ($socketRows as $row): ?>
+                            <option value="<?= (int) $row['socket_id'] ?>"
+                                    <?= (int) ($_GET['sock'] ?? 0) === (int) $row['socket_id'] ? 'selected' : '' ?>>
+                                <?= escape($row['socket_type'] ?? '') ?>
+                            </option>
+<?php endforeach; ?>
+                        </select>
+
+                        <input type="search" name="q" class="input" placeholder="Поиск по названию..."
+                               value="<?= escape((string) ($_GET['q'] ?? '')) ?>">
+
+                        <button type="submit" class="btn btn--primary">Применить</button>
+
+<?php if ((int) ($_GET['cat'] ?? 0) > 0 || (int) ($_GET['sock'] ?? 0) > 0 || trim((string) ($_GET['q'] ?? '')) !== ''): ?>
+                        <a href="?tab=components" class="btn btn--ghost">Сбросить</a>
+<?php endif; ?>
+                    </form>
+
                     <div class="table-wrap">
                         <table class="table">
                             <thead>
@@ -71,9 +106,15 @@ if ($result) {
                                                components.video_core, components.ram_type, components.capacity_gb,
                                                components.memory_type, components.wattage, components.interface,
                                                components.form_factor, components.rpm, components.cooler_type
-                                        FROM components,categories WHERE components.category_id = categories.category_id
+                                        FROM components,categories WHERE components.category_id = categories.category_id"
+                                        . $compWhere . "
                                         ORDER BY `components`.`component_id` ASC LIMIT ? OFFSET ?";
-                                $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
+                                // 3.7-f-2-2: параметры фильтров идут перед LIMIT/OFFSET
+                                if ($compParams === []) {
+                                    $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
+                                } else {
+                                    $stmt = db_prepare($mysql, $sql, $compTypes . "ii", ...array_merge($compParams, [$perPage, $offset]));
+                                }
                                 $stmt->execute();
                                 $result = $stmt->get_result();
                                 if ($result) {
@@ -115,7 +156,7 @@ if ($result) {
                             </tbody>
                         </table>
                     </div>
-                    <?= render_pagination('components', $page, $pages) ?>
+                    <?= render_pagination('components', $page, $pages, $compQuery) ?>
                     <div style="color:var(--text-secondary);font-size:13px;text-align:center;">
                         Показано <?= min($perPage, max(0, $total - $offset)) ?> из <?= $total ?>, страница <?= $page ?> из <?= $pages ?>
                     </div>

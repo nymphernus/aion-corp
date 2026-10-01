@@ -58,18 +58,68 @@ if (!isset($allowedTabs[$tab])) {
 // 3.7-f-5: пагинация. Считаем ДО вывода HTML: header() в paginate()
 // не сработает после старта вывода (headers already sent), и редирект
 // с page=99 молча превратился бы в пустую таблицу.
-$perPage = 20;
+$perPage = 10; // 3.7-f-2-2: было 20
+
+// 3.7-f-2-2: фильтры таблицы комплектующих (категория / сокет / поиск).
+// Условие общее для COUNT, для выборки и для ссылок пагинации.
+$compWhere = '';
+$compParams = [];
+$compTypes = '';
+$compQuery = ''; // строка GET-параметров для сохранения в ссылках
+
+if ($tab === 'components') {
+    $fCat = (int) ($_GET['cat'] ?? 0);
+    $fSock = (int) ($_GET['sock'] ?? 0);
+    $fQ = trim((string) ($_GET['q'] ?? ''));
+    if ($fQ !== '') {
+        // экранируем спецсимволы LIKE, чтобы «%» не превращался в маску
+        $fQ = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $fQ);
+    }
+
+    if ($fCat > 0) {
+        $compWhere .= ' AND components.category_id = ?';
+        $compParams[] = $fCat;
+        $compTypes .= 'i';
+    }
+    if ($fSock > 0) {
+        $compWhere .= ' AND components.socket_id = ?';
+        $compParams[] = $fSock;
+        $compTypes .= 'i';
+    }
+    if ($fQ !== '') {
+        $compWhere .= ' AND components.component_name LIKE ?';
+        $compParams[] = '%' . $fQ . '%';
+        $compTypes .= 's';
+    }
+
+    $qs = [];
+    if ($fCat > 0) {
+        $qs[] = 'cat=' . $fCat;
+    }
+    if ($fSock > 0) {
+        $qs[] = 'sock=' . $fSock;
+    }
+    if ($fQ !== '') {
+        $qs[] = 'q=' . urlencode((string) ($_GET['q'] ?? ''));
+    }
+    $compQuery = implode('&', $qs);
+}
+
 $countSql = [
-    'components' => 'SELECT COUNT(*) FROM components',
+    'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $compWhere,
     'users' => 'SELECT COUNT(*) FROM users',
     'orders' => 'SELECT COUNT(*) FROM users,assembly,orders
                  WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id',
 ][$tab];
-$stmt = db_prepare($mysql, $countSql, '');
+if ($compParams === []) {
+    $stmt = db_prepare($mysql, $countSql, '');
+} else {
+    $stmt = db_prepare($mysql, $countSql, $compTypes, ...$compParams);
+}
 $stmt->execute();
 $total = (int) $stmt->get_result()->fetch_row()[0];
 // [$page, $pages, $offset] доступны во всех вкладках через общий scope
-[$page, $pages, $offset] = paginate($tab, $total, $perPage);
+[$page, $pages, $offset] = paginate($tab, $total, $perPage, $compQuery);
 
 // Обработчики POST (перенесено из profile.php, SQL без изменений)
 if ($isAdmin && isset($_POST['deleteComponent'])) {
