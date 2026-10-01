@@ -57,33 +57,72 @@ if (!isset($allowedTabs[$tab])) {
 if ($isAdmin && isset($_POST['addComponent'])) {
     csrf_verify();
     $name = $_POST['nm'] ?? '';
-    $price = $_POST['pr'] ?? 0;
-    $amount = $_POST['col'] ?? 0;
-    $categoryId = $_POST['cat'] ?? 0;
-    $tdp = $_POST['tdp'] ?? null;
-    $videoCore = $_POST['vc'] ?? null;
-    $socketId = $_POST['sock'] ?? null;
+    $price = (int) ($_POST['pr'] ?? 0);
+    $amount = (int) ($_POST['col'] ?? 0);
+    $categoryId = (int) ($_POST['cat'] ?? 0);
 
-    // AUTO_INCREMENT выдаёт id сам — MAX(id)+1 был гонкой (Stage 3.7)
+    // 3.7-c: разрешённые поля по категориям. Скрытые input всё равно
+    // уходят в $_POST (залипший tdp от «Процессора» после переключения
+    // на «ОЗУ»), поэтому сервер обязан резать всё вне маппинга.
+    $fieldMap = [
+        1  => ['socket_id', 'tdp', 'frequency_mhz', 'video_core'],
+        2  => ['socket_id', 'form_factor', 'ram_type'],
+        3  => ['capacity_gb', 'memory_type', 'tdp', 'wattage'],
+        4  => ['ram_type', 'capacity_gb', 'frequency_mhz'],
+        5  => ['wattage', 'form_factor'],
+        6  => ['form_factor'],
+        7  => ['cooler_type', 'tdp', 'socket_id'],
+        8  => ['capacity_gb', 'interface', 'rpm', 'form_factor'],
+        9  => ['capacity_gb', 'interface', 'form_factor'],
+        10 => ['interface'],
+    ];
+
     if (!empty($name) && !empty($price) && !empty($amount) && !empty($categoryId)) {
-        $stmt = db_prepare($mysql, "INSERT INTO `components` (`component_name`, `component_price`, `amount`, `category_id`) VALUES(?,?,?,?)", "siii", $name, $price, $amount, $categoryId);
+        $fields = [
+            'component_name' => $name,
+            'component_price' => $price,
+            'amount' => $amount,
+            'category_id' => $categoryId,
+            'description' => trim($_POST['description'] ?? '') ?: null,
+            'manufacturer' => trim($_POST['manufacturer'] ?? '') ?: null,
+            'model' => trim($_POST['model'] ?? '') ?: null,
+            'socket_id' => null,
+            'tdp' => null,
+            'frequency_mhz' => null,
+            'video_core' => null,
+            'ram_type' => null,
+            'capacity_gb' => null,
+            'memory_type' => null,
+            'wattage' => null,
+            'interface' => null,
+            'form_factor' => null,
+            'rpm' => null,
+            'cooler_type' => null,
+        ];
+
+        foreach ($fieldMap[$categoryId] ?? [] as $f) {
+            if ($f === 'socket_id') {
+                // select шлёт socket_id, значение — id из таблицы sockets
+                $fields['socket_id'] = ($_POST['socket'] ?? '') !== '' ? (int) $_POST['socket'] : null;
+            } elseif ($f === 'video_core') {
+                $fields['video_core'] = isset($_POST['video_core']) ? 1 : 0;
+            } elseif (($_POST[$f] ?? '') !== '') {
+                $fields[$f] = $_POST[$f];
+            }
+        }
+
+        // 3.7-c: один INSERT вместо INSERT + отдельных UPDATE
+        $intCols = ['component_price', 'amount', 'category_id', 'socket_id', 'tdp',
+            'frequency_mhz', 'video_core', 'capacity_gb', 'wattage', 'rpm'];
+        $cols = array_keys($fields);
+        $types = '';
+        foreach ($cols as $c) {
+            $types .= in_array($c, $intCols, true) ? 'i' : 's';
+        }
+        $sql = "INSERT INTO `components` (`" . implode('`,`', $cols) . '`) VALUES('
+            . implode(',', array_fill(0, count($cols), '?')) . ')';
+        $stmt = db_prepare($mysql, $sql, $types, ...array_values($fields));
         $stmt->execute();
-        $newId = $mysql->insert_id;
-
-        if ($tdp !== null) {
-            $stmt = db_prepare($mysql, "UPDATE `components` SET `tdp` = ? WHERE `component_id` = ?", "ii", $tdp, $newId);
-            $stmt->execute();
-        }
-
-        if ($videoCore !== null) {
-            $stmt = db_prepare($mysql, "UPDATE `components` SET `video_core` = ? WHERE `component_id` = ?", "si", $videoCore, $newId);
-            $stmt->execute();
-        }
-
-        if ($socketId !== null) {
-            $stmt = db_prepare($mysql, "UPDATE `components` SET `socket_id` = ? WHERE `component_id` = ?", "ii", $socketId, $newId);
-            $stmt->execute();
-        }
     }
     header('Location: /admin.php?tab=components');
     exit();

@@ -301,6 +301,29 @@ h1{
     margin: 0 0 24px;
 }
 
+/* 3.7-c: сетка ряда всегда видимых полей (2 колонки на десктопе) */
+.modal-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.modal-row .form-group {
+    margin-bottom: 0;
+}
+
+/* 3.7-c: группы полей по категориям — скрыты, пока JS не добавит is-visible.
+   Отступ уже даёт вложенный .form-group (16px из base.css), поэтому
+   на самой группе margin не нужен — иначе получилось бы 32px. */
+.field-group {
+    display: none;
+}
+
+.field-group.is-visible {
+    display: block;
+}
+
 .modal-actions {
     display: flex;
     justify-content: flex-end;

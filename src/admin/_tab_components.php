@@ -75,51 +75,192 @@ if ($result) {
                     </div>
                 </section>
 
+                <!--
+                    3.7-c: модалка с динамическими группами полей.
+                    Каждая группа .field-group несёт data-cat — список category_id,
+                    для которых она релевантна. Все группы в DOM, скрыты по умолчанию;
+                    показ/скрытие — scripts.js по событию change на select[name="cat"].
+                    Бэкенд (admin.php) пишет только поля из маппинга категории,
+                    остальные — NULL (скрытые input всё равно отправляются).
+                -->
                 <dialog id="addComponentModal" class="modal">
                     <form method="post" class="modal-form" action="/admin.php?tab=components">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                         <h2>Добавить комплектующий</h2>
 
-                        <div class="form-group">
-                            <label class="form-label" for="ac_nm">Название</label>
-                            <input class="input" id="ac_nm" name="nm" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="ac_pr">Стоимость</label>
-                            <input class="input" id="ac_pr" type="number" name="pr" required min="0">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="ac_col">Количество</label>
-                            <input class="input" id="ac_col" type="number" name="col" required min="0">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="ac_cat">Категория</label>
-                            <select class="input" id="ac_cat" name="cat" required>
-                                <option value="" selected disabled>Категория</option>
+                        <!-- Всегда видны: обязательные поля -->
+                        <div class="modal-row">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_nm">Название</label>
+                                <input class="input" id="ac_nm" name="nm" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="ac_pr">Стоимость</label>
+                                <input class="input" id="ac_pr" type="number" name="pr" required min="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="ac_col">Количество</label>
+                                <input class="input" id="ac_col" type="number" name="col" required min="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="ac_cat">Категория</label>
+                                <select class="input" id="ac_cat" name="cat" required>
+                                    <option value="" selected disabled>Категория</option>
 <?php
                                 foreach ($catRows as $row) {
                                     echo "<option value=\"" . htmlspecialchars($row['category_id'] ?? '') . "\">" . htmlspecialchars($row['category_name'] ?? '') . "</option>";
                                 }
 ?>
-                            </select>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Всегда видны: опциональные идентификаторы -->
+                        <div class="modal-row">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_man">Производитель</label>
+                                <input class="input" id="ac_man" name="manufacturer">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="ac_model">Модель</label>
+                                <input class="input" id="ac_model" name="model">
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="ac_sock">Сокет</label>
-                            <select class="input" id="ac_sock" name="sock">
-                                <option value="">Не указан</option>
+                            <label class="form-label" for="ac_desc">Описание</label>
+                            <textarea class="input" id="ac_desc" name="description" rows="3"></textarea>
+                        </div>
+
+                        <!-- Динамические группы (маппинг категорий, ШАГ 1) -->
+
+                        <!-- Сокет: Процессор, Материнская плата, Кулер -->
+                        <div class="field-group" data-cat="1 2 7">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_sock">Сокет</label>
+                                <select class="input" id="ac_sock" name="socket">
+                                    <option value="">Не указан</option>
 <?php
                                 foreach ($socketRows as $row) {
                                     echo "<option value=\"" . htmlspecialchars($row['socket_id'] ?? '') . "\">" . htmlspecialchars($row['socket_type'] ?? '') . "</option>";
                                 }
 ?>
-                            </select>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="ac_tdp">TDP</label>
-                            <input class="input" id="ac_tdp" type="number" name="tdp">
+
+                        <!-- TDP: Процессор, Видеокарта, Кулер -->
+                        <div class="field-group" data-cat="1 3 7">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_tdp">TDP, Вт</label>
+                                <input class="input" id="ac_tdp" type="number" name="tdp" min="0">
+                            </div>
                         </div>
-                        <div class="form-group form-check">
-                            <label for="ac_vc"><input id="ac_vc" type="checkbox" name="vc" value="1"> Графическое ядро</label>
+
+                        <!-- Частота: Процессор, Оперативная память -->
+                        <div class="field-group" data-cat="1 4">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_freq">Частота, МГц</label>
+                                <input class="input" id="ac_freq" type="number" name="frequency_mhz" min="0">
+                            </div>
+                        </div>
+
+                        <!-- Графическое ядро: только Процессор -->
+                        <div class="field-group" data-cat="1">
+                            <div class="form-group form-check">
+                                <label for="ac_vc"><input id="ac_vc" type="checkbox" name="video_core" value="1"> Встроенное графическое ядро</label>
+                            </div>
+                        </div>
+
+                        <!-- Форм-фактор: Материнская плата, Блок питания, Корпус, HDD, SSD -->
+                        <div class="field-group" data-cat="2 5 6 8 9">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_ff">Форм-фактор</label>
+                                <select class="input" id="ac_ff" name="form_factor">
+                                    <option value="">Не указан</option>
+                                    <option value="ATX">ATX</option>
+                                    <option value="mATX">mATX</option>
+                                    <option value="Mini-ITX">Mini-ITX</option>
+                                    <option value="ATX Mid-Tower">ATX Mid-Tower</option>
+                                    <option value="ATX Full-Tower">ATX Full-Tower</option>
+                                    <option value="Mid-Tower">Mid-Tower</option>
+                                    <option value="2.5&quot;">2.5"</option>
+                                    <option value="3.5&quot;">3.5"</option>
+                                    <option value="M.2">M.2</option>
+                                    <option value="M.2 2280">M.2 2280</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Тип памяти: Материнская плата, Оперативная память -->
+                        <div class="field-group" data-cat="2 4">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_rt">Тип памяти</label>
+                                <select class="input" id="ac_rt" name="ram_type">
+                                    <option value="">Не указан</option>
+                                    <option value="DDR3">DDR3</option>
+                                    <option value="DDR4">DDR4</option>
+                                    <option value="DDR5">DDR5</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Объём: Видеокарта, Оперативная память, HDD, SSD -->
+                        <div class="field-group" data-cat="3 4 8 9">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_cap">Объём, ГБ</label>
+                                <input class="input" id="ac_cap" type="number" name="capacity_gb" min="0">
+                            </div>
+                        </div>
+
+                        <!-- Тип видеопамяти: только Видеокарта -->
+                        <div class="field-group" data-cat="3">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_mt">Тип видеопамяти</label>
+                                <input class="input" id="ac_mt" name="memory_type" placeholder="GDDR6, GDDR6X…">
+                            </div>
+                        </div>
+
+                        <!-- Мощность: Видеокарта, Блок питания -->
+                        <div class="field-group" data-cat="3 5">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_wt">Мощность, Вт</label>
+                                <input class="input" id="ac_wt" type="number" name="wattage" min="0">
+                            </div>
+                        </div>
+
+                        <!-- Тип охлаждения: только Кулер -->
+                        <div class="field-group" data-cat="7">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_ct">Тип охлаждения</label>
+                                <select class="input" id="ac_ct" name="cooler_type">
+                                    <option value="">Не указан</option>
+                                    <option value="Air">Air (воздушный)</option>
+                                    <option value="AIO">AIO (СЖО)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Скорость вращения: только HDD -->
+                        <div class="field-group" data-cat="8">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_rpm">Обороты, об/мин</label>
+                                <input class="input" id="ac_rpm" type="number" name="rpm" min="0">
+                            </div>
+                        </div>
+
+                        <!-- Интерфейс: HDD, SSD, Привод -->
+                        <div class="field-group" data-cat="8 9 10">
+                            <div class="form-group">
+                                <label class="form-label" for="ac_if">Интерфейс</label>
+                                <select class="input" id="ac_if" name="interface">
+                                    <option value="">Не указан</option>
+                                    <option value="SATA III">SATA III</option>
+                                    <option value="SATA">SATA</option>
+                                    <option value="M.2 NVMe PCIe 3.0">M.2 NVMe PCIe 3.0</option>
+                                    <option value="M.2 NVMe PCIe 4.0">M.2 NVMe PCIe 4.0</option>
+                                    <option value="SAS">SAS</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="modal-actions">

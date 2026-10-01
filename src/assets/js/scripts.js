@@ -90,3 +90,32 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// 3.7-c: показ/скрытие групп полей модалки по выбранной категории.
+// Группы (.field-group) описаны атрибутом data-cat — списком category_id.
+document.addEventListener('change', function(e) {
+    if (e.target.matches('#addComponentModal select[name="cat"]')) {
+        var catId = e.target.value;
+        var modal = e.target.closest('dialog');
+        modal.querySelectorAll('.field-group').forEach(function(g) {
+            var cats = (g.dataset.cat || '').split(/\s+/);
+            if (cats.includes(catId)) {
+                g.classList.add('is-visible');
+            } else {
+                g.classList.remove('is-visible');
+            }
+        });
+    }
+});
+
+// При открытии модалки — сразу отрисовать поля для выбранной категории
+document.addEventListener('click', function(e) {
+    var openBtn = e.target.closest('[data-action="open-modal"]');
+    if (openBtn && openBtn.dataset.modal === 'addComponentModal') {
+        var modal = document.getElementById('addComponentModal');
+        var catSelect = modal.querySelector('select[name="cat"]');
+        if (catSelect) {
+            catSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+});
+
