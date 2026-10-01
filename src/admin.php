@@ -370,15 +370,9 @@ $extraJs  = ['/assets/js/scripts.js'];
 require __DIR__ . '/partials/header.php';
 ?>
         <div class="profile-layout">
-            <aside class="profile-sidebar">
-                <nav>
-                    <a href="/admin.php?tab=users" class="profile-nav-item<?= $tab === 'users' ? ' active' : '' ?>">Пользователи</a>
-                    <a href="/admin.php?tab=orders" class="profile-nav-item<?= $tab === 'orders' ? ' active' : '' ?>">Заказы</a>
-                    <a href="/admin.php?tab=components" class="profile-nav-item<?= $tab === 'components' ? ' active' : '' ?>">Комплектующие</a>
-                </nav>
-                <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
-                <a href="/profile.php" class="btn btn--ghost">← В профиль</a>
-            </aside>
+<?php // 3.7-f-4-1: тот же сайдбар, что и в profile.php ?>
+<?php $activeTab = $tab; ?>
+<?php require __DIR__ . '/partials/profile-sidebar.php'; ?>
             <div class="profile-content">
 <?php
 define('ADMIN_CONTEXT', true);

@@ -200,35 +200,11 @@ require __DIR__ . '/partials/header.php';
                         </div>
                     </div>
                 <?php else: ?>
+                    <?php // 3.7-f-4-1: единый сайдбар (тот же partial, что и в admin.php) ?>
+                    <?php $activeTab = 'profile'; ?>
                     <div class="userProfile" id="userProfile">
                         <div class="profile-layout">
-                            <aside class="profile-sidebar">
-                                <div class="profile-user">
-                                    <div class="profile-avatar"><?= escape(mb_substr($userProfile['user_name'] ?? '?', 0, 1, 'UTF-8')) ?></div>
-                                    <div>
-                                        <div style="font-size:16px;font-weight:600;"><?= escape($userProfile['user_name'] ?? '') ?></div>
-                                        <div style="font-size:13px;color:var(--text-secondary);"><?= escape($userProfile['user_login'] ?? '') ?></div>
-                                    </div>
-                                </div>
-                                <nav>
-                                    <button type="button" class="profile-nav-item active" data-action="switch" data-target="card-info">Личная информация</button>
-                                    <?php if (!$isAdmin): ?>
-                                    <button type="button" class="profile-nav-item" data-action="switch" data-target="card-builds">Мои сборки</button>
-                                    <button type="button" class="profile-nav-item" data-action="switch" data-target="card-fav">Избранное</button>
-                                    <?php else: ?>
-                                    <details class="profile-nav-group">
-                                        <summary class="profile-nav-item">Панель управления</summary>
-                                        <div class="profile-nav-sub">
-                                            <a href="/admin.php?tab=users" class="profile-nav-subitem">Пользователи</a>
-                                            <a href="/admin.php?tab=orders" class="profile-nav-subitem">Заказы</a>
-                                            <a href="/admin.php?tab=components" class="profile-nav-subitem">Комплектующие</a>
-                                        </div>
-                                    </details>
-                                    <?php endif; ?>
-                                </nav>
-                                <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
-                                <a href="validation/exit.php" class="btn btn--ghost" style="color:var(--error);">Выйти</a>
-                            </aside>
+<?php require __DIR__ . '/partials/profile-sidebar.php'; ?>
                             <div class="profile-content">
                             <section class="card" id="card-info" data-section>
                                 <h2>Личная информация</h2>
