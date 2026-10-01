@@ -37,11 +37,10 @@ body {
        диагональный с читаемым перепадом. --bg (F8FAFC) остаётся
        цветом карточек и прочих поверхностей */
     background: linear-gradient(135deg,
-        #F0F2F5 0%,
-        #E8EBF0 25%,
-        #F0F2F5 50%,
-        #E5E9EF 75%,
-        #EEF1F5 100%);
+        #E8EBF0 0%,
+        #DDE2EA 30%,
+        #E5E9EF 60%,
+        #D8DFE8 100%);
     background-attachment: fixed;
     background-color: var(--bg);
     color: var(--text);
