@@ -16,7 +16,7 @@ $extraJs = $extraJs ?? [];
         <span>Designed by <a href="https://github.com/nymphernus">Aleksey Schumann</a></span>
     </footer>
 <?php foreach ($extraJs as $js): ?>
-    <script src="<?= escape($js) ?>"></script>
+    <script src="<?= escape(asset_url($js)) ?>"></script>
 <?php endforeach; ?>
 </body>
 </html>

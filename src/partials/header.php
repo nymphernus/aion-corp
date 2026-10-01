@@ -26,10 +26,10 @@ $isLoggedIn = isset($_SESSION['user_id']);
 <head>
     <meta charset="utf-8">
     <title><?= escape($pageTitle) ?></title>
-    <link rel="stylesheet" href="/assets/css/base.css">
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="<?= escape(asset_url('/assets/css/base.css')) ?>">
+    <link rel="stylesheet" href="<?= escape(asset_url('/assets/css/style.css')) ?>">
 <?php foreach ($extraCss as $css): ?>
-    <link rel="stylesheet" href="<?= escape($css) ?>">
+    <link rel="stylesheet" href="<?= escape(asset_url($css)) ?>">
 <?php endforeach; ?>
     <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/png">
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;700&display=swap" rel="stylesheet">

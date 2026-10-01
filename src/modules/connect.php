@@ -62,6 +62,28 @@ if (!function_exists('db_prepare')) {
     }
 }
 
+if (!function_exists('asset_url')) {
+    /**
+     * URL статики с версией по mtime.
+     *
+     * 3.7-f-2-8: сервер не отдаёт Cache-Control, браузер кэширует
+     * статику эвристически и непоследовательно - правки CSS/JS
+     * попадали в браузер через раз. ?v=mtime принудительно меняет
+     * адрес при изменении файла и убирает проблему.
+     *
+     * @param string $path Путь от корня сайта, например /assets/css/base.css
+     * @return string
+     */
+    function asset_url(string $path): string
+    {
+        $file = __DIR__ . '/..' . $path;
+        if (is_file($file)) {
+            return $path . '?v=' . filemtime($file);
+        }
+        return $path;
+    }
+}
+
 if (!function_exists('escape')) {
     /**
      * Экранирование вывода в HTML (защита от XSS)
