@@ -92,13 +92,26 @@ INSERT INTO `categories` (`category_id`, `category_name`) VALUES
 CREATE TABLE `components` (
   `component_id` int(11) NOT NULL,
   `component_name` varchar(255) CHARACTER SET utf8 NOT NULL,
+  `description` varchar(500) DEFAULT NULL,
   `category_id` int(11) NOT NULL,
   `socket_id` int(11) DEFAULT NULL,
   `video_core` tinyint(1) DEFAULT NULL,
   `tdp` int(11) DEFAULT NULL,
   `image` varchar(255) CHARACTER SET utf8 DEFAULT NULL,
   `component_price` int(11) NOT NULL,
-  `amount` int(10) NOT NULL
+  `amount` int(10) NOT NULL,
+  `manufacturer` varchar(100) DEFAULT NULL,
+  `model` varchar(100) DEFAULT NULL,
+  `specs` json DEFAULT NULL,
+  `ram_type` varchar(10) DEFAULT NULL,
+  `capacity_gb` int(11) DEFAULT NULL,
+  `frequency_mhz` int(11) DEFAULT NULL,
+  `memory_type` varchar(20) DEFAULT NULL,
+  `wattage` int(11) DEFAULT NULL,
+  `interface` varchar(20) DEFAULT NULL,
+  `form_factor` varchar(20) DEFAULT NULL,
+  `rpm` int(11) DEFAULT NULL,
+  `cooler_type` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB AVG_ROW_LENGTH=181 DEFAULT CHARSET=utf8mb4;
 
 --
@@ -322,7 +335,9 @@ CREATE TABLE `orders` (
   `order_id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `assembly_id` int(11) NOT NULL,
-  `status` varchar(50) DEFAULT 'Обрабатывается'
+  `status` varchar(50) DEFAULT 'Обрабатывается',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB AVG_ROW_LENGTH=5461 DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
@@ -343,7 +358,11 @@ CREATE TABLE `sockets` (
 INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES
 (1, 'LGA1200'),
 (2, 'LGA1700'),
-(3, 'AM4');
+(3, 'AM4'),
+(4, 'LGA1151'),
+(5, 'LGA1851'),
+(6, 'AM5'),
+(7, 'LGA1150');
 
 -- --------------------------------------------------------
 

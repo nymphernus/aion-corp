@@ -3,5 +3,6 @@
 vendor/
 node_modules/
 *.log
+backup_*.sql
 tests/phpunit.phar
 src/tests/.phpunit.result.cache
