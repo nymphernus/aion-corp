@@ -36,6 +36,12 @@ if ($result) {
     }
 }
 ?>
+                <!-- 3.7-e: отказ по FK — компонент используется в сборках -->
+<?php if (isset($_GET['error']) && $_GET['error'] === 'used'): ?>
+                <div class="alert alert--error">
+                    Компонент используется в <?= (int) ($_GET['count'] ?? 0) ?> сборках. Удаление запрещено.
+                </div>
+<?php endif; ?>
                 <section class="card admin-panel">
                     <div class="admin-header">
                         <h1>Управление комплектующими</h1>
@@ -97,9 +103,16 @@ if ($result) {
                                             . "<td>" . htmlspecialchars($row['component_name'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['amount'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['component_price'] ?? '') . "</td>"
-                                            . "<td><button type=\"button\" class=\"btn btn--ghost btn--sm\""
+                                            . "<td><div style=\"display:flex;gap:8px;\">"
+                                            . "<button type=\"button\" class=\"btn btn--ghost btn--sm\""
                                             . " data-action=\"edit-component\""
-                                            . " data-component='" . escape($editData) . "'>Редактировать</button></td>"
+                                            . " data-component='" . escape($editData) . "'>Редактировать</button>"
+                                            // 3.7-e: id/name уходят в модалку подтверждения
+                                            . "<button type=\"button\" class=\"btn btn--ghost btn--ghost--danger btn--sm\""
+                                            . " data-action=\"delete-component\""
+                                            . " data-id=\"" . (int) $row['component_id'] . "\""
+                                            . " data-name='" . escape($row['component_name'] ?? '') . "'>Удалить</button>"
+                                            . "</div></td>"
                                             . "</tr>";
                                     }
                                 }
@@ -302,6 +315,27 @@ if ($result) {
                         <div class="modal-actions">
                             <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
                             <button type="submit" name="addComponent" id="modalSubmit" class="btn btn--primary">Добавить</button>
+                        </div>
+                    </form>
+                </dialog>
+
+                <!--
+                    3.7-e: подтверждение удаления. Реальную проверку
+                    использования в сборках делает бэкенд (FK assembly.*_id →
+                    components.component_id с NO ACTION) — при отказе
+                    редирект с ?error=used&count=N.
+                -->
+                <dialog id="deleteComponentModal" class="modal">
+                    <form method="post" class="modal-form" action="/admin.php?tab=components">
+                        <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                        <input type="hidden" name="deleteComponentId" id="deleteComponentId" value="">
+
+                        <h2>Удалить комплектующий?</h2>
+                        <p id="deleteComponentName" style="color: var(--text-secondary); margin-bottom: 24px;"></p>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
+                            <button type="submit" name="deleteComponent" class="btn btn--danger">Удалить</button>
                         </div>
                     </form>
                 </dialog>

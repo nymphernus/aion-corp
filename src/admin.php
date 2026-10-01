@@ -54,6 +54,38 @@ if (!isset($allowedTabs[$tab])) {
 }
 
 // Обработчики POST (перенесено из profile.php, SQL без изменений)
+if ($isAdmin && isset($_POST['deleteComponent'])) {
+    csrf_verify();
+    // 3.7-e: FK assembly.*_id → components.component_id (11 колонок, NO ACTION).
+    // Без проверки MySQL выдал бы 23000 пользователю, поэтому считаем
+    // использования заранее и отказываем с понятным сообщением.
+    $delId = (int) ($_POST['deleteComponentId'] ?? 0);
+
+    if ($delId > 0) {
+        $stmt = db_prepare($mysql,
+            "SELECT COUNT(*) FROM assembly WHERE
+             cpu_id = ? OR motherboard_id = ? OR gpu_id = ? OR ram_id = ?
+             OR case_id = ? OR cooler_id = ? OR power_supply_id = ? OR ssd_id = ?
+             OR ssd_2_id = ? OR hdd_id = ? OR dvd_id = ?",
+            'iiiiiiiiiii', ...array_fill(0, 11, $delId));
+        $stmt->execute();
+        $usedCount = (int) $stmt->get_result()->fetch_row()[0];
+
+        if ($usedCount > 0) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=components&error=used&count=' . $usedCount);
+            exit();
+        }
+
+        $stmt = db_prepare($mysql, "DELETE FROM `components` WHERE `component_id` = ?", "i", $delId);
+        $stmt->execute();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=components');
+    exit();
+}
+
 if ($isAdmin && isset($_POST['addComponent'])) {
     csrf_verify();
     // 3.7-d: пустой editComponentId = INSERT, заполненный = UPDATE

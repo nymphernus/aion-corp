@@ -181,6 +181,20 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
+// 3.7-e: «Удалить» — подтверждение в отдельной модалке
+document.addEventListener('click', function(e) {
+    var delBtn = e.target.closest('[data-action="delete-component"]');
+    if (!delBtn) return;
+    e.preventDefault();
+
+    var modal = document.getElementById('deleteComponentModal');
+    if (!modal) return;
+
+    modal.querySelector('#deleteComponentId').value = delBtn.dataset.id;
+    modal.querySelector('#deleteComponentName').textContent = delBtn.dataset.name;
+    modal.showModal();
+});
+
 // 3.7-d: «+ Добавить» после edit — выйти из режима редактирования
 document.addEventListener('click', function(e) {
     var openBtn = e.target.closest('[data-action="open-modal"]');

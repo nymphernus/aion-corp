@@ -113,6 +113,16 @@ a {
     color: white;
 }
 
+/* 3.7-e: ghost-вариант для опасных действий в таблице (Удалить) */
+.btn--ghost--danger {
+    background: transparent;
+    color: var(--error);
+}
+
+.btn--ghost--danger:hover {
+    background: rgba(239,68,68,0.1);
+}
+
 .btn--sm {
     padding: 6px 12px;
     font-size: 13px;
