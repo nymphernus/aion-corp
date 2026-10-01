@@ -339,6 +339,13 @@ h1{
     margin-left: auto;
 }
 
+/* 3.7-f-4b-5: вспомогательные ссылки над кнопками модалки */
+.modal-links {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
 /* 3.7-f-2-3: нативный аккордеон админ-вкладок в сайдбаре профиля */
 .profile-nav-group summary {
     cursor: pointer;
@@ -603,15 +610,6 @@ h1{
     gap: 2px;
 }
 
-.profile-nav-exit {
-    color: var(--error);
-}
-
-.profile-nav-exit:hover {
-    background: rgba(239, 68, 68, 0.08);
-    text-decoration: none;
-}
-
 .profile-user {
     display: flex;
     align-items: center;
@@ -656,6 +654,19 @@ h1{
     background: var(--accent-light);
     color: var(--accent);
     font-weight: 500;
+}
+
+/* 3.7-f-4b-6: «Выйти» красный. Селектор с двумя классами, а не один:
+   иначе .profile-nav-item ниже перебивал бы цвет своей строкой
+   color: var(--text), и пункт оставался тёмным. */
+.profile-nav-item.profile-nav-exit {
+    color: var(--error);
+}
+
+.profile-nav-item.profile-nav-exit:hover {
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--error);
+    text-decoration: none;
 }
 
 .profile-content {

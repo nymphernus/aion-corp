@@ -62,6 +62,13 @@
                             </div>
                         </div>
 
+                        <!-- 3.7-f-4b-5: переход в собственные заказы. Это заказы того, кто
+                             сейчас в сессии: у редактируемого пользователя свои
+                             смотреть негде, профиль показывает только свои. -->
+                        <div class="modal-links">
+                            <a href="/profile.php?section=orders" class="btn btn--ghost btn--sm">Мои заказы</a>
+                        </div>
+
                         <div class="modal-actions">
                             <button type="button" class="btn btn--danger" id="editUserDeleteBtn" data-action="open-delete-user-modal">Удалить</button>
                             <div class="modal-actions-right">
