@@ -46,8 +46,11 @@ if (!defined('ADMIN_CONTEXT')) {
                     // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
                     // 3.7-f-3-11: user_email добавлен для модалки пользователя
                     // 3.7-f-4-3: $listWhere/$listOrder приходят из admin.php
+                    // 3.7-i-2: шесть адресных колонок нужны модалке
                     $sql = "SELECT user_id, user_name, user_surname, user_login, user_group,
-                                   user_address, user_number, user_email
+                                   user_address, user_number, user_email,
+                                   user_postal_code, user_region, user_city,
+                                   user_street, user_house, user_apartment
                             FROM users WHERE 1=1" . $listWhere . "
                             ORDER BY {$listOrder} LIMIT ? OFFSET ?";
                     if ($listParams === []) {
@@ -83,6 +86,14 @@ if (!defined('ADMIN_CONTEXT')) {
                             'address' => $row['user_address'],
                             'number' => $row['user_number'],
                             'email' => $row['user_email'],
+                            // 3.7-i-2: адрес разбит на поля, address остаётся
+                            // legacy-строкой для показа в модалке
+                            'postal_code' => $row['user_postal_code'],
+                            'region' => $row['user_region'],
+                            'city' => $row['user_city'],
+                            'street' => $row['user_street'],
+                            'house' => $row['user_house'],
+                            'apartment' => $row['user_apartment'],
                         ]);
                         echo "<tr data-row='" . escape($rowData) . "'>"
                                 . "<td>" . htmlspecialchars($row['user_name'] ?? '') . "</td>"
@@ -107,6 +118,13 @@ if (!defined('ADMIN_CONTEXT')) {
                         'name' => 'Имя должно быть от 2 до 20 символов.',
                         // 3.7-f-4c-3
                         'surname' => 'Фамилия не должна быть длиннее 30 символов.',
+                        // 3.7-i-2: адресные поля
+                        'city' => 'Город не должен быть длиннее 100 символов.',
+                        'region' => 'Регион не должен быть длиннее 100 символов.',
+                        'street' => 'Улица не должна быть длиннее 150 символов.',
+                        'house' => 'Дом не должен быть длиннее 20 символов.',
+                        'apartment' => 'Квартира не должна быть длиннее 20 символов.',
+                        'postal' => 'Индекс должен состоять из 5-10 цифр.',
                         'group' => 'Недопустимая группа.',
                         'phone' => 'Телефон не соответствует формату +7 XXX XXX-XX-XX.',
                         'self-demote' => 'Нельзя снять права администратора с самого себя.',

@@ -53,17 +53,55 @@
                             </div>
                         </div>
 
-                        <div class="modal-section">
+                        <div class="modal-section modal-section--cols">
                             <h3>Адрес</h3>
                             <!--
-                                TODO 3.7-i: сейчас одно поле user_address (varchar(1000)).
-                                После миграции колонок region / city / street / house /
-                                apartment / postal_code здесь появятся отдельные
-                                поля, а этот блок будет удалён.
+                                3.7-i-2: адрес разбит на поля (миграция 3.7-i-1).
+                                Город не required: колонка nullable, и у части
+                                пользователей адреса нет вовсе - required
+                                запрещал бы сохранить любое другое поле.
+                                Значения кладутся без маркеров («Победы», а не
+                                «ул. Победы»), подпись поля их поясняет.
                             -->
                             <div class="form-group">
-                                <label class="form-label" for="editUserAddress">Адрес</label>
-                                <input class="input" name="user_address" id="editUserAddress" maxlength="1000">
+                                <label class="form-label" for="editUserPostalCode">Индекс</label>
+                                <input class="input" name="user_postal_code" id="editUserPostalCode"
+                                       maxlength="10" placeholder="101000" inputmode="numeric">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="editUserRegion">Регион</label>
+                                <input class="input" name="user_region" id="editUserRegion"
+                                       maxlength="100" placeholder="Московская область">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="editUserCity">Город</label>
+                                <input class="input" name="user_city" id="editUserCity"
+                                       maxlength="100" placeholder="Москва">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="editUserStreet">Улица</label>
+                                <input class="input" name="user_street" id="editUserStreet"
+                                       maxlength="150" placeholder="ул. Победы">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="editUserHouse">Дом</label>
+                                <input class="input" name="user_house" id="editUserHouse"
+                                       maxlength="20" placeholder="15">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="editUserApartment">Квартира</label>
+                                <input class="input" name="user_apartment" id="editUserApartment"
+                                       maxlength="20" placeholder="42">
+                            </div>
+
+                            <!-- 3.7-i-2: исходная строка адреса только для чтения.
+                                 В новом потоке user_address не обновляется, но
+                                 показывается, пока он есть в базе. Показывает и
+                                 прячет JS - серверных данных о конкретном
+                                 пользователе у этой общей модалки нет. -->
+                            <div class="form-group span-all" id="editUserLegacyWrap" hidden>
+                                <label class="form-label" for="editUserAddressLegacy">Исходный адрес (legacy)</label>
+                                <input class="input" id="editUserAddressLegacy" disabled>
                             </div>
                         </div>
 

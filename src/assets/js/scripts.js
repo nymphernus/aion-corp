@@ -313,7 +313,24 @@ function openUserModal(data) {
     uSet('#editUserName', data.name);
     // 3.7-f-4c-3: фамилия не обязательна, пустое значение тоже валидно
     uSet('#editUserSurname', data.surname);
-    uSet('#editUserAddress', data.address);
+    // 3.7-i-2: адрес разбит на поля. Значения кладутся как есть, с маркерами
+    // вроде «ул.» поле нормализуется при сохранении, поэтому подсказки в
+    // placeholder об этом напоминают.
+    uSet('#editUserPostalCode', data.postal_code);
+    uSet('#editUserRegion', data.region);
+    uSet('#editUserCity', data.city);
+    uSet('#editUserStreet', data.street);
+    uSet('#editUserHouse', data.house);
+    uSet('#editUserApartment', data.apartment);
+    // legacy-строка только для чтения: показываем, если она есть в базе
+    var legacyWrap = modal.querySelector('#editUserLegacyWrap');
+    var legacyInput = modal.querySelector('#editUserAddressLegacy');
+    if (legacyWrap) {
+        legacyWrap.hidden = !data.address;
+    }
+    if (legacyInput) {
+        legacyInput.value = data.address ?? '';
+    }
     uSet('#editUserNumber', data.number);
     uSet('#editUserGroup', data.group);
 
@@ -445,6 +462,13 @@ document.addEventListener('click', function(e) {
             group: data.user_group ?? 'user',
             address: data.address ?? '',
             number: data.user_number ?? '',
+            // 3.7-i-2: разбитый адрес покупателя
+            postal_code: data.user_postal_code ?? '',
+            region: data.user_region ?? '',
+            city: data.user_city ?? '',
+            street: data.user_street ?? '',
+            house: data.user_house ?? '',
+            apartment: data.user_apartment ?? '',
         });
     }
     text('#editOrderAddress', data.address);

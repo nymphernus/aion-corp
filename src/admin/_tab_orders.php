@@ -56,7 +56,9 @@ if (!defined('ADMIN_CONTEXT')) {
                         $sql = "SELECT user_name,user_surname,user_address,assembly_name,assembly_price,order_id,status,
                                        users.user_id AS buyer_id, assembly.assembly_id AS asm_id,
                                        orders.created_at, users.user_email, users.user_number,
-                                       users.user_login, users.user_group
+                                       users.user_login, users.user_group,
+                                       users.user_postal_code, users.user_region, users.user_city,
+                                       users.user_street, users.user_house, users.user_apartment
                                 FROM users,assembly,orders
                                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id"
                                 . $listWhere . "
@@ -104,6 +106,14 @@ if (!defined('ADMIN_CONTEXT')) {
                                     'user_surname' => $row['user_surname'],
                                     'user_login' => $row['user_login'],
                                     'user_group' => $row['user_group'],
+                                    // 3.7-i-2: адрес покупателя разбит на поля,
+                                    // address остаётся legacy-строкой
+                                    'user_postal_code' => $row['user_postal_code'],
+                                    'user_region' => $row['user_region'],
+                                    'user_city' => $row['user_city'],
+                                    'user_street' => $row['user_street'],
+                                    'user_house' => $row['user_house'],
+                                    'user_apartment' => $row['user_apartment'],
                                     'assembly_id' => $row['asm_id'],
                                     'assembly_name' => $row['assembly_name'],
                                     'assembly_price' => $row['assembly_price'],

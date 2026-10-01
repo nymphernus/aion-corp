@@ -366,7 +366,14 @@ if ($isAdmin && isset($_POST['editUser'])) {
     // в varchar(30) не влезет, поэтому длина всё равно проверяется
     $editSurname = trim($_POST['user_surname'] ?? '');
     $editGroup = $_POST['user_group'] ?? '';
-    $editAddress = trim($_POST['user_address'] ?? '');
+    // 3.7-i-2: адрес разбит на поля. user_address больше не обновляется -
+    // это legacy-строка, её значение остаётся как было при миграции.
+    $editPostal = trim($_POST['user_postal_code'] ?? '');
+    $editRegion = trim($_POST['user_region'] ?? '');
+    $editCity = trim($_POST['user_city'] ?? '');
+    $editStreet = trim($_POST['user_street'] ?? '');
+    $editHouse = trim($_POST['user_house'] ?? '');
+    $editApartment = trim($_POST['user_apartment'] ?? '');
     $editPhone = trim($_POST['user_number'] ?? '');
 
     // ошибки возвращаем на ту же вкладку с сообщением
@@ -385,6 +392,27 @@ if ($isAdmin && isset($_POST['editUser'])) {
     if (mb_strlen($editSurname, 'UTF-8') > 30) {
         $fail('surname');
     }
+    // 3.7-i-2: адресные поля. Все необязательны: у части пользователей
+    // адреса нет вовсе, и пустое значение пишется в NULL.
+    if ($editCity !== '' && mb_strlen($editCity, 'UTF-8') > 100) {
+        $fail('city');
+    }
+    if ($editRegion !== '' && mb_strlen($editRegion, 'UTF-8') > 100) {
+        $fail('region');
+    }
+    if ($editStreet !== '' && mb_strlen($editStreet, 'UTF-8') > 150) {
+        $fail('street');
+    }
+    if (mb_strlen($editHouse, 'UTF-8') > 20) {
+        $fail('house');
+    }
+    if (mb_strlen($editApartment, 'UTF-8') > 20) {
+        $fail('apartment');
+    }
+    // индекс: 5-10 цифр, пустое значение допустимо
+    if ($editPostal !== '' && !preg_match('/^\d{5,10}$/', $editPostal)) {
+        $fail('postal');
+    }
     if ($editUserId > 0 && $editUserId === (int) ($_SESSION['user_id'] ?? 0) && $editGroup !== 'admin') {
         $fail('self-demote');
     }
@@ -400,7 +428,22 @@ if ($isAdmin && isset($_POST['editUser'])) {
             $fail('missing');
         }
 
-        $stmt = db_prepare($mysql, "UPDATE users SET user_name = ?, user_surname = ?, user_group = ?, user_address = ?, user_number = ? WHERE user_id = ?", "sssssi", $editName, $editSurname !== '' ? $editSurname : null, $editGroup, $editAddress !== '' ? $editAddress : null, $editPhone !== '' ? $editPhone : null, $editUserId);
+        // 3.7-i-2: user_address в UPDATE не участвует - legacy остаётся как есть
+        $stmt = db_prepare($mysql, "UPDATE users SET user_name = ?, user_surname = ?, user_group = ?,
+                                       user_postal_code = ?, user_region = ?, user_city = ?, user_street = ?,
+                                       user_house = ?, user_apartment = ?, user_number = ?
+                                       WHERE user_id = ?", "ssssssssssi",
+                        $editName,
+                        $editSurname !== '' ? $editSurname : null,
+                        $editGroup,
+                        $editPostal !== '' ? $editPostal : null,
+                        $editRegion !== '' ? $editRegion : null,
+                        $editCity !== '' ? $editCity : null,
+                        $editStreet !== '' ? $editStreet : null,
+                        $editHouse !== '' ? $editHouse : null,
+                        $editApartment !== '' ? $editApartment : null,
+                        $editPhone !== '' ? $editPhone : null,
+                        $editUserId);
         $stmt->execute();
     } else {
         $fail('missing');
