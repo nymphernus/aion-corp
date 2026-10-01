@@ -90,12 +90,71 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// 3.7-f-3-12: пересборка селекта форм-фактора под категорию.
+// Значение, которого нет в новом списке (старые данные вроде M.2 или
+// mATX), сохраняем отдельной опцией - иначе оно молча потерялось бы
+// при сохранении.
+function rebuildFormFactors(modal, catId, desiredValue) {
+    var sel = modal.querySelector('#formFactorSelect');
+    if (!sel) return;
+
+    var map = {};
+    try {
+        map = JSON.parse(sel.dataset.options || '{}');
+    } catch (err) {
+        console.error('Invalid form factor map', err);
+    }
+
+    var options = map[catId] || [];
+    // desiredValue передаёт edit-режим: на момент вызова значение ещё
+    // нельзя ставить в select, опции для него может не быть
+    var current = desiredValue !== undefined && desiredValue !== null
+        ? desiredValue
+        : sel.value;
+
+    sel.innerHTML = '';
+    if (options.length === 0) {
+        var none = document.createElement('option');
+        none.value = '';
+        none.textContent = 'Не применимо';
+        sel.appendChild(none);
+        sel.disabled = true;
+        return;
+    }
+
+    sel.disabled = false;
+    var empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = 'Не указан';
+    sel.appendChild(empty);
+
+    options.forEach(function(v) {
+        var opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        sel.appendChild(opt);
+    });
+
+    if (current && options.indexOf(current) === -1) {
+        var legacy = document.createElement('option');
+        legacy.value = current;
+        legacy.textContent = current + ' (прежнее значение)';
+        sel.appendChild(legacy);
+    }
+    if (current) {
+        sel.value = current;
+    } else {
+        sel.value = '';
+    }
+}
+
 // 3.7-c: показ/скрытие групп полей модалки по выбранной категории.
 // Группы (.field-group) описаны атрибутом data-cat — списком category_id.
 document.addEventListener('change', function(e) {
     if (e.target.matches('#addComponentModal select[name="cat"]')) {
         var catId = e.target.value;
         var modal = e.target.closest('dialog');
+        rebuildFormFactors(modal, catId);
         modal.querySelectorAll('.field-group').forEach(function(g) {
             var cats = (g.dataset.cat || '').split(/\s+/);
             if (cats.includes(catId)) {
@@ -168,9 +227,19 @@ document.addEventListener('click', function(e) {
     setVal('memory_type', data.memory_type);
     setVal('wattage', data.wattage);
     setVal('interface', data.interface);
-    setVal('form_factor', data.form_factor);
     setVal('rpm', data.rpm);
     setVal('cooler_type', data.cooler_type);
+
+    // 3.7-f-3-12: сначала пересборка селекта форм-фактора под категорию,
+    // и только потом значение - установка .value для отсутствующей опции
+    // обнуляет select, и прежнее значение (например M.2) потерялось бы
+    var catSelect = modal.querySelector('[name="cat"]');
+    if (catSelect) {
+        catSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    // после пересборки возвращаем значение из БД: если его нет в
+    // списке категории, оно добавляется как «прежнее значение»
+    rebuildFormFactors(modal, catSelect ? catSelect.value : '', data.form_factor ?? '');
 
     // 3.7-f-2: кнопка удаления видима только в edit-режиме
     var delBtn = modal.querySelector('#modalDeleteBtn');
@@ -180,11 +249,8 @@ document.addEventListener('click', function(e) {
         delBtn.dataset.name = data.name ?? '';
     }
 
-    // change на категории — покажет группы, релевантные этой категории
-    var catSelect = modal.querySelector('[name="cat"]');
-    if (catSelect) {
-        catSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    // change на категории уже отправлен выше: он и перестроил селект
+    // форм-фактора, и показал релевантные группы полей
 
     modal.showModal();
 });

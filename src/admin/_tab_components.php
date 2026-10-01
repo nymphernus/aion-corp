@@ -294,19 +294,20 @@ if ($result) {
                         <!-- Форм-фактор: Материнская плата, Блок питания, Корпус, HDD, SSD -->
                         <div class="field-group" data-cat="2 5 6 8 9">
                             <div class="form-group">
-                                <label class="form-label" for="ac_ff">Форм-фактор</label>
-                                <select class="input" id="ac_ff" name="form_factor">
-                                    <option value="">Не указан</option>
-                                    <option value="ATX">ATX</option>
-                                    <option value="mATX">mATX</option>
-                                    <option value="Mini-ITX">Mini-ITX</option>
-                                    <option value="ATX Mid-Tower">ATX Mid-Tower</option>
-                                    <option value="ATX Full-Tower">ATX Full-Tower</option>
-                                    <option value="Mid-Tower">Mid-Tower</option>
-                                    <option value="2.5&quot;">2.5"</option>
-                                    <option value="3.5&quot;">3.5"</option>
-                                    <option value="M.2">M.2</option>
-                                    <option value="M.2 2280">M.2 2280</option>
+                                <label class="form-label" for="formFactorSelect">Форм-фактор</label>
+<?php
+                                // 3.7-f-3-12: опции зависят от категории, карта отдаётся в JS
+                                $formFactorsByCat = [
+                                    2 => ['ATX', 'Micro-ATX', 'Mini-ITX'],
+                                    5 => ['ATX', 'SFX', 'TFX'],
+                                    6 => ['ATX Mid-Tower', 'ATX Full-Tower', 'mATX Mid-Tower', 'Mini-ITX', 'Mid-Tower'],
+                                    8 => ['2.5"', '3.5"'],
+                                    9 => ['2.5"', 'M.2 2280', 'M.2 2242', 'M.2 2260'],
+                                ];
+?>
+                                <select class="input" name="form_factor" id="formFactorSelect"
+                                        data-options='<?= escape(json_encode($formFactorsByCat, JSON_UNESCAPED_UNICODE)) ?>'>
+                                    <option value="">Выберите категорию</option>
                                 </select>
                             </div>
                         </div>
