@@ -421,7 +421,10 @@ require __DIR__ . '/partials/header.php';
                                                         <h3>Сборка</h3>
                                                         <div class="form-group">
                                                             <label class="form-label">Название</label>
-                                                            <div id="userOrderAssembly"></div>
+                                                            <!-- 3.7-f-4c-5: название открывает сборку в
+                                                                 новой вкладке, как в editOrderModal -->
+                                                            <a href="#" id="userOrderAssemblyLink" target="_blank" rel="noopener"
+                                                               class="btn btn--secondary btn--sm"><span id="userOrderAssembly"></span></a>
                                                         </div>
                                                         <div class="form-group">
                                                             <label class="form-label">Стоимость</label>

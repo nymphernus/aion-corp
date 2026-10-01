@@ -364,6 +364,11 @@ function openUserOrderModal(data) {
 
     setText('#userOrderNumber', data.order_id);
     setText('#userOrderAssembly', data.assembly_name);
+    // 3.7-f-4c-5: ссылка на саму сборку открывается в новой вкладке
+    var asmLink = modal.querySelector('#userOrderAssemblyLink');
+    if (asmLink) {
+        asmLink.href = '/assembly.php?id=' + encodeURIComponent(data.assembly_id ?? '');
+    }
     setText('#userOrderPrice', (data.price ?? '') + ' руб.');
     setText('#userOrderCreated', data.created_at);
 
