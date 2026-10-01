@@ -86,11 +86,11 @@ if (!defined('ADMIN_CONTEXT')) {
                                 if ($row['asm_id'] > 3) {
                                     $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
                                 }
-                                // 3.7-f-3-7: сокращённый адрес для таблицы
-                                $addr = trim((string) ($row['user_address'] ?? ''));
-                                $shortAddress = $addr !== ''
-                                    ? explode(',', $addr)[0]
-                                    : 'Не указан';
+                                // FIX-3: колонка адреса - из user_city, как в таблице пользователей.
+                                // Раньше брала первую часть legacy user_address,
+                                // поэтому показывала устаревшую строку.
+                                $addr = trim((string) ($row['user_city'] ?? ''));
+                                $shortAddress = $addr !== '' ? $addr : 'Не указан';
 
                                 // 3.7-h-1: данные строки для модалки заказа
                                 $rowData = json_encode([
