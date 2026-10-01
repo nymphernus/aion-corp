@@ -240,22 +240,26 @@ document.addEventListener('click', function(e) {
             ? 'Не указан' : String(value);
     };
 
+    // 3.7-f-2-5: покупатель и сборка — ссылки, наполняем через href+textContent
+    var link = function(id, href, value) {
+        var el = modal.querySelector(id);
+        if (!el) return;
+        el.href = href;
+        el.textContent = (value === null || value === undefined || value === '')
+            ? 'Не указан' : String(value);
+    };
+
     modal.querySelector('#editOrderId').value = data.id;
     text('#editOrderNumber', data.id);
-    text('#editOrderBuyer', data.buyer);
+    link('#editOrderBuyer', '/admin.php?tab=users', data.buyer);
     text('#editOrderAddress', data.address);
-    text('#editOrderAssembly', data.assembly_name);
+    link('#editOrderAssemblyLink', '/assembly.php?id=' + encodeURIComponent(data.assembly_id), data.assembly_name);
     text('#editOrderPrice', data.assembly_price);
 
     // контакты одной строкой: телефон и почта, что заполнено
     var contacts = [data.user_number, data.user_email].filter(Boolean).join(' · ');
     text('#editOrderContacts', contacts);
     text('#editOrderCreated', data.created_at);
-
-    var asmLink = modal.querySelector('#editOrderAssemblyLink');
-    if (asmLink) {
-        asmLink.href = '/assembly.php?id=' + encodeURIComponent(data.assembly_id);
-    }
 
     var statusSel = modal.querySelector('#editOrderStatusSelect');
     if (statusSel) {

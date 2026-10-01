@@ -105,10 +105,8 @@ if (!defined('ADMIN_CONTEXT')) {
                             <h3>Информация о покупателе</h3>
                             <div class="form-group">
                                 <label class="form-label" for="editOrderBuyer">Покупатель</label>
-                                <div class="modal-value">
-                                    <span id="editOrderBuyer"></span>
-                                    <a href="/admin.php?tab=users" id="editOrderBuyerLink" class="btn btn--ghost btn--sm">Открыть профиль →</a>
-                                </div>
+                                <!-- 3.7-f-2-5: название само является ссылкой -->
+                                <a href="/admin.php?tab=users" id="editOrderBuyer" class="modal-link"></a>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Контакты</label>
@@ -124,10 +122,8 @@ if (!defined('ADMIN_CONTEXT')) {
                             <h3>Информация о сборке</h3>
                             <div class="form-group">
                                 <label class="form-label">Сборка</label>
-                                <div class="modal-value">
-                                    <span id="editOrderAssembly"></span>
-                                    <a href="#" id="editOrderAssemblyLink" target="_blank" rel="noopener" class="btn btn--ghost btn--sm">Открыть сборку →</a>
-                                </div>
+                                <!-- 3.7-f-2-5: название само является ссылкой -->
+                                <a href="#" id="editOrderAssemblyLink" target="_blank" rel="noopener" class="modal-link"></a>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Стоимость</label>
