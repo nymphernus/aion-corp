@@ -471,7 +471,17 @@ document.addEventListener('click', function(e) {
             apartment: data.user_apartment ?? '',
         });
     }
-    text('#editOrderAddress', data.address);
+    // 3.7-i-4: адрес собирается из шести полей, иначе в модалке оставалась
+    // legacy-строка, а у пользователей без неё было пусто
+    var addrParts = [
+        data.user_postal_code,
+        data.user_region,
+        data.user_city,
+        data.user_street,
+        data.user_house ? 'д. ' + data.user_house : '',
+        data.user_apartment ? 'кв. ' + data.user_apartment : '',
+    ].filter(Boolean);
+    text('#editOrderAddress', addrParts.length ? addrParts.join(', ') : (data.address || 'Не указан'));
     label('#editOrderAssemblyName', data.assembly_name);
     modal.querySelector('#editOrderAssemblyBtn').href = '/assembly.php?id=' + encodeURIComponent(data.assembly_id);
     text('#editOrderPrice', data.assembly_price);
