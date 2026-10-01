@@ -32,13 +32,15 @@ body::-webkit-scrollbar-thumb {
 	height: 90px;
 	display: flex;
 	position: fixed;
-	/* 3.7-f-2-1: было #ffffff10 (6% белого) и белая граница — на светлых
-	   страницах профиля и админки хедер был почти невидим */
-	border-bottom: 1px solid rgba(0,0,0,.05);
+	/* 3.7-f-3-1: 0.85 оказался почти непрозрачным («просто белый»),
+	   вернули баланс: видно за хедером, но граница и blur держат
+	   контраст на светлых страницах */
+	border-bottom: 1px solid rgba(0,0,0,.06);
 	width: 100%;
-	background-color: rgba(255,255,255,.85);
+	background-color: rgba(255,255,255,.55);
 	backdrop-filter: blur(20px);
-	box-shadow: 0 1px 3px rgba(0,0,0,.03);
+	-webkit-backdrop-filter: blur(20px);
+	box-shadow: 0 1px 3px rgba(0,0,0,.02);
 	top: 0;
     left: 0;
     z-index: 9;
