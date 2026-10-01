@@ -4,15 +4,7 @@ h1{
     margin-top: 10px;
     color:rgb(39, 81, 159);
 }
-.delBtn{
-    padding: 0;
-    border: none;
-    margin-top:10px;
-    font-size: 19px;
-    color: rgb(255, 44, 44);
-    background-color: transparent;
-    cursor: pointer;
-}
+/* 3.7-f-4c-7: .delBtn удалён вместе с блоком #userMonitor */
 .toggle_btn_monitor{
     padding: 0;
     border: none;
@@ -194,14 +186,8 @@ h1{
     height: auto;
     background: transparent;
 }
-.assemblyTable{
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    height: 1vh;
-    line-height: 40px;
-    text-align: center;
-}
+/* 3.7-f-4c-7: .assemblyTable удалён — админские таблицы давно на .table,
+   а последняя разметка с этими классами была в #userMonitor */
 
 /* Логин/регистрация: центрированная карточка (3.6.2-b) */
 
@@ -481,48 +467,18 @@ h1{
     overflow-x: auto;
 }
 
-/* Админ-панель: выравнивание старых .assemblyTable-строк внутри карточек */
+/* Админ-панель: служебные правила для форм внутри карточек.
+   3.7-f-4c-7: отсюда убраны правила .admin-panel .assemblyTable —
+   таких строк в разметке больше нет. */
 
 .admin-panel .cmpForm {
     height: auto;
 }
 
-.admin-panel .assemblyTable {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 16px;
-    height: auto;
-    width: 100%;
-    line-height: 1.5;
-    margin-bottom: 8px;
-}
-
-.admin-panel .assemblyTable > span {
-    width: auto !important;
-    flex: 1 1 140px;
-    min-width: 0;
-    text-align: left;
-}
-
-.admin-panel .assemblyTable input[type="text"],
-.admin-panel .assemblyTable input[type="number"],
-.admin-panel .assemblyTable select {
-    width: 100%;
-    max-width: 220px;
-}
-
 .admin-panel form {
     margin: 0 0 8px;
 }
-.lineSpan{
-    height: 1px;
-    width: 100%;
-    background-color: black;
-}
-.assemblyTable span{
-    width: 50%;
-}
+
 .orderTable .contTable,.favoriteTable .contTable{
     border: 1px solid black;
     border-radius: 20px;
@@ -541,37 +497,7 @@ h1{
 .userOrder a:hover{
     color: red;
 }
-.containerMonitor .assemblyTable span{
-    width: 30%;
-}
-.assemblyTable select{
-    padding: 0;
-    border: none;
-    margin-top:10px;
-    font-size: inherit;
-    color: black;
-    background-color: transparent;
-    cursor: pointer;
-}
-.assemblyTable input[type="text"],.assemblyTable input[type="number"]{
-    margin: 1% 0 1% 0;
-	width: 150px;
-	height: 35px;
-	padding-left: 5%;
-    border-radius:10px;
-	border: 1px solid rgb(114, 255, 255);
-    cursor: text;
-    font-size: 15px;
-}
-.assemblyTable input[type="checkbox"]{
-    margin-right: 5%;
-    width: 15px;
-    height: 15px;
-    cursor: pointer;
-}
-.assemblyTable label{
-    cursor: pointer;
-}
+/* 3.7-f-4c-7: .lineSpan, .containerMonitor, .assemblyTable и правила для их полей (select, input, label) удалены - разметки больше нет */
 .cmpForm{
     height: 12vh;
     width: 100%;
