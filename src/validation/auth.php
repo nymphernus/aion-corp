@@ -124,6 +124,10 @@ if ($user) {
     }
 }
 
+// Сохраняем введённый логин, чтобы вернуть его в форму после редиректа.
+// (после редиректа $_POST пуст — значение передаём через сессию)
+$_SESSION['old_login'] = $login;
+
 if (!$passwordValid) {
     logFailedAttempt($mysql, $login, $ip);
     setcookie('error_access', "Неверный логин или пароль", [

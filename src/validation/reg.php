@@ -51,6 +51,8 @@ if (mb_strlen($pass) < 8 || mb_strlen($pass) > 20) {
 }
 
 if (!empty($errors)) {
+    $_SESSION['old_login'] = $login;
+    $_SESSION['old_name'] = $name;
     setcookie('error_access', implode(", ", $errors), [
         'expires' => time() + 1,
         'path' => '/profile.php',
@@ -76,6 +78,8 @@ $result = $stmt->get_result();
 $user = $result->fetch_assoc();
 
 if ($user) {
+    $_SESSION['old_login'] = $login;
+    $_SESSION['old_name'] = $name;
     setcookie('error_access', "Такой пользователь уже существует", [
         'expires' => time() + 1,
         'path' => '/profile.php',

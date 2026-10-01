@@ -139,6 +139,12 @@ require __DIR__ . '/partials/header.php';
         <div class="container_profile">
             <div class="cont_profile cont_profile--plain">
                 <?php if (empty($_SESSION['user_id'])): ?>
+                    <?php
+                    // значения предыдущей попытки (после редиректа $_POST пуст)
+                    $oldLogin = $_SESSION['old_login'] ?? '';
+                    $oldName = $_SESSION['old_name'] ?? '';
+                    unset($_SESSION['old_login'], $_SESSION['old_name']);
+                    ?>
                     <div class="auth-page">
                         <div class="auth-card card">
                         <div id="login_cont">
@@ -147,7 +153,7 @@ require __DIR__ . '/partials/header.php';
                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                 <div class="form-group">
                                     <label class="form-label" for="auth_login">Логин</label>
-                                    <input class="input" id="auth_login" type="text" name="user_login" placeholder="Введите логин" required>
+                                    <input class="input" id="auth_login" type="text" name="user_login" placeholder="Введите логин" value="<?= escape($oldLogin) ?>" required>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="auth_pass">Пароль</label>
@@ -170,11 +176,11 @@ require __DIR__ . '/partials/header.php';
                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                 <div class="form-group">
                                     <label class="form-label" for="reg_name">Имя</label>
-                                    <input class="input" id="reg_name" type="text" name="user_name" placeholder="Введите имя" required>
+                                    <input class="input" id="reg_name" type="text" name="user_name" placeholder="Введите имя" value="<?= escape($oldName) ?>" required>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="reg_login">Логин</label>
-                                    <input class="input" id="reg_login" type="text" name="user_login" placeholder="Введите логин" required>
+                                    <input class="input" id="reg_login" type="text" name="user_login" placeholder="Введите логин" value="<?= escape($oldLogin) ?>" required>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="reg_pass">Пароль</label>
