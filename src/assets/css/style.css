@@ -32,14 +32,10 @@ body::-webkit-scrollbar-thumb {
 	height: 90px;
 	display: flex;
 	position: fixed;
-	/* 3.7-f-3-13: возврат к изначальному «стеклу» (6% белого + blur 20),
-	   читаемость на светлых страницах держит только нижняя граница,
-	   тени нет */
-	border-bottom: 1px solid rgba(0,0,0,.12);
+	border-bottom: 1px solid hsla(0,0%,100%,.15);
 	width: 100%;
-	background-color: rgba(255,255,255,.06);
+	background-color: #ffffff10;
 	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
 	top: 0;
     left: 0;
     z-index: 9;
@@ -125,12 +121,8 @@ body::-webkit-scrollbar-thumb {
 	opacity: 1;
 }
 
-/* 3.7-f-3-13: из f-3-8 откачены font-weight и светлая обводка .text.
-   Остался только тёмный цвет пунктов: при почти прозрачном хедере
-   белый текст на светлых страницах админки не читался бы. */
-.header .nav ul li a {
-	color: var(--text);
-}
+/* 3.7-f-3-15: компенсация контраста из f-3-8 убрана полностью -
+   навигация снова белая, как в исходном проекте (чекпоинт 71d6968). */
 .icon img{
 	height: 30px;
 }
