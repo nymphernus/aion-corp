@@ -274,13 +274,17 @@ require __DIR__ . '/partials/header.php';
                             <?php if (!$isAdmin): ?>
                             <section class="card" id="card-fav" data-section style="display:none;">
                                 <h2>Избранное</h2>
-                                            <div class="contTable">
+                                            <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
+                                            <div class="table-wrap">
                                                 <?php
-                                                $sql = "SELECT assembly_name,assembly_price,assembly.assembly_id,favorites.favorit_id FROM users,assembly,favorites
-                                                        WHERE assembly.assembly_id = favorites.assembly_id AND users.user_id = ? AND favorites.user_id = ?
-                                                        ORDER BY `favorites`.`favorit_id` ASC";
-                                                $stmt = $mysql->prepare($sql);
-                                                $stmt->bind_param("ii", $_SESSION['user_id'], $_SESSION['user_id']);
+                                                // 3.7-f-4b-2: без лишнего FROM users - фильтр идёт
+                                                // по favorites.user_id, порядок DESC
+                                                $sql = "SELECT a.assembly_name, a.assembly_price, a.assembly_id, f.favorit_id
+                                                        FROM favorites f
+                                                        JOIN assembly a ON a.assembly_id = f.assembly_id
+                                                        WHERE f.user_id = ?
+                                                        ORDER BY f.favorit_id DESC";
+                                                $stmt = db_prepare($mysql, $sql, "i", $_SESSION['user_id']);
                                                 $stmt->execute();
                                                 $result = $stmt->get_result();
 
@@ -292,30 +296,36 @@ require __DIR__ . '/partials/header.php';
                                                 if (empty($favRows)) {
                                                     echo '<div class="profile-empty">Пока нет избранного</div>';
                                                 } else {
-                                                echo '<div class="table-wrap"><table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th></th></tr></thead><tbody>';
+                                                echo '<table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th></th></tr></thead><tbody>';
 
                                                 foreach ($favRows as $row) {
-                                                    if ($row['assembly_id'] > 3) {
-                                                        $row['assembly_name'] = "Сборка " . ($row[0] ?? '');
+                                                    // 3.7-f-4b-2: явное поле вместо хрупкого $row[0]
+                                                    $favName = $row['assembly_name'] ?? '';
+                                                    if (($row['assembly_id'] ?? 0) > 3) {
+                                                        $favName = "Сборка " . $favName;
                                                     }
-                                                    echo "<tr>"
-                                                        . "<td><a href=\"assembly.php?check-saved={$row['assembly_id']}\">" . htmlspecialchars($row['assembly_name'] ?? '') . "</a></td>"
+                                                    // вся строка - ссылка на просмотр сборки
+                                                    echo "<tr class=\"row-link\" data-href=\"/assembly.php?check-saved={$row['assembly_id']}\">"
+                                                        . "<td>" . htmlspecialchars($favName) . "</td>"
                                                         . "<td>" . htmlspecialchars($row['assembly_price'] ?? '') . "</td>"
                                                         . "<td><form method=\"POST\">"
                                                         . "<input type=\"hidden\" name=\"csrf_token\" value=\"" . escape(csrf_token()) . "\">"
-                                                        . "<input style=\"display:none\" name=\"favoritId\" type=\"hidden\" value=\"{$row['favorit_id']}\">"
-                                                        . "<button class=\"btn btn--ghost btn--sm\" name=\"deleteAssembly\" type=\"submit\" value=\"{$row['assembly_id']}\">Удалить</button>"
+                                                        . "<input name=\"favoritId\" type=\"hidden\" value=\"{$row['favorit_id']}\">"
+                                                        . "<button class=\"btn btn--ghost btn--sm row-btn-danger\" name=\"deleteAssembly\" type=\"submit\" value=\"{$row['assembly_id']}\" title=\"Убрать из избранного\">"
+                                                        . "<img src=\"/assets/images/trash-outline.svg\" alt=\"Удалить\" width=\"18\" height=\"18\">"
+                                                        . "</button>"
                                                         . "</form></td>"
                                                         . "</tr>";
                                                 }
-                                                echo '</tbody></table></div>';
+                                                echo '</tbody></table>';
                                                 }
                                                 ?>
                                             </div>
                             </section>
                             <section class="card" id="card-builds" data-section style="display:none;">
                                             <h2>Мои сборки</h2>
-                                            <div class="contTable">
+                                            <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
+                                            <div class="table-wrap">
                                                 <?php
                                                 $checkSql = "SHOW COLUMNS FROM orders LIKE 'status'";
                                                 $checkStmt = $mysql->prepare($checkSql);
@@ -339,7 +349,7 @@ require __DIR__ . '/partials/header.php';
                                                     if (empty($ordRows)) {
                                                         echo '<div class="profile-empty">Пока нет сборок</div>';
                                                     } else {
-                                                    echo '<div class="table-wrap"><table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th>Статус</th></tr></thead><tbody>';
+                                                    echo '<table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th>Статус</th></tr></thead><tbody>';
 
                                                     foreach ($ordRows as $row) {
                                                         if ($row['assembly_id'] > 3) {
@@ -352,7 +362,7 @@ require __DIR__ . '/partials/header.php';
                                                             . "<td><span class=\"badge " . $statusCls . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
                                                             . "</tr>";
                                                     }
-                                                    echo '</tbody></table></div>';
+                                                    echo '</tbody></table>';
                                                     }
                                                 } else {
                                                     echo "<p>Статус заказов временно недоступен</p>";

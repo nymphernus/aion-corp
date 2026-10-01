@@ -269,6 +269,19 @@ document.addEventListener('change', function(e) {
     wrap.style.display = relevant ? '' : 'none';
 });
 
+// 3.7-f-4b-2: строка с data-href переходит по ссылке.
+// Клик по кнопке/ссылке/полю внутри строки переход не запускает —
+// отдельный stopPropagation не нужен, CSP не любит onclick.
+document.addEventListener('click', function(e) {
+    var tr = e.target.closest ? e.target.closest('tr[data-href]') : null;
+    if (!tr) return;
+    if (e.target.closest('a, button, select, input, form')) return;
+    var href = tr.getAttribute('data-href');
+    if (href) {
+        window.location.href = href;
+    }
+});
+
 // 3.7-f-2-6: клик по фону вокруг открытой модалки закрывает её.
 // Нативное поведение dialog: клик по самому элементу (мимо содержимого)
 // попадает сюда с e.target === modal. Регистрируется на верхнем уровне,

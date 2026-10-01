@@ -554,6 +554,38 @@ h1{
     overflow-y: auto;
 }
 
+/* 3.7-f-4b-2: строка-ссылка (избранное, мои заказы) */
+.table tbody tr.row-link {
+    cursor: pointer;
+    transition: background 150ms;
+}
+
+.table tbody tr.row-link:hover {
+    background: var(--bg);
+}
+
+.row-btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    color: var(--text-secondary);
+}
+
+.row-btn-danger img {
+    filter: none;
+    transition: filter 150ms;
+}
+
+.row-btn-danger:hover {
+    color: var(--error);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.row-btn-danger:hover img {
+    filter: invert(36%) sepia(93%) saturate(2000%) hue-rotate(348deg) brightness(95%);
+}
+
 /* 3.7-f-4-1: единый сайдбар — имя/логин и пункты навигации */
 .profile-user-name {
     font-size: 16px;
