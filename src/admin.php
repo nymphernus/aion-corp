@@ -1,0 +1,148 @@
+<?php
+/**
+ * Админ-панель AION CORP.
+ *
+ * URL: /admin.php?tab=users|orders|components
+ *  - без ?tab        → 302 на ?tab=components
+ *  - неизвестный tab → 404
+ *  - гость / не админ (свежая группа из БД) → 302 на /profile.php
+ *
+ * Обработчики POST и разметка вкладок вынесены в src/admin/.
+ */
+
+require_once __DIR__ . '/modules/connect.php';
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+
+csrf_token();
+
+$mysql = connect();
+mysqli_set_charset($mysql, 'utf8');
+
+if (!$mysql) {
+    die("Ошибка подключения к базе данных");
+}
+
+// Доступ: только залогиненный админ (группа — свежая из БД, не из сессии)
+if (empty($_SESSION['user_id'])) {
+    header('Location: /profile.php');
+    exit();
+}
+
+$stmt = $mysql->prepare("SELECT user_group FROM `users` WHERE `user_id` = ?");
+$stmt->bind_param("i", $_SESSION['user_id']);
+$stmt->execute();
+$adminRow = $stmt->get_result()->fetch_assoc();
+
+if (($adminRow['user_group'] ?? '') !== 'admin') {
+    header('Location: /profile.php');
+    exit();
+}
+
+$isAdmin = true;
+
+// Роутинг вкладки
+$tab = $_GET['tab'] ?? '';
+if ($tab === '') {
+    header('Location: /admin.php?tab=components');
+    exit();
+}
+
+$allowedTabs = ['users' => true, 'orders' => true, 'components' => true];
+if (!isset($allowedTabs[$tab])) {
+    http_response_code(404);
+    exit('Раздел не найден');
+}
+
+// Обработчики POST (перенесено из profile.php, SQL без изменений)
+if ($isAdmin && isset($_POST['addComponent'])) {
+    csrf_verify();
+    $name = $_POST['nm'] ?? '';
+    $price = $_POST['pr'] ?? 0;
+    $amount = $_POST['col'] ?? 0;
+    $categoryId = $_POST['cat'] ?? 0;
+    $tdp = $_POST['tdp'] ?? null;
+    $videoCore = $_POST['vc'] ?? null;
+    $socketId = $_POST['sock'] ?? null;
+
+    // TODO Stage 3.7: MAX(component_id)+1 — race condition, заменить на AUTO_INCREMENT
+    $stmt = $mysql->prepare("SELECT MAX(component_id) FROM components");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $checklast = $result->fetch_array();
+    $maxID = ($checklast[0] ?? 0) + 1;
+
+    if (!empty($name) && !empty($price) && !empty($amount) && !empty($categoryId)) {
+        $stmt = $mysql->prepare("INSERT INTO `components` (`component_id`,`component_name`, `component_price`, `amount`, `category_id`) VALUES(?,?,?,?,?)");
+        $stmt->bind_param("isiii", $maxID, $name, $price, $amount, $categoryId);
+        $stmt->execute();
+
+        if ($tdp !== null) {
+            $stmt = $mysql->prepare("UPDATE `components` SET `tdp` = ? WHERE `component_id` = ?");
+            $stmt->bind_param("ii", $tdp, $maxID);
+            $stmt->execute();
+        }
+
+        if ($videoCore !== null) {
+            $stmt = $mysql->prepare("UPDATE `components` SET `video_core` = ? WHERE `component_id` = ?");
+            $stmt->bind_param("si", $videoCore, $maxID);
+            $stmt->execute();
+        }
+
+        if ($socketId !== null) {
+            $stmt = $mysql->prepare("UPDATE `components` SET `socket_id` = ? WHERE `component_id` = ?");
+            $stmt->bind_param("ii", $socketId, $maxID);
+            $stmt->execute();
+        }
+    }
+    header('Location: /admin.php?tab=components');
+    exit();
+}
+
+if ($isAdmin && isset($_POST['editOrderStatus'])) {
+    csrf_verify();
+    $status = $_POST['status'] ?? '';
+    $orderId = $_POST['editOrderStatus'];
+
+    $stmt = $mysql->prepare("UPDATE orders SET status = ? WHERE order_id = ?");
+    $stmt->bind_param("si", $status, $orderId);
+    $stmt->execute();
+    header('Location: /admin.php?tab=orders');
+    exit();
+}
+
+$pageTitle = 'Админ-панель';
+$extraCss = ['/assets/css/profile.css'];
+$extraJs  = ['/assets/js/scripts.js'];
+require __DIR__ . '/partials/header.php';
+?>
+        <div class="profile-layout">
+            <aside class="profile-sidebar">
+                <nav>
+                    <a href="/admin.php?tab=users" class="profile-nav-item<?= $tab === 'users' ? ' active' : '' ?>">Пользователи</a>
+                    <a href="/admin.php?tab=orders" class="profile-nav-item<?= $tab === 'orders' ? ' active' : '' ?>">Заказы</a>
+                    <a href="/admin.php?tab=components" class="profile-nav-item<?= $tab === 'components' ? ' active' : '' ?>">Комплектующие</a>
+                </nav>
+                <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
+                <a href="/profile.php" class="btn btn--ghost">← В профиль</a>
+            </aside>
+            <div class="profile-content">
+<?php
+define('ADMIN_CONTEXT', true);
+if ($tab === 'components') {
+    require __DIR__ . '/admin/_tab_components.php';
+} elseif ($tab === 'orders') {
+    require __DIR__ . '/admin/_tab_orders.php';
+} else {
+?>
+                <section class="card">
+                    <h2>Админ-панель</h2>
+                    <p style="color:var(--text-secondary);">Выберите раздел</p>
+                </section>
+<?php
+}
+?>
+            </div>
+        </div>
+<?php require __DIR__ . '/partials/footer.php'; ?>
+
+<?php $mysql->close(); ?>

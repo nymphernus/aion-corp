@@ -24,6 +24,24 @@ if (isset($_SESSION['user_login'])) {
 $isAdmin = ($userProfile['user_group'] ?? '') === 'admin';
 
 if ($userProfile) {
+    if (isset($_POST['changeName']) && isset($_SESSION['user_login'])) {
+        csrf_verify();
+        $name = trim($_POST['user_name'] ?? '');
+
+        if (mb_strlen($name) < 2 || mb_strlen($name) > 50) {
+            header('Location: /profile.php');
+            exit();
+        }
+
+        $stmt = $mysql->prepare("UPDATE `users` SET `user_name` = ? WHERE `user_login` = ?");
+        $stmt->bind_param("ss", $name, $_SESSION['user_login']);
+        $stmt->execute();
+        $_SESSION['user_name'] = $name;
+        csrf_rotate();
+        header('Location: /profile.php');
+        exit();
+    }
+
     if (isset($_POST['changeAddress']) && isset($_SESSION['user_login'])) {
         csrf_verify();
         $city = $_POST['user_city'] ?? '';
@@ -114,58 +132,14 @@ if ($userProfile) {
     }
 
     if (isset($_POST['editOrderStatus']) && $isAdmin && isset($_POST['orderId'])) {
-        csrf_verify();
-        $status = $_POST['status'] ?? '';
-        $orderId = $_POST['editOrderStatus'];
-
-        $stmt = $mysql->prepare("UPDATE orders SET status = ? WHERE order_id = ?");
-        $stmt->bind_param("si", $status, $orderId);
-        $stmt->execute();
-
-        header('Location: /profile.php');
+        // Перенесено в admin.php?tab=orders (ШАГ 3)
+        header('Location: /admin.php?tab=orders');
         exit();
     }
 
     if (isset($_POST['addComponent']) && $isAdmin) {
-        csrf_verify();
-        $name = $_POST['nm'] ?? '';
-        $price = $_POST['pr'] ?? 0;
-        $amount = $_POST['col'] ?? 0;
-        $categoryId = $_POST['cat'] ?? 0;
-        $tdp = $_POST['tdp'] ?? null;
-        $videoCore = $_POST['vc'] ?? null;
-        $socketId = $_POST['sock'] ?? null;
-
-        $stmt = $mysql->prepare("SELECT MAX(component_id) FROM components");
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $checklast = $result->fetch_array();
-        $maxID = ($checklast[0] ?? 0) + 1;
-
-        if (!empty($name) && !empty($price) && !empty($amount) && !empty($categoryId)) {
-            $stmt = $mysql->prepare("INSERT INTO `components` (`component_id`,`component_name`, `component_price`, `amount`, `category_id`) VALUES(?,?,?,?,?)");
-            $stmt->bind_param("isiii", $maxID, $name, $price, $amount, $categoryId);
-            $stmt->execute();
-
-            if ($tdp !== null) {
-                $stmt = $mysql->prepare("UPDATE `components` SET `tdp` = ? WHERE `component_id` = ?");
-                $stmt->bind_param("ii", $tdp, $maxID);
-                $stmt->execute();
-            }
-
-            if ($videoCore !== null) {
-                $stmt = $mysql->prepare("UPDATE `components` SET `video_core` = ? WHERE `component_id` = ?");
-                $stmt->bind_param("si", $videoCore, $maxID);
-                $stmt->execute();
-            }
-
-            if ($socketId !== null) {
-                $stmt = $mysql->prepare("UPDATE `components` SET `socket_id` = ? WHERE `component_id` = ?");
-                $stmt->bind_param("ii", $socketId, $maxID);
-                $stmt->execute();
-            }
-        }
-        header('Location: /profile.php');
+        // Перенесено в admin.php?tab=components (ШАГ 2)
+        header('Location: /admin.php?tab=components');
         exit();
     }
 }
@@ -177,7 +151,7 @@ $extraJs  = ['/assets/js/scripts.js'];
 require __DIR__ . '/partials/header.php';
 ?>
         <div class="container_profile">
-            <div class="cont_profile">
+            <div class="cont_profile cont_profile--plain">
                 <?php if (empty($_SESSION['user_id'])): ?>
                     <div class="authCont">
                         <div id="login_cont">
@@ -219,89 +193,104 @@ require __DIR__ . '/partials/header.php';
                     </div>
                 <?php else: ?>
                     <div class="userProfile" id="userProfile">
-                        <h1>Профиль</h1>
-                        <div class="profileContainer">
-                            <div class="userData">
+                        <div class="profile-layout">
+                            <aside class="profile-sidebar">
+                                <div class="profile-user">
+                                    <div class="profile-avatar"><?= escape(mb_substr($userProfile['user_name'] ?? '?', 0, 1, 'UTF-8')) ?></div>
+                                    <div>
+                                        <div style="font-size:16px;font-weight:600;"><?= escape($userProfile['user_name'] ?? '') ?></div>
+                                        <div style="font-size:13px;color:var(--text-secondary);"><?= escape($userProfile['user_login'] ?? '') ?></div>
+                                    </div>
+                                </div>
+                                <nav>
+                                    <button type="button" class="profile-nav-item active" data-action="switch" data-target="card-info">Личная информация</button>
+                                    <?php if (!$isAdmin): ?>
+                                    <button type="button" class="profile-nav-item" data-action="switch" data-target="card-builds">Мои сборки</button>
+                                    <button type="button" class="profile-nav-item" data-action="switch" data-target="card-fav">Избранное</button>
+                                    <?php else: ?>
+                                    <button type="button" class="profile-nav-item" data-action="switch" data-target="card-admin">Панель управления</button>
+                                    <?php endif; ?>
+                                </nav>
+                                <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
+                                <a href="validation/exit.php" class="btn btn--ghost" style="color:var(--error);">Выйти</a>
+                            </aside>
+                            <div class="profile-content">
+                            <section class="card" id="card-info" data-section>
                                 <h2>Личная информация</h2>
-                                <p>Имя: <?= htmlspecialchars($userProfile['user_name'] ?? '') ?></p>
-                                <p>Фамилия: <?= htmlspecialchars($userProfile['user_surname'] ?? '') ?>
-                                    <input class="toggle_btn" value="Изменить" type="button"
-                                        data-action="show" data-id="surnameEdit">
-                                <div id="surnameEdit" style="display:none;">
-                                    <form action="" method="post" style="width: 100%; height: 100%;">
+                                <div class="profile-field" data-field="name">
+                                    <div class="profile-field-label">Имя</div>
+                                    <div class="profile-field-value"><?= htmlspecialchars($userProfile['user_name'] ?? '') ?></div>
+                                    <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                        <input type="text" name="user_surname" placeholder="Фамилия"><br>
-                                        <button class="" name="changeSurname" type="submit">Сохранить</button>
-                                        <input class="toggle_btn" value="Закрыть" type="button"
-                                            data-action="hide" data-id="surnameEdit">
+                                        <input class="input" type="text" name="user_name" placeholder="Имя" value="<?= escape($userProfile['user_name'] ?? '') ?>">
+                                        <button class="btn btn--primary btn--sm" name="changeName" type="submit">Сохранить</button>
+                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
                                     </form>
+                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
                                 </div>
-                                </p>
-                                <p>Почта: <?= htmlspecialchars($userProfile['user_email'] ?? '') ?>
-                                    <input class="toggle_btn" value="Изменить" type="button"
-                                        data-action="show" data-id="emailEdit">
-                                <div id="emailEdit" style="display:none;">
-                                    <form action="" method="post" style="width: 100%; height: 100%;">
+                                <div class="profile-field" data-field="surname">
+                                    <div class="profile-field-label">Фамилия</div>
+                                    <div class="profile-field-value"<?= empty($userProfile['user_surname']) ? ' data-empty' : '' ?>><?= !empty($userProfile['user_surname']) ? escape($userProfile['user_surname']) : 'Не указано' ?></div>
+                                    <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                        <input type="text" name="user_email" placeholder="Электронная почта"><br>
-                                        <button class="" name="changeEmail" type="submit">Сохранить</button>
-                                        <input class="toggle_btn" value="Закрыть" type="button"
-                                            data-action="hide" data-id="emailEdit">
+                                        <input class="input" type="text" name="user_surname" placeholder="Фамилия" value="<?= escape($userProfile['user_surname'] ?? '') ?>">
+                                        <button class="btn btn--primary btn--sm" name="changeSurname" type="submit">Сохранить</button>
+                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
                                     </form>
+                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
                                 </div>
-                                </p>
-                                <p>Адрес: <?= htmlspecialchars($userProfile['user_address'] ?? '') ?>
-                                    <input class="toggle_btn" value="Изменить" type="button"
-                                        data-action="show" data-id="addressEdit">
-                                <div id="addressEdit" style="display:none;">
-                                    <form action="" method="post" style="width: 100%; height: 100%;">
+                                <div class="profile-field" data-field="email">
+                                    <div class="profile-field-label">Почта</div>
+                                    <div class="profile-field-value"<?= empty($userProfile['user_email']) ? ' data-empty' : '' ?>><?= !empty($userProfile['user_email']) ? escape($userProfile['user_email']) : 'Не указано' ?></div>
+                                    <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                        <input type="text" name="user_city" placeholder="Город"><br>
-                                        <input type="text" name="user_street" placeholder="Улица"><br>
-                                        <input type="text" name="user_home" placeholder="Дом"><br>
-                                        <button class="" name="changeAddress" type="submit">Сохранить</button>
-                                        <input class="toggle_btn" value="Закрыть" type="button"
-                                            data-action="hide" data-id="addressEdit">
+                                        <input class="input" type="text" name="user_email" placeholder="Электронная почта" value="<?= escape($userProfile['user_email'] ?? '') ?>">
+                                        <button class="btn btn--primary btn--sm" name="changeEmail" type="submit">Сохранить</button>
+                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
                                     </form>
+                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
                                 </div>
-                                </p>
-                                <p>Номер телефона: <?= htmlspecialchars($userProfile['user_number'] ?? '') ?>
-                                    <input class="toggle_btn" value="Изменить" type="button"
-                                        data-action="show" data-id="numberEdit">
-                                <div id="numberEdit" style="display:none;">
-                                    <form action="" method="post" style="width: 100%; height: 100%;">
+                                <div class="profile-field" data-field="address">
+                                    <div class="profile-field-label">Адрес</div>
+                                    <div class="profile-field-value"<?= empty($userProfile['user_address']) ? ' data-empty' : '' ?>><?= !empty($userProfile['user_address']) ? escape($userProfile['user_address']) : 'Не указано' ?></div>
+                                    <form class="profile-field-edit profile-field-edit--stack" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                        <input type="tel" name="user_number" placeholder="+7(XXX)XXX-XX-XX" required
-                                            pattern="\+7\s?[\(]{0,1}[0-9][0-9]{2}[\)]{0,1}\s?\d{3}[-]{0,1}\d{2}[-]{0,1}\d{2}"><br>
-                                        <button class="" name="changeNumber" type="submit">Сохранить</button>
-                                        <input class="toggle_btn" value="Закрыть" type="button"
-                                            data-action="hide" data-id="numberEdit">
+                                        <input class="input" type="text" name="user_city" placeholder="Город">
+                                        <input class="input" type="text" name="user_street" placeholder="Улица">
+                                        <input class="input" type="text" name="user_home" placeholder="Дом">
+                                        <div class="edit-form-actions">
+                                        <button class="btn btn--primary btn--sm" name="changeAddress" type="submit">Сохранить</button>
+                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
+                                        </div>
                                     </form>
+                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
                                 </div>
-                                </p>
-                                <p><a href="validation/exit.php" class="toggle_btn" style="color:blue;">Выйти</a></p>
-                            </div>
-
-                            <div class="userOrder">
-                                <?php if ($isAdmin): ?>
-                                    <h2>Панель управления</h2>
-                                    <div class="MonitorBtn">
-                                        <input class="toggle_btn_monitor" value="Управление пользователями" type="button"
-                                            data-action="switch" data-a="userMonitor" data-b="userProfile">
-                                    </div>
-                                    <div class="MonitorBtn">
-                                        <input class="toggle_btn_monitor" value="Управление заказами" type="button"
-                                            data-action="switch" data-a="orderMonitor" data-b="userProfile">
-                                    </div>
-                                    <div class="MonitorBtn">
-                                        <input class="toggle_btn_monitor" value="Управление комплектующими" type="button"
-                                            data-action="switch" data-a="componentMonitor" data-b="userProfile">
-                                    </div>
-                                <?php else: ?>
-                                    <div class="userAssembly">
-                                        <h2>Ваши конфигурации</h2>
-                                        <div class="favoriteTable">
-                                            <h4>Сохранённые сборки</h4>
+                                <div class="profile-field" data-field="number">
+                                    <div class="profile-field-label">Телефон</div>
+                                    <div class="profile-field-value"<?= empty($userProfile['user_number']) ? ' data-empty' : '' ?>><?= !empty($userProfile['user_number']) ? escape($userProfile['user_number']) : 'Не указано' ?></div>
+                                    <form class="profile-field-edit" method="post" action="">
+                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                        <input class="input" type="tel" name="user_number" placeholder="+7(XXX)XXX-XX-XX" required
+                                            pattern="\+7\s?[\(]{0,1}[0-9][0-9]{2}[\)]{0,1}\s?\d{3}[-]{0,1}\d{2}[-]{0,1}\d{2}" value="<?= escape($userProfile['user_number'] ?? '') ?>">
+                                        <button class="btn btn--primary btn--sm" name="changeNumber" type="submit">Сохранить</button>
+                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
+                                    </form>
+                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
+                                </div>
+                            </section>
+                            <?php if ($isAdmin): ?>
+                            <section class="card" id="card-admin" data-section style="display:none;">
+                                <h2>Панель управления</h2>
+                                <div class="admin-grid">
+                                    <input class="btn btn--secondary" value="Управление пользователями" type="button"
+                                        data-action="switch" data-a="userMonitor" data-b="userProfile">
+                                    <a href="/admin.php?tab=orders" class="btn btn--secondary" style="text-decoration:none;">Управление заказами</a>
+                                    <a href="/admin.php?tab=components" class="btn btn--secondary" style="text-decoration:none;">Управление комплектующими</a>
+                                </div>
+                            </section>
+                            <?php else: ?>
+                            <section class="card" id="card-fav" data-section style="display:none;">
+                                <h2>Избранное</h2>
                                             <div class="contTable">
                                                 <?php
                                                 $sql = "SELECT assembly_name,assembly_price,assembly.assembly_id,favorites.favorit_id FROM users,assembly,favorites
@@ -312,30 +301,37 @@ require __DIR__ . '/partials/header.php';
                                                 $stmt->execute();
                                                 $result = $stmt->get_result();
 
-                                                echo "<span class=\"assemblyTable\"><span>Название сборки</span><span>Стоимость</span><span></span></span><br><div class=\"lineSpan\"></div>";
-
+                                                $favRows = [];
                                                 while ($row = $result->fetch_array()) {
+                                                    $favRows[] = $row;
+                                                }
+
+                                                if (empty($favRows)) {
+                                                    echo '<div class="profile-empty">Пока нет избранного</div>';
+                                                } else {
+                                                echo '<div class="table-wrap"><table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th></th></tr></thead><tbody>';
+
+                                                foreach ($favRows as $row) {
                                                     if ($row['assembly_id'] > 3) {
                                                         $row['assembly_name'] = "Сборка " . ($row[0] ?? '');
                                                     }
-                                                    echo "<form method=\"POST\">
-                                                            <input type=\"hidden\" name=\"csrf_token\" value=\"" . escape(csrf_token()) . "\">
-                                                            <span class=\"assemblyTable\">
-                                                                <span><a href=\"assembly.php?check-saved={$row['assembly_id']}\">" . htmlspecialchars($row['assembly_name'] ?? '') . "</a></span>
-                                                                <span>" . htmlspecialchars($row['assembly_price'] ?? '') . "</span>
-                                                                <span>
-                                                                    <input style=\"display:none\" name=\"favoritId\" type=\"hidden\" value=\"{$row['favorit_id']}\">
-                                                                    <button class=\"delBtn\" name=\"deleteAssembly\" type=\"submit\" value=\"{$row['assembly_id']}\">Удалить</button>
-                                                                </span>
-                                                            </span>
-                                                            <br>
-                                                          </form>";
+                                                    echo "<tr>"
+                                                        . "<td><a href=\"assembly.php?check-saved={$row['assembly_id']}\">" . htmlspecialchars($row['assembly_name'] ?? '') . "</a></td>"
+                                                        . "<td>" . htmlspecialchars($row['assembly_price'] ?? '') . "</td>"
+                                                        . "<td><form method=\"POST\">"
+                                                        . "<input type=\"hidden\" name=\"csrf_token\" value=\"" . escape(csrf_token()) . "\">"
+                                                        . "<input style=\"display:none\" name=\"favoritId\" type=\"hidden\" value=\"{$row['favorit_id']}\">"
+                                                        . "<button class=\"btn btn--ghost btn--sm\" name=\"deleteAssembly\" type=\"submit\" value=\"{$row['assembly_id']}\">Удалить</button>"
+                                                        . "</form></td>"
+                                                        . "</tr>";
+                                                }
+                                                echo '</tbody></table></div>';
                                                 }
                                                 ?>
                                             </div>
-                                        </div>
-                                        <div class="orderTable">
-                                            <h4>Заказы</h4>
+                            </section>
+                            <section class="card" id="card-builds" data-section style="display:none;">
+                                            <h2>Мои сборки</h2>
                                             <div class="contTable">
                                                 <?php
                                                 $checkSql = "SHOW COLUMNS FROM orders LIKE 'status'";
@@ -352,25 +348,35 @@ require __DIR__ . '/partials/header.php';
                                                     $stmt->execute();
                                                     $result = $stmt->get_result();
 
-                                                    echo "<span class=\"assemblyTable\"><span>Название сборки</span><span>Стоимость</span><span>Статус</span></span><br><div class=\"lineSpan\"></div>";
-
+                                                    $ordRows = [];
                                                     while ($row = $result->fetch_array()) {
+                                                        $ordRows[] = $row;
+                                                    }
+
+                                                    if (empty($ordRows)) {
+                                                        echo '<div class="profile-empty">Пока нет сборок</div>';
+                                                    } else {
+                                                    echo '<div class="table-wrap"><table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th>Статус</th></tr></thead><tbody>';
+
+                                                    foreach ($ordRows as $row) {
                                                         if ($row['assembly_id'] > 3) {
                                                             $row['assembly_name'] = "Сборка " . ($row[0] ?? '');
                                                         }
-                                                        echo "<span class=\"assemblyTable\">
-                                                                <span><a href=\"assembly.php?check-purchased={$row['assembly_id']}\">" . htmlspecialchars($row['assembly_name'] ?? '') . "</a></span>
-                                                                <span>" . htmlspecialchars($row['assembly_price'] ?? '') . "</span>
-                                                                <span>" . htmlspecialchars($row['status'] ?? '') . "</span>
-                                                              </span><br>";
+                                                        $statusCls = (($row['status'] ?? '') === 'Выполнен') ? 'badge--success' : 'badge--warning';
+                                                        echo "<tr>"
+                                                            . "<td><a href=\"assembly.php?check-purchased={$row['assembly_id']}\">" . htmlspecialchars($row['assembly_name'] ?? '') . "</a></td>"
+                                                            . "<td>" . htmlspecialchars($row['assembly_price'] ?? '') . "</td>"
+                                                            . "<td><span class=\"badge " . $statusCls . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
+                                                            . "</tr>";
+                                                    }
+                                                    echo '</tbody></table></div>';
                                                     }
                                                 } else {
                                                     echo "<p>Статус заказов временно недоступен</p>";
                                                 }
                                                 ?>
                                             </div>
-                                        </div>
-                                    </div>
+                            </section>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -411,150 +417,6 @@ require __DIR__ . '/partials/header.php';
                             </div>
                         </div>
 
-                        <div class="userProfile" id="orderMonitor" style="display:none;">
-                            <h1>Управление заказами</h1>
-                            <input class="toggle_btn_profile" value="Вернуться в профиль" type="button"
-                                data-action="switch" data-a="userProfile" data-b="orderMonitor">
-                            <div class="containerMonitor">
-                                <?php
-                                echo "<span class=\"assemblyTable\">
-                                        <span>Покупатель</span>
-                                        <span style=\"width:60%\">Адрес</span>
-                                        <span>Сборка</span>
-                                        <span>Стоимость</span>
-                                        <span>Статус</span>
-                                        <span></span>
-                                      </span><br><div class=\"lineSpan\"></div>";
-
-                                $checkSql = "SHOW COLUMNS FROM orders LIKE 'status'";
-                                $checkStmt = $mysql->prepare($checkSql);
-                                $checkStmt->execute();
-                                $checkResult = $checkStmt->get_result();
-
-                                if ($checkResult && $checkResult->num_rows > 0) {
-                                    $sql = "SELECT user_name,user_surname,user_address,assembly_name,assembly_price,order_id,status,assembly.assembly_id FROM users,assembly,orders
-                                            WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id
-                                            ORDER BY `orders`.`order_id` ASC";
-                                    $stmt = $mysql->prepare($sql);
-                                    $stmt->execute();
-                                    $result = $stmt->get_result();
-
-                                    if ($result) {
-                                        while ($row = $result->fetch_array()) {
-                                            if ($row['assembly_id'] > 3) {
-                                                $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
-                                            }
-                                            echo "<form method=\"POST\">
-                                                    <input type=\"hidden\" name=\"csrf_token\" value=\"" . escape($_SESSION['csrf_token']) . "\">
-                                                    <span class=\"assemblyTable\">
-                                                        <span>" . htmlspecialchars(($row['user_name'] ?? '') . " " . ($row['user_surname'] ?? '')) . "</span>
-                                                        <span style=\"width:60%\">" . htmlspecialchars($row['user_address'] ?? '') . "</span>
-                                                        <span>" . htmlspecialchars($row['assembly_name'] ?? '') . "</span>
-                                                        <span>" . htmlspecialchars($row['assembly_price'] ?? '') . "</span>
-                                                        <span>
-                                                            <select size=\"1\" name=\"status\">
-                                                                <option " . ((($row['status'] ?? '') == 'Обрабатывается') ? 'selected' : '') . " value=\"Обрабатывается\">Обрабатывается</option>
-                                                                <option " . ((($row['status'] ?? '') == 'Собирается') ? 'selected' : '') . " value=\"Собирается\">Собирается</option>
-                                                                <option " . ((($row['status'] ?? '') == 'Доставляется') ? 'selected' : '') . " value=\"Доставляется\">Доставляется</option>
-                                                                <option " . ((($row['status'] ?? '') == 'Выполнен') ? 'selected' : '') . " value=\"Выполнен\">Выполнен</option>
-                                                            </select>
-                                                        </span>
-                                                        <span>
-                                                            <input type=\"hidden\" name=\"orderId\" value=\"" . htmlspecialchars($row['order_id'] ?? '') . "\">
-                                                            <button class=\"delBtn\" style=\"color:blue;\" name=\"editOrderStatus\" type=\"submit\" value=\"" . htmlspecialchars($row['order_id'] ?? '') . "\">Сохранить</button>
-                                                        </span>
-                                                    </span>
-                                                    <br>
-                                                  </form>";
-                                        }
-                                    }
-                                } else {
-                                    echo "<p>Столбец status отсутствует в таблице orders</p>";
-                                }
-                                ?>
-                            </div>
-                        </div>
-
-                        <div class="userProfile" id="componentMonitor" style="display:none;">
-                            <h1>Управление комплектующими</h1>
-                            <br>
-                            <input class="toggle_btn_profile" value="Вернуться в профиль" type="button"
-                                data-action="switch" data-a="userProfile" data-b="componentMonitor">
-                            <br>
-                            <div class="containerMonitor">
-                                <div class="cmpForm">
-                                    <h3>Добавить комплектующие</h3><br>
-                                    <form method="POST">
-                                        <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
-                                        <span class="assemblyTable">
-                                            <span><input type="text" placeholder="Название" name="nm"
-                                                    style="width:200px;"></span>
-                                            <span><input type="number" placeholder="Стоимость" name="pr"></span>
-                                            <span><input type="number" placeholder="Количество" name="col"></span>
-                                            <span><input id="tdpInp" type="checkbox" value="1" name="vc"><label
-                                                    for="tdpInp">Графическое ядро</label></span>
-                                            <?php
-                                            $sql = "SELECT * FROM categories ORDER BY `categories`.`category_id` ASC";
-                                            echo "<span><select size=\"1\" name=\"cat\"><option selected hidden disabled>Категория</option>";
-                                            $stmt = $mysql->prepare($sql);
-                                            $stmt->execute();
-                                            $result = $stmt->get_result();
-                                            if ($result) {
-                                                while ($row = $result->fetch_array()) {
-                                                    echo "<option value=\"" . htmlspecialchars($row['category_id'] ?? '') . "\">" . htmlspecialchars($row['category_name'] ?? '') . "</option>";
-                                                }
-                                            }
-                                            echo "</select></span>";
-
-                                            $sql = "SELECT * FROM sockets ORDER BY `sockets`.`socket_id` ASC";
-                                            echo "<span><select size=\"1\" name=\"sock\"><option selected hidden disabled>Сокет</option>";
-                                            $stmt = $mysql->prepare($sql);
-                                            $stmt->execute();
-                                            $result = $stmt->get_result();
-                                            if ($result) {
-                                                while ($row = $result->fetch_array()) {
-                                                    echo "<option value=\"" . htmlspecialchars($row['socket_id'] ?? '') . "\">" . htmlspecialchars($row['socket_type'] ?? '') . "</option>";
-                                                }
-                                            }
-                                            echo "</select></span>";
-                                            ?>
-                                            <span><input type="number" placeholder="TDP" name="tdp"></span>
-                                            <span><button class="delBtn" style="color:blue;" name="addComponent"
-                                                    type="submit">Добавить</button></span>
-                                        </span>
-                                        <br>
-                                    </form>
-                                    <br>
-                                    <h3>Список комплектующих</h3>
-                                </div>
-                                <?php
-                                echo "<br><br><div class=\"lineSpan\"></div>
-                                      <span class=\"assemblyTable\">
-                                        <span style=\"width:5%\">ID</span>
-                                        <span>Категория</span>
-                                        <span>Название</span>
-                                        <span style=\"width:5%\">Количество</span>
-                                        <span style=\"width:10%\">Стоимость</span>
-                                      </span><br><div class=\"lineSpan\"></div>";
-
-                                $sql = "SELECT * FROM components,categories WHERE components.category_id = categories.category_id ORDER BY `components`.`component_id` ASC";
-                                $stmt = $mysql->prepare($sql);
-                                $stmt->execute();
-                                $result = $stmt->get_result();
-                                if ($result) {
-                                    while ($row = $result->fetch_array()) {
-                                        echo "<span class=\"assemblyTable\">
-                                                <span style=\"width:5%\">" . htmlspecialchars($row['component_id'] ?? '') . "</span>
-                                                <span>" . htmlspecialchars($row['category_name'] ?? '') . "</span>
-                                                <span>" . htmlspecialchars($row['component_name'] ?? '') . "</span>
-                                                <span style=\"width:5%\">" . htmlspecialchars($row['amount'] ?? '') . "</span>
-                                                <span style=\"width:10%\">" . htmlspecialchars($row['component_price'] ?? '') . "</span>
-                                              </span><br>";
-                                    }
-                                }
-                                ?>
-                            </div>
-                        </div>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>

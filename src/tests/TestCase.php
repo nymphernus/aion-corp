@@ -116,6 +116,18 @@ class AionTestCase extends PhpUnitTestCase
         $mysql->close();
     }
 
+    protected function clearLoginAttempts(string $login): void
+    {
+        try {
+            $mysql = connect();
+        } catch (Throwable) {
+            return;
+        }
+        $s = db_prepare($mysql, "DELETE FROM login_attempts WHERE login = ?", "s", $login);
+        $s->execute();
+        $mysql->close();
+    }
+
     protected function userExists(string $login): bool
     {
         $mysql = connect();

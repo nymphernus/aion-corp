@@ -22,6 +22,7 @@ final class AuthTest extends AionTestCase
         $profile = $this->httpGet('/profile.php');
         $this->assertSame(200, $profile['code']);
         $this->assertStringNotContainsString('Выйти', $profile['body']);
+        $this->clearLoginAttempts('admin');
     }
 
     public function testValidLoginCreatesSession(): void

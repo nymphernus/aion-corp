@@ -92,7 +92,12 @@ final class AdminTest extends AionTestCase
         $token = $this->loginAsAdmin();
         $name = 'TestComp ' . substr(bin2hex(random_bytes(4)), 0, 8);
 
-        $add = $this->httpPost('/profile.php', [
+        // Обработчик addComponent перенесён в admin.php (ШАГ 2)
+        $page = $this->httpGet('/admin.php?tab=components');
+        $this->assertSame(200, $page['code']);
+        $token = $this->extractCsrf($page['body']);
+
+        $add = $this->httpPost('/admin.php?tab=components', [
             'addComponent' => '1',
             'nm' => $name,
             'pr' => '1000',
