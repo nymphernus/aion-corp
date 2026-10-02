@@ -405,6 +405,92 @@ h1{
     }
 }
 
+/* 5-f-2: вкладка «Настройки сайта». Классы .modal-row, .modal-actions и
+   .modal-actions-right уже использовались модалками пользователя и заказа,
+   здесь переиспользованы они, чтобы не плодить вторую сетку. */
+
+/* Подпись под полем: и объяснение, и статус геокодера */
+.form-hint {
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+
+/* Поле во всю ширину и кнопка рядом с ним, без сжимания */
+.form-inline {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.form-inline .input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.form-inline .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* Контейнер карты в модалке. Без явной высоты Leaflet не знает, сколько
+   тайлов грузить: контейнер схлопывается и в карте остаётся три тайла */
+.map-preview {
+    height: 400px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--border);
+}
+
+/* Пара «подпись — значение» без таблицы: dl ради семантики */
+.settings-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 16px;
+    margin: 0 0 20px;
+}
+
+.settings-list dt {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.settings-list dd {
+    margin: 0;
+    font-size: 14px;
+}
+
+.settings-list__hint {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-left: 8px;
+}
+
+/* Сохранённый снимок в админке */
+.settings-snapshot {
+    display: block;
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+@media (max-width: 700px) {
+    .map-preview {
+        height: 280px;
+    }
+
+    .settings-list {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .settings-list dd {
+        margin-bottom: 8px;
+    }
+}
+
 /* 3.7-f-2-3: нативный аккордеон админ-вкладок в сайдбаре профиля */
 .profile-nav-group summary {
     cursor: pointer;

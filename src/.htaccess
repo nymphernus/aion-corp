@@ -1,4 +1,17 @@
 Header always set X-Frame-Options "SAMEORIGIN"
 Header always set X-Content-Type-Options "nosniff"
 Header always set Referrer-Policy "strict-origin-when-cross-origin"
-Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://maps.gstatic.com https://*.googleapis.com https://*.ggpht.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; frame-src https://www.google.com https://maps.google.com;"
+
+# 5-f-2: карта переехала с Google Maps на OpenStreetMap, внешних iframe
+# больше нет.
+#   img-src     - тайлы OSM; data: нужен для вывода data:image из canvas
+#                 и для служебных картинок Leaflet, которые отдаёт свой
+#                 css как url(images/marker-icon.png) - это тот же 'self'.
+#   connect-src - Nominatim: из браузера админа уходит запрос координат.
+#                 Тайлы OSM под connect-src не попадают, их грузит img-src.
+#   script-src  - остаётся 'self': Leaflet и html2canvas лежат в репозитории,
+#                 внешних скриптов нет.
+#   frame-src   - 'none': встраивать iframe на сайте нечем и не нужно.
+# Убраны maps.gstatic.com, *.googleapis.com, *.ggpht.com и frame-src на
+# Google: после ухода с Google Maps они больше не нужны.
+Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self' https://nominatim.openstreetmap.org; frame-src 'none';"

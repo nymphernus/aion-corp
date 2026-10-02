@@ -54,6 +54,10 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
         'users' => ['/admin.php?tab=users', 'Пользователи'],
         'orders' => ['/admin.php?tab=orders', 'Заказы'],
         'components' => ['/admin.php?tab=components', 'Комплектующие'],
+        // 5-f-2: контакты и снимок карты. Ключ в $adminTabs не добавлен
+        // намеренно: этот раздел не про заказы и комплектующие, и в
+        // заголовке аккордеона подсветка ему не нужна
+        'settings' => ['/admin.php?tab=settings', 'Настройки сайта'],
     ];
     foreach ($adminLinks as $key => [$href, $label]):
 ?>

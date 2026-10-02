@@ -48,7 +48,7 @@ if ($tab === '') {
     exit();
 }
 
-$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'dashboard' => true];
+$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'dashboard' => true, 'settings' => true];
 if (!isset($allowedTabs[$tab])) {
     http_response_code(404);
     exit('Раздел не найден');
@@ -186,7 +186,10 @@ if ($tab === 'components') {
 // 3.7-g: дашборду пагинация и счётчик строк не нужны, поэтому весь блок
 // с COUNT и paginate() для него пропускается. Иначе пришлось бы держать
 // в $countSql фиктивную запись ради значения, которое никто не читает.
-if ($tab !== 'dashboard') {
+// 5-f-2: то же для settings - это форма на пару экранов, а не таблица.
+// Без этой правки вкладка падала: в $countSql нет ключа settings,
+// $countSql приходил null, и db_prepare() умирал на типе аргумента.
+if ($tab !== 'dashboard' && $tab !== 'settings') {
     $countSql = [
         'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $listWhere,
         'users' => 'SELECT COUNT(*) FROM users WHERE 1=1' . $listWhere,
@@ -335,6 +338,142 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     $stmt->execute();
     csrf_rotate();
     header('Location: /admin.php?tab=orders');
+    exit();
+}
+
+// 5-f-2: сохранение контактов и текстовых настроек из формы вкладки
+// «Настройки сайта». Координаты и снимок карты сюда не попадают: их
+// пишет отдельный обработчик saveMapSnapshot, который проверяет PNG.
+if ($isAdmin && isset($_POST['saveSettings'])) {
+    csrf_verify();
+
+    // Белый список: ключи из POST не должны попадать в запрос как есть.
+    // Здесь только значения, ключ берётся из этого списка.
+    $allowed = [
+        'contact_phone', 'contact_email',
+        'contact_vk', 'contact_telegram', 'contact_whatsapp',
+        'map_address_text',
+    ];
+
+    $values = [];
+    foreach ($allowed as $key) {
+        $raw = (string) ($_POST[$key] ?? '');
+        // trim убирает случайные пробелы по краям, но не трогает
+        // внутренние: телефон и адрес пишутся как человек их ввёл
+        $values[$key] = trim($raw);
+    }
+
+    // Ссылки принимаются только как http(s). Иначе через javascript:
+    // можно было бы заставить админа кликнуть по иконке соцсети и
+    // выполнить произвольный скрипт. Пустая строка допустима - значит
+    // иконку не показываем вовсе.
+    foreach (['contact_vk', 'contact_telegram', 'contact_whatsapp'] as $linkKey) {
+        if ($values[$linkKey] === '') {
+            continue;
+        }
+        if (!filter_var($values[$linkKey], FILTER_VALIDATE_URL)) {
+            $values[$linkKey] = '';
+        } elseif (!preg_match('#^https?://#i', $values[$linkKey])) {
+            $values[$linkKey] = '';
+        }
+    }
+
+    site_setting_save($mysql, $values);
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=settings');
+    exit();
+}
+
+// 5-f-2: приём снимка карты с админской страницы.
+//
+// В POST приходит data:image/png;base64,... из html2canvas. Данные
+// приходят из браузера, поэтому проверяем всё, на что можно опереться:
+// форму префикса, результат base64_decode, сигнатуру PNG и размер.
+// Файл пишется под фиксированным именем - имя из POST не используется
+// принципиально, иначе через имя можно было бы записать что угодно
+// в любой каталог.
+if ($isAdmin && isset($_POST['saveMapSnapshot'])) {
+    csrf_verify();
+
+    $dataUrl = (string) ($_POST['map_snapshot'] ?? '');
+    $address = trim((string) ($_POST['map_address_text'] ?? ''));
+    $lat = (float) ($_POST['map_lat'] ?? 0);
+    $lng = (float) ($_POST['map_lng'] ?? 0);
+
+    // этот обработчик может завершиться ошибкой до вывода, а header() после
+    // начала вывода не сработает, поэтому проверки идут до любого echo
+    if (!preg_match('#^data:image/png;base64,([A-Za-z0-9+/=]+)$#', $dataUrl, $m)) {
+        http_response_code(400);
+        exit('Invalid image format');
+    }
+
+    $binary = base64_decode($m[1], true);
+    if ($binary === false || $binary === '') {
+        http_response_code(400);
+        exit('Invalid base64 payload');
+    }
+
+    // снимок делается с scale:2, контейнер примерно 760x400, то есть около
+    // 6 МБ. Потолок 8 МБ: он не мешает нормальному снимку и не даёт телу
+    // POST выесть память сервера
+    if (strlen($binary) > 8 * 1024 * 1024) {
+        http_response_code(400);
+        exit('Image too large');
+    }
+
+    // база64 в принципе можно подделать, а вот эти восемь байт обязаны
+    // стоять в начале настоящего PNG
+    if (substr($binary, 0, 8) !== "\x89PNG\r\n\x1a\n") {
+        http_response_code(400);
+        exit('Not a PNG');
+    }
+
+    // координаты приходят из тех же данных браузера, но диапазон проверяем:
+    // за пределами Земли их не бывает, а мусор в базе не нужен
+    if ($lat < -90.0 || $lat > 90.0 || $lng < -180.0 || $lng > 180.0) {
+        http_response_code(400);
+        exit('Invalid coordinates');
+    }
+
+    $dir = __DIR__ . '/assets/uploads';
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        http_response_code(500);
+        exit('Upload directory is not available');
+    }
+
+    $path = $dir . '/site-map.png';
+    // Пишем во временный файл и переименовываем: частичная запись оставила
+    // бы на главном битую картинку, а rename в пределах каталога атомарен
+    $tmp = $path . '.tmp';
+    if (@file_put_contents($tmp, $binary, LOCK_EX) === false) {
+        @unlink($tmp);
+        http_response_code(500);
+        exit('Failed to write snapshot');
+    }
+    if (!@rename($tmp, $path)) {
+        @unlink($tmp);
+        http_response_code(500);
+        exit('Failed to replace snapshot');
+    }
+    @chmod($path, 0644);
+
+    // Версия в URL - иначе браузер будет показывать старый снимок из кеша.
+    // mtime меняется при каждой перезаписи, поэтому ссылка всегда новая.
+    $version = (string) @filemtime($path);
+
+    site_setting_save($mysql, [
+        'map_snapshot_url' => '/assets/uploads/site-map.png?v=' . $version,
+        'map_address_text' => $address,
+        'map_lat'          => (string) $lat,
+        'map_lng'          => (string) $lng,
+        // Масштаб закрепляем за снимком: он дискретен, 15 это то, чем
+        // снимали. Иначе настройка расходилась бы с картинкой
+        'map_zoom'         => '15',
+    ]);
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=settings');
     exit();
 }
 
@@ -504,6 +643,19 @@ if ($isAdmin && isset($_POST['deleteUser'])) {
 $pageTitle = 'Админ-панель';
 $extraCss = ['/assets/css/profile.css'];
 $extraJs  = ['/assets/js/scripts.js'];
+
+// 5-f-2: карта администрируется только на вкладке настроек, а на главной
+// это статичный <img>. Leaflet весит около 150 КБ, и тащить его на каждую
+// страницу админки незачем. Подключается здесь, до header.php: вкладки
+// включаются уже после вывода <head>.
+// html2canvas в задании предполагался для снимка карты, но с Leaflet он не
+// работает (проверено, снимок выходил пустым), поэтому карта собирается
+// вручную в admin-settings.js и библиотека нигде не используется.
+if ($tab === 'settings') {
+    $extraCss[] = '/assets/vendor/leaflet/leaflet.css';
+    $extraJs[]  = '/assets/vendor/leaflet/leaflet.js';
+    $extraJs[]  = '/assets/js/admin-settings.js';
+}
 require __DIR__ . '/partials/header.php';
 ?>
         <div class="profile-layout">
@@ -530,6 +682,11 @@ if ($tab === 'dashboard') {
     require __DIR__ . '/admin/_tab_orders.php';
 } elseif ($tab === 'users') {
     require __DIR__ . '/admin/_tab_users.php';
+} elseif ($tab === 'settings') {
+    // 5-f-2: настройки читаются один раз на страницу и уходят и в форму,
+    // и в модалку снимка карты
+    $settings = site_settings($mysql);
+    require __DIR__ . '/admin/_tab_settings.php';
 } else {
 ?>
                 <section class="card">

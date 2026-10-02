@@ -11,5 +11,11 @@ backup_*.sql
 tests/phpunit.phar
 src/tests/.phpunit.result.cache
 
+src/tests/.phpunit.result.cache
+
+# 5-f-2: snimok karty delaet admin iz browsera - eto dannye vladelca, a ne
+# ishodniki proekta. Katalog nuzhen, fР°Р№Р» vnutri - net
+src/assets/uploads/*
+!src/assets/uploads/.gitkeep
 # 3.7-g-5: рабочий документ, в репозитории не нужен
 AGENT.md
