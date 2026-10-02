@@ -1,0 +1,8 @@
+# Git на этой машине настроен с core.autocrlf=true, из-за чего в рабочую
+# копию попадают файлы с CRLF. Для PHP это безвредно, для .sh смертельно:
+# shebang превращается в #!/bin/sh\r, и контейнер падает с
+# "exec /usr/local/bin/entrypoint.sh: no such file or directory".
+# Поэтому для shell-файлов и Dockerfile переводы строк жёстко LF.
+*.sh text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
