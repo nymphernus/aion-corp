@@ -53,15 +53,30 @@ if (PHP_SAPI !== 'cli') {
 // ── Флаги ──────────────────────────────────────────────────────────────
 $dryRun = in_array('--dry-run', $argv, true);
 $selftest = in_array('--selftest', $argv, true);
-$stage = 1;
+$stage = '1';
 foreach ($argv as $arg) {
-    if (preg_match('/^--stage=(\d+)$/', $arg, $m)) {
-        $stage = (int) $m[1];
+    if (preg_match('/^--stage=([0-9]+[a-d]?)$/', $arg, $m)) {
+        $stage = $m[1];
     }
 }
 
 const CAT_CPU = 1;
 const CAT_VIDEO = 3;
+const CAT_MEMORY = 4;
+const CAT_SSD = 9;
+
+/**
+ * Граница старых компонентов. Новые 50 из seed_components.php заняли
+ * id 193..242, между 188 и 192 ничего нет, поэтому «меньше 190» и
+ * «меньше 193» одно и то же.
+ *
+ * Фильтр по id нужен вместе с правилом «не перезаписывать»: у новых
+ * компонентов часть полей законно NULL (ram_type у видеокарт,
+ * capacity_gb у материнских плат), и проверка «поле пустое» для них
+ * сработала бы, то есть правка старого парсера могла бы испортить
+ * новые строки.
+ */
+const LEGACY_MAX_ID = 190;
 
 /**
  * Intel и AMD в словарь сознательно не внесены: они же встречаются
@@ -264,6 +279,364 @@ function pad(string $text, int $width): string
 }
 
 /**
+ * Колонки, которые заполняет каждый этап, и их типы для bind_param.
+ * Ключ этапа => [колонка => тип]. Всё остальное скрипт не трогает.
+ */
+const STAGE_FIELDS = [
+    '1' => ['manufacturer' => 's', 'model' => 's'],
+    '2a' => ['ram_type' => 's', 'capacity_gb' => 'i', 'frequency_mhz' => 'i'],
+    '2b' => ['capacity_gb' => 'i', 'interface' => 's', 'form_factor' => 's'],
+    '2c' => ['specs' => 's', 'frequency_mhz' => 'i'],
+    '2d' => ['capacity_gb' => 'i', 'memory_type' => 's'],
+];
+
+/**
+ * Эшелон 2a: предполагаемый тип памяти для модулей без маркера.
+ *
+ * В 15 старых модулях в названии нет ни «DDR», ни «MHz» - проверено
+ * запросом, 0 совпадений. По линейке модели тип не восстанавливается
+ * однозначно: FURY Beast, XPG SPECTRIX и TRIDENT Z выпускались и в
+ * DDR4, и в DDR5, а год выпуска в названии отсутствует. Решение
+ * принято пользователем: проставить DDR4 всем, потому что все 15
+ * линеек выпущены до появления DDR5 в рознице (2019-2021).
+ * Это догадка, а не разбор: она помечена в плане как assumed.
+ * Если появится модуль DDR5-вида, поле придётся поправить руками.
+ */
+const RAM_TYPE_ASSUMED = 'DDR4';
+
+/** Границы правдоподобия объёма памяти, ГБ. */
+const RAM_CAPACITY_MIN = 2;
+const RAM_CAPACITY_MAX = 256;
+
+/**
+ * Эшелон 2c: ядра и потоки по конкретным моделям.
+ *
+ * Таблица, а не правило по линейке: правило «i7 -> 8/16» ошибается на
+ * i7-12700F (20/28), «i9 -> 8-16/16-32» на i9-12900 (16/24),
+ * «Pentium Gold -> 2/2» на G6405 и G7400 (4/4), «Ryzen 3 -> 4/8» на
+ * Ryzen 3 PRO (4/4, у PRO отключён SMT). Ключ - название без
+ * суффиксов F/K/KF, они на число ядер не влияют.
+ */
+const CPU_CORES = [
+    // Intel: 9-е поколение
+    'i3-10100' => [4, 8], 'i5-10400' => [6, 12], 'i7-10700' => [8, 16], 'i9-10900' => [8, 16],
+    // Intel: 10-е поколение
+    'i5-10600' => [6, 12], 'i3-12100' => [4, 8], 'i5-12400' => [6, 12],
+    'i7-12700' => [20, 28], 'i9-12900' => [16, 24],
+    // Intel: 11-е поколение
+    'i5-11400' => [6, 12], 'i5-11600' => [6, 12],
+    'i7-11700' => [8, 16], 'i9-11900' => [8, 16],
+    // Intel: 12-14-е поколение, нужны для названий нового вида
+    'i3-13100' => [4, 8], 'i5-13400' => [10, 16], 'i7-13700' => [16, 24], 'i9-13900' => [24, 32],
+    // Intel: начальный уровень
+    'Celeron G5905' => [2, 2], 'Celeron G6900' => [2, 2],
+    'Pentium Gold G6405' => [4, 4], 'Pentium Gold G7400' => [4, 4],
+    // AMD: Ryzen
+    'Ryzen 3 PRO 1200' => [4, 4], 'Ryzen 3 PRO 2100GE' => [4, 4],
+    'Ryzen 5 3600' => [6, 12], 'Ryzen 5 5600G' => [6, 12], 'Ryzen 5 5600' => [6, 12],
+    'Ryzen 5 5600X' => [6, 12], 'Ryzen 5 7600' => [6, 12],
+    'Ryzen 7 3700X' => [8, 16], 'Ryzen 7 3800X' => [8, 16], 'Ryzen 7 5800X' => [8, 16],
+    'Ryzen 7 5700X' => [8, 16], 'Ryzen 7 7700X' => [8, 16],
+    'Ryzen 9 5900X' => [12, 24], 'Ryzen 9 5950X' => [16, 32], 'Ryzen 9 7900X' => [12, 24],
+    // AMD: APU и Athlon
+    'A8-9600' => [4, 4], 'A6-9500E' => [2, 2],
+    'Athlon X4 950' => [4, 4], 'Athlon 3000G' => [2, 4],
+];
+
+/**
+ * Эшелон 2d: объём видеопамяти и тип по серии.
+ *
+ * Ключ - самый длинный совпавший кусок названия, поэтому проверка идёт
+ * по убыванию длины ключа: «RTX 3080 Ti» должен выиграть у «RTX 3080».
+ * Второй элемент - объём в ГБ, третий - тип памяти.
+ *
+ * memory_type: у RTX 3080, 3080 Ti, 3090 и 3090 Ti память GDDR6X,
+ * а не GDDR6, как получилось бы по правилу «все 30xx - GDDR6».
+ * У карт, где тип зависит от конкретной ревизии (GT 730, GT 1030,
+ * бывает и DDR3, и GDDR5), тип не пишется - вместо него NULL.
+ *
+ * Объём, явно написанный в названии («RTX 2060 D6 6G», «GT 1030 D4 2G»),
+ * важнее словаря и читается первым.
+ */
+const GPU_SERIES = [
+    'RTX 4090' => [24, 'GDDR6X'], 'RTX 4080' => [16, 'GDDR6X'],
+    'RTX 4070 Ti' => [12, 'GDDR6X'], 'RTX 4070' => [12, 'GDDR6X'],
+    'RTX 4060 Ti' => [8, 'GDDR6'], 'RTX 4060' => [8, 'GDDR6'],
+    'RTX 3090 Ti' => [24, 'GDDR6X'], 'RTX 3090' => [24, 'GDDR6X'],
+    'RTX 3080 Ti' => [12, 'GDDR6X'], 'RTX 3080' => [10, 'GDDR6X'],
+    'RTX 3070 Ti' => [8, 'GDDR6'], 'RTX 3070' => [8, 'GDDR6'],
+    'RTX 3060 Ti' => [8, 'GDDR6'], 'RTX 3060' => [12, 'GDDR6'],
+    'RTX 3050' => [8, 'GDDR6'],
+    'RTX 2080 Ti' => [11, 'GDDR6'], 'RTX 2080' => [8, 'GDDR6'],
+    'RTX 2070' => [8, 'GDDR6'], 'RTX 2060' => [6, 'GDDR6'],
+    'GTX 1660 Ti' => [6, 'GDDR5'], 'GTX 1660 SUPER' => [6, 'GDDR5'], 'GTX 1660' => [6, 'GDDR5'],
+    'GTX 1650' => [4, 'GDDR5'], 'GTX 1050 Ti' => [4, 'GDDR5'], 'GTX 1050' => [2, 'GDDR5'],
+    'GTX 750' => [2, 'GDDR5'], 'GTX 210' => [1, 'GDDR3'],
+    // В названиях базы «GTX» пропущено: «MSI GeForce 210», поэтому
+    // ключ дублируется без префикса
+    'GeForce 210' => [1, 'GDDR3'],
+    // У GT 730 и GT 1030 тип памяти зависит от ревизии (DDR3 или GDDR5),
+    // в названии это не читается, поэтому объём пишем, тип - нет
+    'GT 1030' => [2, null], 'GT 730' => [2, null],
+    'RX 6900 XT' => [16, 'GDDR6'], 'RX 6800 XT' => [16, 'GDDR6'], 'RX 6700 XT' => [12, 'GDDR6'],
+    'RX 6600' => [8, 'GDDR6'], 'RX 6500 XT' => [4, 'GDDR6'], 'RX 550' => [4, 'GDDR5'],
+    'RX 7 370' => [8, 'GDDR6'], 'RX 590' => [8, 'GDDR6'],
+    'Radeon 550' => [2, 'GDDR5'], 'Radeon R7 240' => [2, 'GDDR3'],
+];
+
+/** Объём из названия вида «... D6 6G», «... D4 2G» - цифра с G. */
+function parseExplicitGpuCapacity(string $name): ?int
+{
+    if (preg_match('/(\d+)\s*G\b/i', $name, $m)) {
+        return (int) $m[1];
+    }
+    return null;
+}
+
+/** Серия видеокарты по самому длинному совпавшему ключу. */
+function matchGpuSeries(string $name): ?array
+{
+    static $keys = null;
+    if ($keys === null) {
+        $keys = array_keys(GPU_SERIES);
+        // длинные ключи первыми: «RTX 3080 Ti» должен выиграть у «RTX 3080»
+        usort($keys, static function ($a, $b) {
+            return mb_strlen($b) <=> mb_strlen($a);
+        });
+    }
+    $lower = mb_strtolower($name);
+    foreach ($keys as $key) {
+        if (str_contains($lower, mb_strtolower($key))) {
+            return [$key, GPU_SERIES[$key]];
+        }
+    }
+    return null;
+}
+
+/**
+ * Эшелон 2a: оперативная память.
+ * Формат объёма в данных - «4gbx2», то есть объём, потом количество
+ * модулей. Варианта «2x8GB» в базе нет ни разу.
+ */
+function extractStage2a(string $name): array
+{
+    $out = [];
+
+    if (preg_match('/(\d+)\s*gb\s*x\s*(\d+)/i', $name, $m)) {
+        $gb = (int) $m[1] * (int) $m[2];
+    } elseif (preg_match('/(\d+)\s*gb\b/i', $name, $m)) {
+        $gb = (int) $m[1];
+    } else {
+        $gb = null;
+    }
+
+    // Объём вне правдоподобных границ не пишем: лучше NULL, чем мусор
+    if ($gb !== null && ($gb < RAM_CAPACITY_MIN || $gb > RAM_CAPACITY_MAX)) {
+        $out['_warning'] = "объём $gb ГБ вне диапазона " . RAM_CAPACITY_MIN . '-' . RAM_CAPACITY_MAX . ', оставлен NULL';
+        $gb = null;
+    }
+    if ($gb !== null) {
+        $out['capacity_gb'] = $gb;
+    }
+
+    // Частота: сначала «DDR4-3200», затем «3200MHz». В старых модулях
+    // нет ни того, ни другого, поэтому поле остаётся пустым
+    if (preg_match('/DDR\s*\d\s*-?\s*(\d{3,5})/i', $name, $m)) {
+        $out['frequency_mhz'] = (int) $m[1];
+    } elseif (preg_match('/(\d{3,5})\s*MHz/i', $name, $m)) {
+        $out['frequency_mhz'] = (int) $m[1];
+    }
+
+    // Тип: из названия или по допущению RAM_TYPE_ASSUMED
+    if (preg_match('/DDR\s*([0-9])/i', $name, $m)) {
+        $out['ram_type'] = 'DDR' . $m[1];
+    } else {
+        $out['ram_type'] = RAM_TYPE_ASSUMED;
+        $out['_assumed'][] = 'ram_type=' . RAM_TYPE_ASSUMED . ' (в названии нет DDR)';
+    }
+
+    return $out;
+}
+
+/** Эшелон 2b: SSD и накопители. */
+function extractStage2b(string $name): array
+{
+    $out = [];
+
+    if (preg_match('/(\d+)\s*tb\b/i', $name, $m)) {
+        // десятичные терабайты, как у новых компонентов: 4TB -> 4000 ГБ
+        $out['capacity_gb'] = (int) $m[1] * 1000;
+    } elseif (preg_match('/(\d+)\s*gb\b/i', $name, $m)) {
+        $out['capacity_gb'] = (int) $m[1];
+    }
+
+    if (preg_match('/NVMe/i', $name)) {
+        $out['interface'] = 'M.2 NVMe';
+    } elseif (preg_match('/M\.2/i', $name)) {
+        $out['interface'] = 'M.2';
+    } elseif (preg_match('/SATA/i', $name)) {
+        $out['interface'] = 'SATA III';
+    }
+
+    // form_factor пишем «M.2», а не «M.2 2280»: у четырёх уже
+    // заполненных накопителей стоит «M.2», а 2280 в названии нет
+    if (preg_match('/M\.2/i', $name)) {
+        $out['form_factor'] = 'M.2';
+    } elseif (preg_match('/3\.5/i', $name)) {
+        $out['form_factor'] = '3.5"';
+    } elseif (preg_match('/2\.5/i', $name)) {
+        $out['form_factor'] = '2.5"';
+    }
+
+    return $out;
+}
+
+/**
+ * Эшелон 2c: процессоры - cores и threads по таблице моделей.
+ *
+ * Модель ищется как самое длинное вхождение ключа таблицы, а не
+ * точное совпадение всей строки: у старых компонентов название bare
+ * («i5-10400»), а у новых модель сидит в середине («AMD Ryzen 5 5600
+ * 3.5GHz 32MB AM4»). Суффиксы F/K/KF на число ядер не влияют, поэтому
+ * отдельная их обработка не нужна - ключ короче и найдётся сам.
+ */
+function extractStage2c(string $name): array
+{
+    $out = [];
+
+    $key = null;
+    $bestLen = 0;
+    foreach (CPU_CORES as $candidate => $pair) {
+        if (strlen($candidate) > $bestLen && stripos($name, $candidate) !== false) {
+            $key = $candidate;
+            $bestLen = strlen($candidate);
+        }
+    }
+
+    if ($key !== null) {
+        [$cores, $threads] = CPU_CORES[$key];
+        $out['specs'] = json_encode(['cores' => $cores, 'threads' => $threads], JSON_UNESCAPED_UNICODE);
+    } else {
+        $out['_warning'] = 'модели нет в таблице cores/threads';
+    }
+
+    // Базовая частота есть только в названиях новых компонентов
+    // («AMD Ryzen 5 5600 3.5GHz 32MB AM4»), у старых её нет
+    if (preg_match('/(\d+(?:[.,]\d+)?)\s*GHz/i', $name, $m)) {
+        $out['frequency_mhz'] = (int) round((float) str_replace(',', '.', $m[1]) * 1000);
+    }
+
+    return $out;
+}
+
+/** Эшелон 2d: видеокарты - объём и тип памяти по серии. */
+function extractStage2d(string $name): array
+{
+    $out = [];
+
+    $hit = matchGpuSeries($name);
+    $explicit = parseExplicitGpuCapacity($name);
+
+    if ($explicit !== null) {
+        // «RTX 2060 D6 6G» - объём написан, он важнее словаря
+        $out['capacity_gb'] = $explicit;
+    } elseif ($hit !== null) {
+        $out['capacity_gb'] = $hit[1][0];
+    } else {
+        $out['_warning'] = 'серия не распознана';
+    }
+
+    if ($hit !== null && $hit[1][1] !== null) {
+        $out['memory_type'] = $hit[1][1];
+    }
+
+    return $out;
+}
+
+/** Категории, которые заполняет этап. Для эшелона 1 - все. */
+function stageCategories(string $stage): array
+{
+    switch ($stage) {
+        case '2a':
+            return [CAT_MEMORY];
+        case '2b':
+            return [CAT_SSD, 8]; // SSD и жёсткие диски
+        case '2c':
+            return [CAT_CPU];
+        case '2d':
+            return [CAT_VIDEO];
+        default:
+            return [];
+    }
+}
+
+/**
+ * Собирает поля к записи для одного компонента.
+ *
+ * Возвращает ['set' => [колонка => значение], 'notes' => [...],
+ * 'warning' => строка|null]. Пустой 'set' означает, что писать нечего.
+ * Непустые поля не трогаются (правило 1), а NULL-поля, которые
+ * разобрать не удалось, остаются NULL - ничего не выдумывается.
+ */
+function collectUpdates(string $stage, array $row): array
+{
+    $name = (string) $row['component_name'];
+    $cat = (int) $row['category_id'];
+
+    if (!in_array($cat, stageCategories($stage), true) && $stage !== '1') {
+        return ['set' => [], 'notes' => [], 'warning' => null];
+    }
+
+    $notes = [];
+    $warning = null;
+
+    switch ($stage) {
+        case '1':
+            $parsed = parseComponent($name, $cat);
+            $candidates = [
+                'manufacturer' => $parsed['manufacturer'],
+                'model' => $parsed['model'],
+            ];
+            break;
+        case '2a':
+            $candidates = extractStage2a($name);
+            break;
+        case '2b':
+            $candidates = extractStage2b($name);
+            break;
+        case '2c':
+            $candidates = extractStage2c($name);
+            break;
+        case '2d':
+            $candidates = extractStage2d($name);
+            break;
+        default:
+            return ['set' => [], 'notes' => [], 'warning' => null];
+    }
+
+    $set = [];
+    foreach (STAGE_FIELDS[$stage] as $column => $type) {
+        if (!array_key_exists($column, $candidates) || $candidates[$column] === null) {
+            continue; // не нашли - оставляем NULL, ничего не выдумываем
+        }
+        $current = $row[$column] ?? null;
+        if ($current !== null && $current !== '') {
+            continue; // правило 1: непустое поле не трогаем
+        }
+        $set[$column] = $candidates[$column];
+    }
+
+    if (isset($candidates['_assumed'])) {
+        $notes = $candidates['_assumed'];
+    }
+    if (isset($candidates['_warning'])) {
+        $warning = $candidates['_warning'];
+    }
+
+    return ['set' => $set, 'notes' => $notes, 'warning' => $warning];
+}
+
+/**
  * Тесты парсера на именах, которые встречаются в базе.
  * Ходят по всем скрытым ловушкам: многословные бренды, регистр,
  * префикс перед брендом, AMD внутри названия карты, CPU без бренда.
@@ -340,7 +713,93 @@ function runSelftest(): int
         echo "       получили: " . pad((string) $got['manufacturer'], 14) . " / " . $got['model'] . "\n";
     }
 
-    $total = count($cases);
+    // ── Эшелон 2: разбор полей по категориям ───────────────────────────
+    // Формат кейса: [название, функция-экстрактор, ожидаемые поля]
+    $specCases = [
+        // 2a RAM: объём «4gbx2» - это объём, потом количество модулей
+        ['Patriot Signature Line 4gbx2', 'extractStage2a', ['capacity_gb' => 8, 'ram_type' => 'DDR4']],
+        ['Goodram Iridium 4gbx2', 'extractStage2a', ['capacity_gb' => 8, 'ram_type' => 'DDR4']],
+        ['Kingston FURY Beast Black 4gbx4', 'extractStage2a', ['capacity_gb' => 16, 'ram_type' => 'DDR4']],
+        ['A-Data XPG Spectrix D60G RGB 16gbx2', 'extractStage2a', ['capacity_gb' => 32, 'ram_type' => 'DDR4']],
+        ['G.Skill TRIDENT Z Neo 32gbx2', 'extractStage2a', ['capacity_gb' => 64, 'ram_type' => 'DDR4']],
+        // явный DDR в названии читается, а не подставляется догадка
+        ['Corsair Vengeance LPX 8gbx2 DDR4-3200', 'extractStage2a', ['capacity_gb' => 16, 'ram_type' => 'DDR4', 'frequency_mhz' => 3200]],
+        ['Corsair Vengeance 32GB (2x16) DDR5-5600', 'extractStage2a', ['capacity_gb' => 32, 'ram_type' => 'DDR5']],
+        // объём без количества модулей
+        ['TeamGroup DDR4 8GB', 'extractStage2a', ['capacity_gb' => 8, 'ram_type' => 'DDR4']],
+        // 2b SSD: терабайты десятичные, как у новых компонентов
+        ['Samsung 970 EVO Plus M.2 500gb', 'extractStage2b', ['capacity_gb' => 500, 'interface' => 'M.2', 'form_factor' => 'M.2']],
+        ['Western Digital Blue M.2 1tb', 'extractStage2b', ['capacity_gb' => 1000, 'interface' => 'M.2', 'form_factor' => 'M.2']],
+        ['Western Digital Blue M.2 2tb', 'extractStage2b', ['capacity_gb' => 2000, 'interface' => 'M.2', 'form_factor' => 'M.2']],
+        ['GIGABYTE NVMe SSD M.2 256gb', 'extractStage2b', ['capacity_gb' => 256, 'interface' => 'M.2 NVMe', 'form_factor' => 'M.2']],
+        // без M.2 в названии интерфейс и форм-фактор остаются пустыми
+        ['Patriot Burst Elite 480gb', 'extractStage2b', ['capacity_gb' => 480]],
+        ['Samsung 870 EVO 1TB 2.5" SATA III', 'extractStage2b', ['capacity_gb' => 1000, 'interface' => 'SATA III', 'form_factor' => '2.5"']],
+        // 2c CPU: таблица по модели, суффиксы F/K/KF отбрасываются
+        ['i5-10400', 'extractStage2c', ['specs' => '{"cores":6,"threads":12}']],
+        ['i5-10400F', 'extractStage2c', ['specs' => '{"cores":6,"threads":12}']],
+        ['i5-10600KF', 'extractStage2c', ['specs' => '{"cores":6,"threads":12}']],
+        ['i3-12100F', 'extractStage2c', ['specs' => '{"cores":4,"threads":8}']],
+        // здесь правило по линейке «i7 -> 8/16» соврало бы
+        ['i7-12700F', 'extractStage2c', ['specs' => '{"cores":20,"threads":28}']],
+        ['i9-12900F', 'extractStage2c', ['specs' => '{"cores":16,"threads":24}']],
+        // «Pentium Gold -> 2/2» соврало бы
+        ['Pentium Gold G6405', 'extractStage2c', ['specs' => '{"cores":4,"threads":4}']],
+        ['Celeron G5905', 'extractStage2c', ['specs' => '{"cores":2,"threads":2}']],
+        // у Ryzen 3 PRO SMT отключён: 4/4, а не 4/8
+        ['Ryzen 3 PRO 1200', 'extractStage2c', ['specs' => '{"cores":4,"threads":4}']],
+        ['Ryzen 9 5950X', 'extractStage2c', ['specs' => '{"cores":16,"threads":32}']],
+        ['Athlon 3000G', 'extractStage2c', ['specs' => '{"cores":2,"threads":4}']],
+        ['A6-9500E', 'extractStage2c', ['specs' => '{"cores":2,"threads":2}']],
+        // частота читается из названия нового вида
+        ['AMD Ryzen 5 5600 3.5GHz 32MB AM4', 'extractStage2c', ['specs' => '{"cores":6,"threads":12}', 'frequency_mhz' => 3500]],
+        // модели нет в таблице - cores остаются NULL, но это не провал
+        ['i7-14700K', 'extractStage2c', []],
+        // 2d GPU: объём из названия важнее словаря
+        ['GIGABYTE GeForce RTX 2060 D6 6G (rev. 2.0)', 'extractStage2d', ['capacity_gb' => 6, 'memory_type' => 'GDDR6']],
+        ['GIGABYTE GeForce GT 1030 Low Profile D4 2G', 'extractStage2d', ['capacity_gb' => 2]],
+        // «RTX 3080 Ti» не должен проиграть «RTX 3080»
+        ['KFA2 GeForce RTX 3080 Ti SG', 'extractStage2d', ['capacity_gb' => 12, 'memory_type' => 'GDDR6X']],
+        ['GIGABYTE GeForce RTX 3080 GAMING OC', 'extractStage2d', ['capacity_gb' => 10, 'memory_type' => 'GDDR6X']],
+        ['Palit GeForce RTX 3090 GamingPro', 'extractStage2d', ['capacity_gb' => 24, 'memory_type' => 'GDDR6X']],
+        ['Palit GeForce RTX 3060 Ti DUAL OC V1 (LHR)', 'extractStage2d', ['capacity_gb' => 8, 'memory_type' => 'GDDR6']],
+        ['GIGABYTE GeForce RTX 3060 EAGLE OC (LHR)', 'extractStage2d', ['capacity_gb' => 12, 'memory_type' => 'GDDR6']],
+        ['Palit GeForce GTX 1660 SUPER STORMX', 'extractStage2d', ['capacity_gb' => 6, 'memory_type' => 'GDDR5']],
+        ['ASUS GeForce GTX 1650 PHOENIX OC', 'extractStage2d', ['capacity_gb' => 4, 'memory_type' => 'GDDR5']],
+        // AMD Radeon - серии в исходном словаре не было
+        ['PowerColor Red Devil AMD Radeon RX 6800 XT', 'extractStage2d', ['capacity_gb' => 16, 'memory_type' => 'GDDR6']],
+        ['ASRock AMD Radeon RX 6600 Challenger D', 'extractStage2d', ['capacity_gb' => 8, 'memory_type' => 'GDDR6']],
+        ['PowerColor AMD Radeon R7 240', 'extractStage2d', ['capacity_gb' => 2, 'memory_type' => 'GDDR3']],
+        ['MSI GeForce 210', 'extractStage2d', ['capacity_gb' => 1, 'memory_type' => 'GDDR3']],
+        // GT 730 бывает и DDR3, и GDDR5 - объём пишем, тип оставляем пустым
+        ['GIGABYTE GeForce GT 730', 'extractStage2d', ['capacity_gb' => 2]],
+    ];
+
+    echo "\n--- Эшелон 2: поля по категориям ---\n";
+    $totalSpec = 0;
+    foreach ($specCases as [$name, $fn, $want]) {
+        $got = $fn($name);
+        unset($got['_warning'], $got['_assumed']);
+        // сверяем только ожидаемые ключи: экстрактор может отдать больше
+        $ok = true;
+        foreach ($want as $column => $value) {
+            if (!isset($got[$column]) || (string) $got[$column] !== (string) $value) {
+                $ok = false;
+            }
+        }
+        if ($ok) {
+            echo "  ok   " . pad($name, 46) . ' → ' . pad($fn, 17) . ' ' . json_encode($got, JSON_UNESCAPED_UNICODE) . "\n";
+            $totalSpec++;
+            continue;
+        }
+        $failed++;
+        echo "  FAIL " . pad($name, 46) . "\n";
+        echo '       ждали:  ' . json_encode($want, JSON_UNESCAPED_UNICODE) . "\n";
+        echo '       получили: ' . json_encode($got, JSON_UNESCAPED_UNICODE) . "\n";
+        $totalSpec++;
+    }
+
+    $total = count($cases) + $totalSpec;
     echo "\n=== Итог selftest: " . ($total - $failed) . "/" . $total . " ===\n";
     if ($failed > 0) {
         echo "Словарь или правила разбора надо править, БД не трогать.\n";
@@ -357,52 +816,19 @@ if ($selftest) {
 
 require_once __DIR__ . '/../modules/connect.php';
 
-if ($stage !== 1) {
-    echo "Эшелон $stage в этом подэтапе не реализован.\n";
-    echo "Сейчас доступен только --stage=1 (manufacturer + model).\n";
-    echo "Эшелон 2 (specs) требует заполнения capacity_gb, ram_type,\n";
-    echo "frequency_mhz и interface - у старых компонентов они пусты.\n";
+if (!isset(STAGE_FIELDS[$stage])) {
+    echo "Неизвестный этап: --stage=$stage\n";
+    echo 'Доступны этапы: ' . implode(', ', array_keys(STAGE_FIELDS)) . "\n";
     exit(1);
 }
 
-$mysql = connect();
-
-echo "=== Эшелон 1: manufacturer + model ===\n";
-echo ($dryRun ? "Режим: dry-run, база не меняется" : "Режим: запись в базу") . "\n";
-echo "Словарь брендов: " . count(BRAND_DICTIONARY) . " начертаний\n\n";
-
-$stmt = db_prepare($mysql, "SELECT component_id, category_id, component_name, manufacturer, model
-                            FROM components
-                            ORDER BY category_id, component_id", '');
-$stmt->execute();
-$all = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
-// Считаем план до записи - так видно, что именно изменится
-$plan = [];
-foreach ($all as $row) {
-    $hasMfr = $row['manufacturer'] !== null && $row['manufacturer'] !== '';
-    $hasModel = $row['model'] !== null && $row['model'] !== '';
-    if ($hasMfr && $hasModel) {
-        continue; // заполнено - не трогаем (новые 50 компонентов и правки руками)
-    }
-    $parsed = parseComponent((string) $row['component_name'], (int) $row['category_id']);
-    $newMfr = $hasMfr ? $row['manufacturer'] : $parsed['manufacturer'];
-    $newModel = $hasModel ? $row['model'] : $parsed['model'];
-    if ($newMfr === $row['manufacturer'] && $newModel === $row['model']) {
-        continue; // нечего менять
-    }
-    $plan[] = [
-        'id' => (int) $row['component_id'],
-        'cat' => (int) $row['category_id'],
-        'name' => (string) $row['component_name'],
-        'old_mfr' => $row['manufacturer'],
-        'old_model' => $row['model'],
-        'new_mfr' => $newMfr,
-        'new_model' => $newModel,
-    ];
-}
-
-$skipped = count($all) - count($plan);
+$stageTitles = [
+    '1' => 'manufacturer + model',
+    '2a' => 'RAM: ram_type, capacity_gb, frequency_mhz',
+    '2b' => 'SSD и HDD: capacity_gb, interface, form_factor',
+    '2c' => 'CPU: specs, frequency_mhz',
+    '2d' => 'GPU: capacity_gb, memory_type',
+];
 
 $catNames = [
     1 => 'Процессор', 2 => 'Материнская плата', 3 => 'Видеокарта', 4 => 'Оперативная память',
@@ -410,64 +836,117 @@ $catNames = [
     9 => 'SSD', 10 => 'Оптический привод',
 ];
 
-foreach ($plan as $p) {
-    printf(
-        "  %4d  cat %-2d %s%s → %s / %s\n",
-        $p['id'],
-        $p['cat'],
-        pad($catNames[$p['cat']] ?? '?', 19),
-        pad($p['name'], 46),
-        pad((string) ($p['new_mfr'] ?? '—'), 14),
-        (string) ($p['new_model'] ?? '—')
-    );
+$mysql = connect();
+
+echo "=== Эшелон $stage: {$stageTitles[$stage]} ===\n";
+echo ($dryRun ? 'Режим: dry-run, база не меняется' : 'Режим: запись в базу') . "\n";
+echo 'Поля этапа: ' . implode(', ', array_keys(STAGE_FIELDS[$stage])) . "\n";
+echo 'Категории: ' . (stageCategories($stage) === []
+        ? 'все'
+        : implode(', ', array_map(static function ($c) use ($catNames) {
+            return $c . ' (' . ($catNames[$c] ?? '?') . ')';
+        }, stageCategories($stage)))) . "\n";
+if ($stage === '1') {
+    echo 'Словарь брендов: ' . count(BRAND_DICTIONARY) . " начертаний\n";
+}
+if ($stage === '2a') {
+    echo 'Догадка о типе памяти: ' . RAM_TYPE_ASSUMED . " (в названиях нет «DDR»)\n";
+}
+echo "\n";
+
+// `interface` - зарезервированное слово MySQL, отсюда обратные кавычки
+$stmt = db_prepare($mysql, "SELECT component_id, category_id, component_name, manufacturer, `model`,
+                                   ram_type, capacity_gb, frequency_mhz, `interface`,
+                                   form_factor, memory_type, specs
+                            FROM components
+                            ORDER BY category_id, component_id", '');
+$stmt->execute();
+$all = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// План считаем целиком до записи: видно и что изменится, и что нет
+$plan = [];
+$inScope = 0;
+$nothingToDo = 0;
+$skippedNew = 0;
+$warnings = [];
+$assumed = [];
+foreach ($all as $row) {
+    if ((int) $row['component_id'] >= LEGACY_MAX_ID) {
+        $skippedNew++;
+        continue; // новые 50 компонентов не трогаем никогда
+    }
+    $cat = (int) $row['category_id'];
+    if ($stage !== '1' && !in_array($cat, stageCategories($stage), true)) {
+        continue;
+    }
+    $inScope++;
+    $result = collectUpdates($stage, $row);
+    if ($result['set'] === []) {
+        $nothingToDo++;
+        if ($result['warning'] !== null) {
+            $warnings[] = '  ' . $row['component_id'] . '  ' . $row['component_name'] . ' — ' . $result['warning'];
+        }
+        continue;
+    }
+    if ($result['warning'] !== null) {
+        $warnings[] = '  ' . $row['component_id'] . '  ' . $row['component_name'] . ' — ' . $result['warning'];
+    }
+    foreach ($result['notes'] as $note) {
+        $assumed[] = '  ' . $row['component_id'] . '  ' . $row['component_name'] . ' — ' . $note;
+    }
+    $plan[] = [
+        'id' => (int) $row['component_id'],
+        'cat' => $cat,
+        'name' => (string) $row['component_name'],
+        'set' => $result['set'],
+    ];
 }
 
-// Сводка по категориям и список неопознанных
-$byCat = [];
-$unknown = [];
 foreach ($plan as $p) {
-    $c = $p['cat'];
-    if (!isset($byCat[$c])) {
-        $byCat[$c] = ['total' => 0, 'mfr' => 0, 'null_model' => 0];
+    $pairs = [];
+    foreach ($p['set'] as $column => $value) {
+        $pairs[] = $column . '=' . (is_string($value) ? $value : (string) $value);
     }
-    $byCat[$c]['total']++;
-    if ($p['new_mfr'] !== null && $p['new_mfr'] !== '') {
-        $byCat[$c]['mfr']++;
-    }
-    if ($p['new_model'] === null || $p['new_model'] === '') {
-        $byCat[$c]['null_model']++;
-    }
-    if ($p['new_mfr'] === null || $p['new_mfr'] === '') {
-        $unknown[] = $p;
-    }
+    echo '  ' . pad((string) $p['id'], 6)
+        . 'cat ' . pad((string) $p['cat'], 4)
+        . pad($p['name'], 46)
+        . ' → ' . implode(', ', $pairs) . "\n";
 }
 
-echo "\n=== Сводка по категориям ===\n";
+echo "\n=== Сводка ===\n";
 // Выравнивание через pad(), а не printf: printf считает байты,
-// а в названиях категорий кириллица и колонки разъезжаются.
-echo "  " . pad('cat', 4) . pad('категория', 22) . pad('к записи', 11) . "с mfr\n";
-foreach ($byCat as $c => $s) {
-    echo '  ' . pad((string) $c, 4) . pad($catNames[$c] ?? '?', 22) . pad((string) $s['total'], 11) . $s['mfr'] . "\n";
-}
+// а в названиях колонок кириллица и разъезжается
+echo '  ' . pad('в выборке этапа', 26) . $inScope . "\n";
+echo '  ' . pad('к записи', 26) . count($plan) . "\n";
+echo '  ' . pad('писать нечего', 26) . $nothingToDo . "\n";
+echo '  ' . pad('пропущено как новые', 26) . $skippedNew . "\n";
 
-if ($unknown !== []) {
-    echo "\n=== Производитель не распознан (" . count($unknown) . ") ===\n";
-    foreach ($unknown as $p) {
-        echo "  " . $p['id'] . "  " . $p['name'] . "\n";
-    }
-} else {
-    echo "\nПроизводитель не распознан ни у одного компонента.\n";
-}
-
-$nullModel = 0;
+$perColumn = [];
 foreach ($plan as $p) {
-    if ($p['new_model'] === null || $p['new_model'] === '') {
-        $nullModel++;
+    foreach ($p['set'] as $column => $value) {
+        $perColumn[$column] = ($perColumn[$column] ?? 0) + 1;
     }
 }
-echo "Пустая модель: $nullModel\n";
-echo "Уже заполнено, пропущено: $skipped\n";
-echo "К записи: " . count($plan) . "\n";
+foreach (STAGE_FIELDS[$stage] as $column => $type) {
+    $filled = $perColumn[$column] ?? 0;
+    $pct = $inScope > 0 ? round(100 * $filled / $inScope) : 0;
+    echo '  ' . pad($column, 26) . pad("$filled из $inScope", 14) . $pct . "%\n";
+}
+
+if ($assumed !== []) {
+    echo "\n=== Проставлено по догадке (" . count($assumed) . ") ===\n";
+    echo "Это не разбор названия. Значения помечены, чтобы можно было перепроверить.\n";
+    foreach ($assumed as $line) {
+        echo $line . "\n";
+    }
+}
+
+if ($warnings !== []) {
+    echo "\n=== Не удалось разобрать (" . count($warnings) . ") ===\n";
+    foreach ($warnings as $line) {
+        echo $line . "\n";
+    }
+}
 
 if ($dryRun) {
     echo "\nDry-run: база не менялась. Уберите --dry-run, чтобы применить.\n";
@@ -481,24 +960,17 @@ $updated = 0;
 $errors = 0;
 try {
     foreach ($plan as $p) {
-        // SET собирается из тех полей, которые действительно меняются
         $sets = [];
         $params = [];
-        if ($p['new_mfr'] !== $p['old_mfr']) {
-            $sets[] = 'manufacturer = ?';
-            $params[] = $p['new_mfr'];
+        $types = '';
+        foreach ($p['set'] as $column => $value) {
+            $sets[] = '`' . $column . '` = ?';
+            $params[] = $value;
+            $types .= STAGE_FIELDS[$stage][$column];
         }
-        if ($p['new_model'] !== $p['old_model']) {
-            $sets[] = '`model` = ?';
-            $params[] = $p['new_model'];
-        }
-        if ($sets === []) {
-            continue;
-        }
-        // Типы считаем после добавления id: сначала идут строковые
-        // значения полей, последним - целочисленный component_id.
+        // Последним идёт component_id, он целочисленный
         $params[] = $p['id'];
-        $types = str_repeat('s', count($params) - 1) . 'i';
+        $types .= 'i';
         $sql = 'UPDATE components SET ' . implode(', ', $sets) . ' WHERE component_id = ?';
         $upd = db_prepare($mysql, $sql, $types, ...$params);
         $upd->execute();
