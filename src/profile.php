@@ -275,7 +275,14 @@ $profileFullName = trim(($userProfile['user_name'] ?? '') . ' ' . ($userProfile[
                                 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
                                     <symbol id="icon-edit" viewBox="0 0 512 512">
                                         <rect x="150" y="96" width="216" height="88" rx="12" fill="none" stroke="currentColor" stroke-width="32" transform="rotate(-45 258 140)"></rect>
-                                        <path d="M120 400h272" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="32"></path>
+                                    <!-- 3.7-g-5: галочка и крестик для inline-edit,
+                                         viewBox 24 как у Feather-иконок -->
+                                    <symbol id="icon-check" viewBox="0 0 24 24">
+                                        <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                                    </symbol>
+                                    <symbol id="icon-close" viewBox="0 0 24 24">
+                                        <line x1="18" y1="6" x2="6" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
                                     </symbol>
                                 </svg>
 
@@ -315,8 +322,14 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_name" placeholder="Имя" value="<?= escape($userProfile['user_name'] ?? '') ?>">
-                                        <button class="btn btn--primary btn--sm" name="changeName" type="submit">Сохранить</button>
-                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
+                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                             сжимали инпут до 78px, теперь иконки -->
+                                        <button type="submit" class="btn-icon btn-icon--success" name="changeName" title="Сохранить" aria-label="Сохранить">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
+                                        </button>
+                                        <button type="button" class="btn-icon btn-icon--muted" data-action="cancel-edit" title="Отмена" aria-label="Отмена">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
+                                        </button>
                                     </form>
                                     <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->
@@ -330,8 +343,14 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_surname" placeholder="Фамилия" value="<?= escape($userProfile['user_surname'] ?? '') ?>">
-                                        <button class="btn btn--primary btn--sm" name="changeSurname" type="submit">Сохранить</button>
-                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
+                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                             сжимали инпут до 78px, теперь иконки -->
+                                        <button type="submit" class="btn-icon btn-icon--success" name="changeSurname" title="Сохранить" aria-label="Сохранить">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
+                                        </button>
+                                        <button type="button" class="btn-icon btn-icon--muted" data-action="cancel-edit" title="Отмена" aria-label="Отмена">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
+                                        </button>
                                     </form>
                                     <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->
@@ -345,8 +364,14 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_email" placeholder="Электронная почта" value="<?= escape($userProfile['user_email'] ?? '') ?>">
-                                        <button class="btn btn--primary btn--sm" name="changeEmail" type="submit">Сохранить</button>
-                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
+                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                             сжимали инпут до 78px, теперь иконки -->
+                                        <button type="submit" class="btn-icon btn-icon--success" name="changeEmail" title="Сохранить" aria-label="Сохранить">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
+                                        </button>
+                                        <button type="button" class="btn-icon btn-icon--muted" data-action="cancel-edit" title="Отмена" aria-label="Отмена">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
+                                        </button>
                                     </form>
                                     <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->
@@ -388,8 +413,14 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <input class="input" type="text" name="user_apartment" placeholder="Квартира" maxlength="20"
                                                value="<?= escape($userProfile['user_apartment'] ?? '') ?>">
                                         <div class="edit-form-actions">
-                                        <button class="btn btn--primary btn--sm" name="changeAddress" type="submit">Сохранить</button>
-                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
+                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                             сжимали инпут до 78px, теперь иконки -->
+                                        <button type="submit" class="btn-icon btn-icon--success" name="changeAddress" title="Сохранить" aria-label="Сохранить">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
+                                        </button>
+                                        <button type="button" class="btn-icon btn-icon--muted" data-action="cancel-edit" title="Отмена" aria-label="Отмена">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
+                                        </button>
                                         </div>
                                     </form>
                                     <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
@@ -405,8 +436,14 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="tel" name="user_number" placeholder="+7(XXX)XXX-XX-XX" required
                                             pattern="\+7\s?[\(]{0,1}[0-9][0-9]{2}[\)]{0,1}\s?\d{3}[-]{0,1}\d{2}[-]{0,1}\d{2}" value="<?= escape($userProfile['user_number'] ?? '') ?>">
-                                        <button class="btn btn--primary btn--sm" name="changeNumber" type="submit">Сохранить</button>
-                                        <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
+                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                             сжимали инпут до 78px, теперь иконки -->
+                                        <button type="submit" class="btn-icon btn-icon--success" name="changeNumber" title="Сохранить" aria-label="Сохранить">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
+                                        </button>
+                                        <button type="button" class="btn-icon btn-icon--muted" data-action="cancel-edit" title="Отмена" aria-label="Отмена">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
+                                        </button>
                                     </form>
                                     <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->

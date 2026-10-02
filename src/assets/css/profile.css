@@ -829,6 +829,24 @@ h1{
     height: 18px;
 }
 
+/* 3.7-g-5: варианты кнопок inline-edit - сохранить зелёным, отмена
+   приглушённым. Раньше это были текстовые .btn и они съедали строку */
+.btn-icon--success {
+    color: var(--success);
+}
+
+.btn-icon--success:hover {
+    background: rgba(16, 185, 129, 0.12);
+}
+
+.btn-icon--muted {
+    color: var(--text-secondary);
+}
+
+.btn-icon--muted:hover {
+    background: var(--bg);
+}
+
 .profile-field {
     display: flex;
     flex-wrap: wrap;
@@ -869,19 +887,45 @@ h1{
 .profile-field-edit {
     flex: 0 0 100%;
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: center;
 }
 
+/* 3.7-g-5: инпут задаёт себе базовую ширину вместо растягивания на всю
+   свободную. Раньше flex: 1 в строке с двумя текстовыми кнопками давал
+   ему 78px, и текст не помещался */
 .profile-field-edit .input {
-    flex: 1;
+    flex: 1 1 160px;
+    min-width: 0;
     padding: 8px 12px;
     font-size: 15px;
 }
 
+/* 3.7-g-5: адрес - шесть полей в две колонки */
 .profile-field-edit--stack {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
     align-items: stretch;
+}
+
+.profile-field-edit--stack .input {
+    flex: none;
+    width: 100%;
+}
+
+.profile-field-edit--stack .edit-form-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 0;
+}
+
+/* 3.7-g-5: адрес - самое широкое поле, занимает обе колонки плиток */
+.profile-field[data-field="address"] {
+    grid-column: 1 / -1;
 }
 
 .profile-field[data-editing] .profile-field-value,
