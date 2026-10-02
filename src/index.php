@@ -136,17 +136,19 @@ if (!function_exists('build_card_icon')) {
                         <?php foreach ($homeBuilds as $homeBuild): ?>
                             <?php $homeId = (int) $homeBuild['assembly_id']; ?>
                             <div class="element_select">
-                                <a class="select_image" href="/assembly.php?init=<?= $homeId ?>">
-                                    <span class="cont_img">
-                                        <?php if (!empty($homeBuild['case_image'])): ?>
-                                            <img src="<?= escape($homeBuild['case_image']) ?>"
-                                                 alt="<?= escape($homeBuild['case_name'] ?? $homeBuild['assembly_name']) ?>">
-                                        <?php endif; ?>
-                                    </span>
-                                    <span class="figure_par"></span>
-                                    <span class="cont_text">
-                                        <h1><?= escape($homeBuild['assembly_name']) ?></h1>
-                                        <p><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</p>
+                                <a href="/assembly.php?init=<?= $homeId ?>">
+                                    <span class="select_image">
+                                        <span class="cont_img">
+                                            <?php if (!empty($homeBuild['case_image'])): ?>
+                                                <img src="<?= escape($homeBuild['case_image']) ?>"
+                                                     alt="<?= escape($homeBuild['case_name'] ?? $homeBuild['assembly_name']) ?>">
+                                            <?php endif; ?>
+                                        </span>
+                                        <span class="figure_par"></span>
+                                        <span class="cont_text">
+                                            <h1><?= escape($homeBuild['assembly_name']) ?></h1>
+                                            <p><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</p>
+                                        </span>
                                     </span>
                                 </a>
                             </div>

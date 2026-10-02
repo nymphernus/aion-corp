@@ -292,10 +292,33 @@ body::-webkit-scrollbar-thumb {
 
 
 /*СБОРКИ*/
+/* Перенос карточек на узких экранах.
+   Оформление карточек на десктопе не тронуто ничем: ширина карточки там
+   держится на min-width: auto, который у flex-элемента равен
+   min-content, то есть натуральной ширине фотографии. Пока это так, фото
+   занимает карточку целиком - так оно и было в исходном оформлении.
+   Слететь это можно было одним min-width: 0, но тогда карточка
+   растягивалась на всю ширину ряда, правило height: 65% у .cont_img
+   начинало считаться, и фото уменьшалось вдвое.
+
+   На узких экранах три карточки по 500px в ряд не помещались, и секция с
+   overflow: hidden резала вторую и третью - заголовки уезжали за нижний
+   край. Это ломалось и в исходном оформлении. Ниже ровно два правила,
+   которые разрешают карточкам переноситься и ничего больше: ни доля фото,
+   ни hover, ни типографика не затронуты. */
+@media (max-width: 1200px) {
+    .element_select {
+        flex-basis: calc(50% - 12px);
+    }
+}
+@media (max-width: 768px) {
+    .element_select {
+        flex-basis: 100%;
+    }
+}
 .element_select{
 	display: flex;
 	width: 100%;
-	min-width: 0;
 	height: 100%;
 	justify-content: center;
     align-items: center;
@@ -303,7 +326,6 @@ body::-webkit-scrollbar-thumb {
 .select_image{
 	display: flex;
 	width: 100%;
-	min-width: 0;
 	height: 100%;
 	justify-content: center;
     align-items: center;
