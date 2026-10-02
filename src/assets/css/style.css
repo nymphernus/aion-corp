@@ -277,7 +277,7 @@ body::-webkit-scrollbar-thumb {
 	top:7%;
 	height: 85%;
 	border-radius: 20px;
-	background: url(../images/background.png) no-repeat;
+	background: url(../images/background.webp) no-repeat;
 	background-size: cover;
 
 }

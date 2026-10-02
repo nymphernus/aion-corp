@@ -108,10 +108,10 @@ if (!function_exists('build_card_icon')) {
 ?>
             <div id="main__container">
                 <div class="slider">
-                <div class="slide"><img src="assets/images/main_1.jpg" alt="1"></div>
-                <div class="slide"><img src="assets/images/main_2.jpg" alt="2"></div>
-                <div class="slide"><img src="assets/images/main_3.jpg" alt="3"></div>
-                <div class="slide"><img src="assets/images/main_4.jpg" alt="4"></div>
+                <div class="slide"><img src="assets/images/main_1.webp" alt="1"></div>
+                <div class="slide"><img src="assets/images/main_2.webp" alt="2"></div>
+                <div class="slide"><img src="assets/images/main_3.webp" alt="3"></div>
+                <div class="slide"><img src="assets/images/main_4.webp" alt="4"></div>
                 </div>
                 <!-- 3.6.3-a: было .slider__text - матовый блок фиксированного размера
                      (500x200) с position: relative и top: 50%, из-за чего он
@@ -334,7 +334,7 @@ if (!function_exists('build_card_icon')) {
             </section>
 
 
-            <div class="container_about" style="background: url(assets/images/background_2.jpg) no-repeat; background-size: cover;">
+            <div class="container_about" style="background: url(assets/images/background_2.webp) no-repeat; background-size: cover;">
                 <a class="anch" name="information"></a>
                 <div class="cont_shell_about">
                     <div class="about_content">
