@@ -290,6 +290,7 @@ const STAGE_FIELDS = [
     '2d' => ['capacity_gb' => 'i', 'memory_type' => 's'],
     '3a' => ['specs' => 's', 'description' => 's', 'ram_type' => 's', 'form_factor' => 's'],
     '3b' => ['specs' => 's', 'description' => 's', 'frequency_mhz' => 'i'],
+    '3c' => ['specs' => 's', 'description' => 's', 'rpm' => 'i'],
 ];
 
 /**
@@ -300,6 +301,7 @@ const STAGE_FIELDS = [
 const STAGE_MERGE_FIELDS = [
     '3a' => ['specs'],
     '3b' => ['specs'],
+    '3c' => ['specs'],
 ];
 
 /**
@@ -699,6 +701,51 @@ const RAM_FREQUENCY_ASSUMED = 3200;
 const RAM_TIMINGS_ASSUMED = 'CL16';
 const RAM_VOLTAGE_ASSUMED = 1.35;
 
+/**
+ * Эшелон 3c: накопители.
+ *
+ * Ключ - фрагмент названия, по которому опознаётся модель. Значения:
+ * скорости чтения и записи в МБ/с, тип NAND, ресурс в ТБ, а для
+ * жёстких дисков - обороты и кэш.
+ *
+ * Заполнено только то, в чём нет сомнения. Отсутствующие ключи - это
+ * не забывчивость: в таблице есть модели с намеренно пустыми
+ * значениями, и причина перечислена в поле skipped. Список
+ * неуверенных моделей печатается в отчёте dry-run отдельным разделом,
+ * чтобы починить их можно было точечно, а не пересматривая все 15.
+ *
+ * Что осталось пустым и почему:
+ *   - WD Blue M.2 - под этим названием и SATA SA510 (560 МБ/с), и
+ *     NVMe SN580 (4150 МБ/с), по названию не различить;
+ *   - Kingston A400 - тип NAND зависит от партии, у части A400 QLC;
+ *   - Apacer AST280 и Patriot Burst Elite - точные скорости у разных
+ *     артикулов отличаются, а в названии артикула нет;
+ *   - ExeGate NextPro KC2000TP - то же;
+ *   - GIGABYTE NVMe SSD - в названии нет модели вовсе.
+ */
+const SSD_TABLE = [
+    '970 EVO Plus' => ['read' => 3500, 'write' => 3300, 'nand' => 'TLC', 'tbw' => 600],
+    '980 PRO' => ['read' => 5100, 'write' => 5000, 'nand' => 'TLC', 'tbw' => 600],
+    '980' => ['read' => 3500, 'write' => 3000, 'nand' => 'TLC', 'tbw' => 300],
+    'SU650' => ['read' => 560, 'write' => 480, 'nand' => 'TLC', 'tbw' => 60],
+    'SX6000 Pro' => ['read' => 3500, 'write' => 3000, 'nand' => 'TLC', 'tbw' => 300],
+    'A400' => ['read' => 500, 'write' => 200, 'nand' => null, 'tbw' => 60, 'skipped' => 'тип NAND: у части партий A400 QLC'],
+    'NV1' => ['read' => 3100, 'write' => 2100, 'nand' => 'TLC', 'tbw' => 160],
+    'KC2000TP512' => [],
+    'KC2000TP480' => [],
+    'AST280' => [],
+    'Burst Elite' => [],
+];
+
+const HDD_TABLE = [
+    // Western Digital Blue, 3.5", SATA. Обороты 5400 у всей линейки.
+    // Кэш 64 МБ у 500 ГБ и 1 ТБ; у 2 ТБ он больше, но точной цифры
+    // подтвердить не берусь, поэтому оставляю пустым.
+    '500gb' => ['rpm' => 5400, 'cache_mb' => 64],
+    '1tb' => ['rpm' => 5400, 'cache_mb' => 64],
+    '2tb' => ['rpm' => 5400, 'cache_mb' => null, 'skipped' => 'кэш у 2 ТБ: точный объём подтвердить не удалось'],
+];
+
 /** Категории, которые заполняет этап. Для эшелона 1 - все. */
 function stageCategories(string $stage): array
 {
@@ -715,6 +762,8 @@ function stageCategories(string $stage): array
             return [CAT_CPU, 2]; // процессоры и материнские платы
         case '3b':
             return [CAT_VIDEO, CAT_MEMORY]; // видеокарты и оперативная память
+        case '3c':
+            return [CAT_SSD, 8, 10]; // накопители и оптические приводы
         default:
             return [];
     }
@@ -1046,6 +1095,164 @@ function extractStage3b(array $row): array
 }
 
 /**
+ * Эшелон 3c: SSD.
+ *
+ * Скорости и ресурс берутся из SSD_TABLE, объём и интерфейс уже
+ * заполнены эшелоном 2b и лежат в отдельных колонках. Если модель в
+ * таблице есть, но с пустыми значениями, причина попадает в отчёт -
+ * так видно, что пропуск осознанный.
+ */
+function extractStage3cSsd(array $row): array
+{
+    $name = (string) $row['component_name'];
+
+    $hit = null;
+    foreach (SSD_TABLE as $key => $data) {
+        if (stripos($name, $key) !== false) {
+            $hit = [$key, $data];
+            break; // порядок таблицы: «980 PRO» раньше «980»
+        }
+    }
+
+    $specs = [];
+    $notes = [];
+    if ($hit !== null) {
+        $data = $hit[1];
+        if (isset($data['read'])) {
+            $specs['read_mbs'] = $data['read'];
+            $specs['write_mbs'] = $data['write'];
+        }
+        if (isset($data['nand']) && $data['nand'] !== null) {
+            $specs['nand'] = $data['nand'];
+        }
+        if (isset($data['tbw']) && $data['tbw'] !== null) {
+            $specs['tbw'] = $data['tbw'];
+        }
+        if (isset($data['skipped'])) {
+            $notes[] = $data['skipped'];
+        } elseif ($specs === []) {
+            $notes[] = 'скорости по этой модели не подтверждены, оставлены NULL';
+        }
+    } else {
+        $notes[] = 'модель не опознана, только описание';
+    }
+
+    $title = trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name));
+    $capacity = $row['capacity_gb'] ?? null;
+    $interface = $row['interface'] ?? null;
+
+    $text = $title . ' — твердотельный накопитель';
+    if ($capacity !== null && $capacity !== '') {
+        $text .= ' на ' . $capacity . ' ГБ';
+    }
+    if ($interface) {
+        $text .= ', интерфейс ' . $interface;
+    }
+    $text .= '.';
+    if ($specs !== []) {
+        $text .= ' Скорость чтения до ' . $specs['read_mbs'] . ' МБ/с, записи до '
+            . $specs['write_mbs'] . ' МБ/с';
+        // тип NAND и ресурс есть не у всех: у A400 тип оставлен пустым
+        if (isset($specs['nand'])) {
+            $text .= ', память ' . $specs['nand'];
+        }
+        if (isset($specs['tbw'])) {
+            $text .= ', ресурс записи ' . $specs['tbw'] . ' ТБ';
+        }
+        $text .= '.';
+    }
+
+    $result = ['description' => $text];
+    if ($specs !== []) {
+        $result['specs'] = $specs;
+    }
+    if ($notes !== []) {
+        $result['_skipped'] = $notes;
+    }
+    return $result;
+}
+
+/**
+ * Эшелон 3c: жёсткий диск.
+ *
+ * Обороты пишутся в отдельную колонку rpm - она есть и отображается
+ * в админ-форме, в JSON их не дублируем. В specs идёт кэш.
+ */
+function extractStage3cHdd(array $row): array
+{
+    $name = (string) $row['component_name'];
+
+    $hit = null;
+    foreach (HDD_TABLE as $key => $data) {
+        if (stripos($name, $key) !== false) {
+            $hit = [$key, $data];
+        }
+    }
+    if ($hit === null) {
+        return ['description' => trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name))
+            . ' — жёсткий диск.', '_skipped' => ['модель не опознана']];
+    }
+
+    $data = $hit[1];
+    $specs = [];
+    if ($data['cache_mb'] !== null) {
+        $specs['cache_mb'] = $data['cache_mb'];
+    }
+
+    $title = trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name));
+    $text = $title . ' — жёсткий диск для настольного компьютера.';
+    if ($data['rpm'] !== null) {
+        $text .= ' Скорость вращения ' . $data['rpm'] . ' об/мин, SATA.';
+    }
+    if ($data['cache_mb'] !== null) {
+        $text .= ' Кэш ' . $data['cache_mb'] . ' МБ.';
+    }
+
+    $result = ['description' => $text, 'rpm' => $data['rpm']];
+    if ($specs !== []) {
+        $result['specs'] = $specs;
+    }
+    if (isset($data['skipped'])) {
+        $result['_skipped'] = [$data['skipped']];
+    }
+    return $result;
+}
+
+/**
+ * Эшелон 3c: оптический привод.
+ *
+ * Только описание: для приводов из названия читается тип (DVD-RW) и
+ * модель, а скорости и наличие M-ARC из названия не восстановить.
+ */
+function extractStage3cDvd(array $row): array
+{
+    $name = (string) $row['component_name'];
+    $title = trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name));
+    $kind = stripos($name, 'DVD') !== false ? 'DVD и CD' : 'CD';
+    $rw = (stripos($name, 'R') !== false && stripos($name, 'RW') !== false)
+        ? 'для чтения и записи' : 'для чтения';
+
+    return [
+        'description' => $title . ' — оптический привод ' . $rw . ' ' . $kind . '.',
+    ];
+}
+
+/** Эшелон 3c: три категории сразу. */
+function extractStage3c(array $row): array
+{
+    switch ((int) $row['category_id']) {
+        case CAT_SSD:
+            return extractStage3cSsd($row);
+        case 8:
+            return extractStage3cHdd($row);
+        case 10:
+            return extractStage3cDvd($row);
+        default:
+            return [];
+    }
+}
+
+/**
  * Собирает поля к записи для одного компонента.
  *
  * Возвращает ['set' => [колонка => значение], 'notes' => [...],
@@ -1090,6 +1297,9 @@ function collectUpdates(string $stage, array $row): array
             break;
         case '3b':
             $candidates = extractStage3b($row);
+            break;
+        case '3c':
+            $candidates = extractStage3c($row);
             break;
         default:
             return ['set' => [], 'notes' => [], 'warning' => null];
@@ -1136,6 +1346,11 @@ function collectUpdates(string $stage, array $row): array
 
     if (isset($candidates['_assumed'])) {
         $notes = $candidates['_assumed'];
+    }
+    if (isset($candidates['_skipped'])) {
+        foreach ($candidates['_skipped'] as $reason) {
+            $notes[] = 'не заполнено: ' . $reason;
+        }
     }
     if (isset($candidates['_warning'])) {
         $warning = $candidates['_warning'];
@@ -1406,6 +1621,32 @@ function runSelftest(): int
         echo '       ' . json_encode($got, JSON_UNESCAPED_UNICODE) . "\n";
     }
 
+    echo "\n--- Эшелон 3c: накопители и приводы ---\n";
+    $stage3cCases = [
+        // 980 PRO должен опознаться раньше 980
+        ['Samsung 980 PRO M.2 1tb', ['component_name' => 'Samsung 980 PRO M.2 1tb', 'category_id' => 9, 'manufacturer' => 'Samsung', 'model' => '980 PRO M.2 1tb', 'capacity_gb' => 1000, 'interface' => 'M.2', 'specs' => null]],
+        ['Samsung 980 M.2 500gb', ['component_name' => 'Samsung 980 M.2 500gb', 'category_id' => 9, 'manufacturer' => 'Samsung', 'model' => '980 M.2 500gb', 'capacity_gb' => 500, 'interface' => 'M.2', 'specs' => null]],
+        // модель есть в таблице, но значения пустые - это осознанный пропуск
+        ['ExeGate NextPro KC2000TP480 M.2 480gb', ['component_name' => 'ExeGate NextPro KC2000TP480 M.2 480gb', 'category_id' => 9, 'manufacturer' => 'ExeGate', 'model' => 'NextPro KC2000TP480 M.2 480gb', 'capacity_gb' => 480, 'interface' => 'M.2', 'specs' => null]],
+        ['Western Digital Blue 1tb', ['component_name' => 'Western Digital Blue 1tb', 'category_id' => 8, 'manufacturer' => 'Western Digital', 'model' => 'Blue 1tb', 'capacity_gb' => 1000, 'specs' => null]],
+        ['DVD-RW LG GH24NSD5', ['component_name' => 'DVD-RW LG GH24NSD5', 'category_id' => 10, 'manufacturer' => 'LG', 'model' => 'GH24NSD5', 'specs' => null]],
+    ];
+    foreach ($stage3cCases as [$name, $row]) {
+        $row += ['description' => null, 'rpm' => null];
+        $got = extractStage3c($row);
+        $totalSpec++;
+        $merged = collectUpdates('3c', $row);
+        $wantSpecs = !isset($got['specs']) ? 'без specs' : json_encode($got['specs'], JSON_UNESCAPED_UNICODE);
+        $ok = isset($merged['set']) && !empty($merged['set']);
+        if ($ok) {
+            echo "  ok   " . pad($name, 42) . ' ' . pad((string) $wantSpecs, 58) . ' rpm=' . var_export($merged['set']['rpm'] ?? null, true) . "\n";
+            continue;
+        }
+        $failed++;
+        echo "  FAIL " . pad($name, 42) . " пустое обновление\n";
+        echo '       ' . json_encode($got, JSON_UNESCAPED_UNICODE) . "\n";
+    }
+
     $total = count($cases) + $totalSpec;
     echo "\n=== Итог selftest: " . ($total - $failed) . "/" . $total . " ===\n";
     if ($failed > 0) {
@@ -1437,6 +1678,7 @@ $stageTitles = [
     '2d' => 'GPU: capacity_gb, memory_type',
     '3a' => 'CPU и материнские платы: specs, description, ram_type, form_factor',
     '3b' => 'GPU и RAM: specs, description, frequency_mhz',
+    '3c' => 'SSD, HDD и DVD: specs, description, rpm',
 ];
 
 $catNames = [
