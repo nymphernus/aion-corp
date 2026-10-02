@@ -81,6 +81,57 @@ function cfg_pick($mysql, $limit, $where, $types = '', $params = [])
 }
 
 /**
+ * Какие платы влезают в корпус.
+ *
+ * Сравнивать form_factor платы и корпуса на равенство бессмысленно: корпус
+ * записан как Mid-Tower, а плата как ATX или Micro-ATX, и равенство не
+ * сойдётся никогда. Поэтому здесь таблица в обратную сторону - от корпуса
+ * к платам, - а уже в configure() она обращается.
+ *
+ * Мини-корпус принимает только Mini-ITX, остальные принимают всё, что
+ * меньше их самих. Для mATX Mid-Tower перечислен и ATX: точная посадка
+ * зависит от конкретной модели корпуса, а лишняя плата в подборке хуже,
+ * чем слишком широкий список, - такой случай просто окажется без
+ * подходящего корпуса и уйдёт в откат.
+ *
+ * 5-e-3.
+ *
+ * @return array<string, string[]>
+ */
+function cfg_case_board_compat()
+{
+    return [
+        'Mini-ITX'       => ['Mini-ITX'],
+        'Micro-ATX'      => ['Micro-ATX', 'Mini-ITX'],
+        'mATX Mid-Tower' => ['Micro-ATX', 'Mini-ITX', 'ATX'],
+        'Mid-Tower'      => ['ATX', 'Micro-ATX', 'Mini-ITX'],
+        'ATX Mid-Tower'  => ['ATX', 'Micro-ATX', 'Mini-ITX'],
+        'ATX Full-Tower' => ['ATX', 'Micro-ATX', 'Mini-ITX'],
+    ];
+}
+
+/**
+ * Типы корпусов, в которые влезает плата указанного форм-фактора.
+ *
+ * @return string[]
+ */
+function cfg_case_types_for_board($boardFormFactor)
+{
+    if ($boardFormFactor === null || $boardFormFactor === '') {
+        return [];
+    }
+
+    $types = [];
+    foreach (cfg_case_board_compat() as $caseType => $boards) {
+        if (in_array($boardFormFactor, $boards, true)) {
+            $types[] = $caseType;
+        }
+    }
+
+    return $types;
+}
+
+/**
  * Сборка компьютера по бюджету и приоритету.
  *
  * Бюджет тратится только на железо. ОС добавляется сверху: windows
@@ -154,9 +205,40 @@ function configure($budget, $preference = 'universal', $osChoice = 'none')
             [$cpu['socket_id']]
         );
 
-        $ram = cfg_pick($mysql, $limit['ram'], 'category_id = 4');
+        // 5-e-3: память должна совпадать с платой по типу. Раньше
+        // ограничения не было, и в сборку попадало DDR4 к плате DDR5.
+        // Если у платы тип не заполнен, фильтр не применяется.
+        $ramWhere = 'category_id = 4';
+        $ramTypes = '';
+        $ramParams = [];
+        $mbRamType = $motherboard['ram_type'] ?? null;
+        if ($mbRamType !== null && $mbRamType !== '') {
+            $ramWhere .= ' AND ram_type = ?';
+            $ramTypes = 's';
+            $ramParams = [$mbRamType];
+        }
+        $ram = cfg_pick($mysql, $limit['ram'], $ramWhere, $ramTypes, $ramParams);
+
         $power_supply = cfg_pick($mysql, $limit['psu'], 'category_id = 5');
-        $case = cfg_pick($mysql, $limit['case'], 'category_id = 6');
+
+        // 5-e-3: корпус должен принимать форм-фактор платы.
+        $caseWhere = 'category_id = 6';
+        $caseTypes = '';
+        $caseParams = [];
+        $caseCandidates = cfg_case_types_for_board($motherboard['form_factor'] ?? null);
+        if ($caseCandidates) {
+            $casePlaceholders = implode(',', array_fill(0, count($caseCandidates), '?'));
+            $caseWhere .= " AND form_factor IN ($casePlaceholders)";
+            $caseTypes = str_repeat('s', count($caseCandidates));
+            $caseParams = $caseCandidates;
+        }
+        $case = cfg_pick($mysql, $limit['case'], $caseWhere, $caseTypes, $caseParams);
+        if (!$case && $caseCandidates) {
+            // под эту плату корпусов в подборке нет - берём любой, иначе
+            // сборка из-за одного корпуса просто не сохранилась бы
+            $case = cfg_pick($mysql, $limit['case'], 'category_id = 6');
+        }
+
         $ssd = cfg_pick($mysql, $limit['ssd'], 'category_id = 9');
 
         // кулер - по тепловой мощности процессора и по сокету.
