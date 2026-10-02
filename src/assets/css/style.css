@@ -182,24 +182,71 @@ body::-webkit-scrollbar-thumb {
     object-fit: cover;
     object-position: 0;
 }
-.slider__text{
-	position: relative;
-	left:20%;
-	top:50%;
-	background-color: #ffffff10;
-	backdrop-filter: blur(25px);
-	width: 500px;
-	height: 200px;
-	border-radius: 20px;
-	color: #fff;
-	text-shadow: 1px 1px 8px #000, -1px -1px 8px #000;
+/* 3.6.3-a: затемнение под текстом героя.
+   Раньше читаемость давало только размытие подложки (backdrop-filter),
+   а сама фотография оставалась светлой, и белый текст местами терялся.
+   Слой отдельный от .slider, потому что slider.js пересобирает .slide:
+   элементы удаляются и создаются заново, и всё внутри .slider было бы
+   потеряно. pointer-events: none - чтобы затемнение не перехватывало
+   клики по карточкам сборок под героем. */
+#main__container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+        rgba(8, 11, 18, 0.45) 0%,
+        rgba(8, 11, 18, 0.22) 45%,
+        rgba(8, 11, 18, 0.58) 100%);
+    pointer-events: none;
+    z-index: 1;
 }
-.slider__text h1{
-	padding: 5% 10% 5% 10%;
+
+/* Текст по центру, а не слева: под ним четыре разные фотографии, и
+   сбоку блок попадал то на светлый участок, то на тёмный. По центру
+   он симметричен относительно любой из них. */
+.hero {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 24px;
+    text-align: center;
 }
-.slider__text p{
-	padding: 5% 10% 0 10%;
-	line-height: 170%;
+
+.hero__content {
+    max-width: 820px;
+}
+
+.hero__title {
+    font-size: 64px;
+    line-height: 1.04;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fff;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.65), 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.hero__lead {
+    margin-top: 20px;
+    font-size: 20px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.93);
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.75), 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.hero__cta {
+    margin-top: 32px;
+    padding: 14px 30px;
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.hero__cta:hover {
+    transform: translateY(-1px);
 }
 
 /*CONTAINERS*/
@@ -493,10 +540,13 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     .header__inner {
         padding: 0 24px;
     }
-    .slider__text {
-        left: 5%;
-        width: 90%;
-        max-width: 500px;
+    /* 3.6.3-a: заголовок остаётся в диапазоне 56-64px до 1024px,
+       дальше уменьшается - на 768px ширины 64px уже не читаются */
+    .hero__title {
+        font-size: 56px;
+    }
+    .hero__lead {
+        font-size: 18px;
     }
     .container_select {
         flex-wrap: wrap;
@@ -543,13 +593,20 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     .nav ul li {
         width: 100%;
     }
-    .slider__text {
-        width: calc(100% - 32px);
-        height: auto;
-        padding: 16px;
+    .hero {
+        padding: 0 16px;
     }
-    .slider__text h1 {
-        font-size: 24px;
+    .hero__title {
+        font-size: 34px;
+    }
+    .hero__lead {
+        margin-top: 14px;
+        font-size: 16px;
+    }
+    .hero__cta {
+        margin-top: 24px;
+        padding: 12px 24px;
+        font-size: 15px;
     }
     .cont_shell {
         width: 100%;
@@ -575,10 +632,10 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 }
 
 @media (max-width: 480px) {
-    .slider__text h1 {
-        font-size: 20px;
+    .hero__title {
+        font-size: 27px;
     }
-    .slider__text p {
-        font-size: 14px;
+    .hero__lead {
+        font-size: 15px;
     }
 }

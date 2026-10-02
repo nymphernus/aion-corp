@@ -11,9 +11,17 @@ require __DIR__ . '/partials/header.php';
                 <div class="slide"><img src="assets/images/main_3.jpg" alt="3"></div>
                 <div class="slide"><img src="assets/images/main_4.jpg" alt="4"></div>
                 </div>
-                <div class="slider__text">
-                    <h1>AION CORPORATION</h1>
-                    <p>Уникальные компьютеры для игр, стриминга, работы с графикой, видео и большими объёмами данных</p>
+                <!-- 3.6.3-a: было .slider__text - матовый блок фиксированного размера
+                     (500x200) с position: relative и top: 50%, из-за чего он
+                     уезжал вниз на половину высоты экрана. Теперь это .hero:
+                     текст по центру поверх затемнения фотографии, см.
+                     #main__container::after в style.css. -->
+                <div class="hero">
+                    <div class="hero__content">
+                        <h1 class="hero__title">AION CORPORATION</h1>
+                        <p class="hero__lead">Уникальные компьютеры для игр, стриминга, работы с графикой, видео и большими объёмами данных</p>
+                        <a class="btn btn--primary hero__cta" href="#configurator">Собрать ПК</a>
+                    </div>
                 </div>
             </div>
             <div class="container_pc">
