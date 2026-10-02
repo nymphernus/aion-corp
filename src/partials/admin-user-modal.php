@@ -36,6 +36,13 @@
                                 <label class="form-label" for="editUserSurname">Фамилия</label>
                                 <input class="input" name="user_surname" id="editUserSurname" maxlength="30">
                             </div>
+                            <!-- 3.7-g-6: дата регистрации только для чтения,
+                                 в POST не отправляется -->
+                            <div class="form-group span-all">
+                                <label class="form-label" for="editUserRegdate">Дата регистрации</label>
+                                <input class="input" id="editUserRegdate" disabled>
+                            </div>
+                        </div>
                             <div class="form-group">
                                 <label class="form-label" for="editUserNameRO">Логин (не изменяется)</label>
                                 <input class="input" id="editUserNameRO" disabled>

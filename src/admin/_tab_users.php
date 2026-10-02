@@ -47,8 +47,9 @@ if (!defined('ADMIN_CONTEXT')) {
                     // 3.7-f-3-11: user_email добавлен для модалки пользователя
                     // 3.7-f-4-3: $listWhere/$listOrder приходят из admin.php
                     // 3.7-i-2: шесть адресных колонок нужны модалке
+                    // 3.7-g-6: user_regdate показывается в модалке read-only
                     $sql = "SELECT user_id, user_name, user_surname, user_login, user_group,
-                                   user_address, user_number, user_email,
+                                   user_address, user_number, user_email, user_regdate,
                                    user_postal_code, user_region, user_city,
                                    user_street, user_house, user_apartment
                             FROM users WHERE 1=1" . $listWhere . "
@@ -88,6 +89,10 @@ if (!defined('ADMIN_CONTEXT')) {
                             'address' => $row['user_address'],
                             'number' => $row['user_number'],
                             'email' => $row['user_email'],
+                            // 3.7-g-6: показывается в модалке только на чтение
+                            'regdate' => isset($row['user_regdate'])
+                                ? date('d.m.Y', strtotime((string) $row['user_regdate']))
+                                : '',
                             // 3.7-i-2: адрес разбит на поля, address остаётся
                             // legacy-строкой для показа в модалке
                             'postal_code' => $row['user_postal_code'],

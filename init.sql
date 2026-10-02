@@ -377,6 +377,7 @@ CREATE TABLE `users` (
   `user_login` varchar(25) NOT NULL,
   `user_pass` varchar(255) NOT NULL,
   `user_group` varchar(10) NOT NULL,
+  `user_regdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `user_address` varchar(1000) DEFAULT NULL,
   `user_region` varchar(100) DEFAULT NULL,
   `user_email` varchar(50) DEFAULT NULL,

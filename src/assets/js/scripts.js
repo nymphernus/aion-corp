@@ -313,6 +313,8 @@ function openUserModal(data) {
     uSet('#editUserName', data.name);
     // 3.7-f-4c-3: фамилия не обязательна, пустое значение тоже валидно
     uSet('#editUserSurname', data.surname);
+    // 3.7-g-6: дата регистрации только для чтения, в POST не уходит
+    uSet('#editUserRegdate', data.regdate);
     // 3.7-i-2: адрес разбит на поля. Значения кладутся как есть, с маркерами
     // вроде «ул.» поле нормализуется при сохранении, поэтому подсказки в
     // placeholder об этом напоминают.

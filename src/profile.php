@@ -292,9 +292,16 @@ $profileFullName = trim(($userProfile['user_name'] ?? '') . ' ' . ($userProfile[
                                     <div class="profile-header-info">
                                         <h2><?= escape($profileFullName !== '' ? $profileFullName : (string) ($userProfile['user_login'] ?? '')) ?></h2>
                                         <div class="profile-header-login">@<?= escape((string) ($userProfile['user_login'] ?? '')) ?></div>
-                                        <span class="badge <?= $isAdmin ? 'badge--success' : 'badge--warning' ?>">
-                                            <?= $isAdmin ? 'Администратор' : 'Пользователь' ?>
-                                        </span>
+                                        <!-- 3.7-g-6: бейдж роли и дата регистрации
+                                             в одну строку, раньше бейдж стоял сам -->
+                                        <div class="profile-header-meta">
+                                            <span class="badge <?= $isAdmin ? 'badge--success' : 'badge--warning' ?>">
+                                                <?= $isAdmin ? 'Администратор' : 'Пользователь' ?>
+                                            </span>
+                                            <span class="profile-header-since">
+                                                С нами с <?= escape(date('d.m.Y', strtotime((string) ($userProfile['user_regdate'] ?? 'now')))) ?>
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 <?php

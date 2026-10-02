@@ -9,9 +9,10 @@
  * Все запросы - скалярные, без параметров; db_prepare вызывается с
  * пустым списком типов, как и требуется для остальных запросов панели.
  *
- * Метрики «новых пользователей за 7 дней» нет: в users нет колонки
- * с датой регистрации (user_regdate), а добавлять её ради одного
- * графика не хочется - users вообще без дат, кроме заказов.
+ * Метрики «новых пользователей за 7 дней» нет: колонка
+ * user_regdate добавлена только в 3.7-g-6 и сейчас содержит дату
+ * ALTER у всех существующих пользователей, так что считать по ней
+ * «новых» бессмысленно - через пару недель данных хватит.
  */
 
 if (!defined('ADMIN_CONTEXT')) {
@@ -82,12 +83,12 @@ while ($row = $lastOrdersResult->fetch_assoc()) {
 }
 
 // ── Последние 5 зарегистрированных ─────────────────────────────────
-// 3.7-g-5: дата регистрации в users отсутствует (user_regdate нет),
-// поэтому «последние» = наибольший user_id
+// 3.7-g-6: колонка user_regdate добавлена в этой же версии, до неё
+// «последние» определялись по максимальному user_id
 $recentUsers = [];
-$stmt = db_prepare($mysql, "SELECT user_id, user_name, user_login, user_group
+$stmt = db_prepare($mysql, "SELECT user_id, user_name, user_login, user_group, user_regdate
                             FROM users
-                            ORDER BY user_id DESC
+                            ORDER BY user_regdate DESC, user_id DESC
                             LIMIT 5", '');
 $stmt->execute();
 $recentUsersResult = $stmt->get_result();
@@ -226,18 +227,16 @@ $daysWithOrders = count($byDay);
 <?php endif; ?>
                     </div>
 
-                    <!-- 3.7-g-5: заменил «Топ-5 комплектующих». Даты
-                         регистрации в users нет, поэтому «последние» -
-                         наибольший user_id -->
+                    <!-- 3.7-g-6: сортировка по дате регистрации, раньше
+                         её не существовало и блок шёл по user_id -->
                     <div class="card">
                         <h3>Последние 5 пользователей</h3>
-                        <div class="dashboard-sub" style="margin-bottom:12px;">по дате регистрации недоступно, сортировка по id</div>
 <?php if ($recentUsers === []): ?>
                         <div class="profile-empty">Пользователей пока нет</div>
 <?php else: ?>
                         <div class="table-wrap">
                             <table class="table">
-                                <thead><tr><th>Имя</th><th>Логин</th><th>Группа</th></tr></thead>
+                                <thead><tr><th>Имя</th><th>Логин</th><th>Группа</th><th>Дата</th></tr></thead>
                                 <tbody>
 <?php foreach ($recentUsers as $row): ?>
                                     <tr>
@@ -248,6 +247,7 @@ $daysWithOrders = count($byDay);
                                                 <?= $row['user_group'] === 'admin' ? 'Администратор' : 'Пользователь' ?>
                                             </span>
                                         </td>
+                                        <td><?= escape(date('d.m.Y', strtotime((string) $row['user_regdate']))) ?></td>
                                     </tr>
 <?php endforeach; ?>
                                 </tbody>
