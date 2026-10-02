@@ -134,64 +134,19 @@ if (!function_exists('build_card_icon')) {
                 <div class="cont_shell cont_shell_back">
 <div class="container_select">
                         <?php foreach ($homeBuilds as $homeBuild): ?>
-                            <?php
-                            // Строка памяти собирается из колонок, а не из названия:
-                            // в названиях лежит «4gbx2», из которого объём и тип
-                            // не прочитать. Если колонки пусты, показываем название
-                            // как есть.
-                            $homeRamLine = '';
-                            if (!empty($homeBuild['ram_gb'])) {
-                                $homeRamLine = (int) $homeBuild['ram_gb'] . ' ГБ';
-                                if (!empty($homeBuild['ram_type'])) {
-                                    $homeRamLine .= ' ' . $homeBuild['ram_type'];
-                                    if (!empty($homeBuild['ram_mhz'])) {
-                                        $homeRamLine .= '-' . (int) $homeBuild['ram_mhz'];
-                                    }
-                                }
-                            } elseif (!empty($homeBuild['ram_name'])) {
-                                $homeRamLine = $homeBuild['ram_name'];
-                            }
-
-                            // Строки комплектующих с типом, по типу подбирается
-                            // иконка. Строка выводится только если комплектующее
-                            // действительно стоит в сборке: у сборки 1 дискретной
-                            // видеокарты нет.
-                            $homeSpecLines = [];
-                            if (!empty($homeBuild['cpu_name'])) {
-                                $homeSpecLines[] = ['cpu', $homeBuild['cpu_name']];
-                            }
-                            if (!empty($homeBuild['gpu_name'])) {
-                                $homeSpecLines[] = ['gpu', $homeBuild['gpu_name']];
-                            }
-                            if ($homeRamLine !== '') {
-                                $homeSpecLines[] = ['ram', $homeRamLine];
-                            }
-
-                            $homeId = (int) $homeBuild['assembly_id'];
-                            ?>
+                            <?php $homeId = (int) $homeBuild['assembly_id']; ?>
                             <div class="element_select">
                                 <a class="select_image" href="/assembly.php?init=<?= $homeId ?>">
                                     <span class="cont_img">
-                                        <span class="figure_par"></span>
                                         <?php if (!empty($homeBuild['case_image'])): ?>
                                             <img src="<?= escape($homeBuild['case_image']) ?>"
                                                  alt="<?= escape($homeBuild['case_name'] ?? $homeBuild['assembly_name']) ?>">
                                         <?php endif; ?>
                                     </span>
+                                    <span class="figure_par"></span>
                                     <span class="cont_text">
-                                        <h2 class="cont_title"><?= escape($homeBuild['assembly_name']) ?></h2>
-                                        <?php if (!empty($homeSubtitles[$homeId])): ?>
-                                            <span class="cont_tag"><?= escape($homeSubtitles[$homeId]) ?></span>
-                                        <?php endif; ?>
-                                        <span class="cont_specs">
-                                            <?php foreach ($homeSpecLines as [$homeSpecKind, $homeSpecText]): ?>
-                                                <span class="cont_spec">
-                                                    <?= build_card_icon($homeSpecKind) ?>
-                                                    <span class="cont_spec-text"><?= escape($homeSpecText) ?></span>
-                                                </span>
-                                            <?php endforeach; ?>
-                                        </span>
-                                        <span class="cont_price"><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</span>
+                                        <h1><?= escape($homeBuild['assembly_name']) ?></h1>
+                                        <p><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</p>
                                     </span>
                                 </a>
                             </div>
