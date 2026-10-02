@@ -181,6 +181,34 @@ if ($userProfile) {
 $pageTitle = 'Профиль';
 $extraCss = ['/assets/css/profile.css'];
 $extraJs  = ['/assets/js/scripts.js'];
+
+// 5-f-1: сообщение об ошибке приходит cookie error_access, которую ставят
+// validation/auth.php и validation/reg.php. Читать её было некому: страница
+// смотрела в $_SESSION['error_access'], который не заполняет никто, поэтому
+// при неверном пароле пользователь возвращался на пустую форму без
+// объяснения, а вёрстка показывала пустую красную полосу.
+//
+// Блок стоит ДО require header.php намеренно: setcookie() работает только
+// пока не отправлен ни один байт вывода, а header.php уже печатает разметку.
+$errorMessage = trim((string) ($_COOKIE['error_access'] ?? ''));
+// error_from ставит только reg.php: без него сообщение о неудачной
+// регистрации оказалось бы в свёрнутой форме входа и осталось бы невидимым.
+$errorFrom = ($_COOKIE['error_from'] ?? '') === 'reg' ? 'reg' : 'auth';
+
+if (isset($_COOKIE['error_access'])) {
+    // Гасим обе cookie ответом, срок в прошлом. Одного unset($_COOKIE[...])
+    // мало: он чистит массив только в этом запросе, браузер шлёт cookie
+    // снова, и текст висел бы до перезагрузки.
+    $expire = [
+        'expires'  => time() - 3600,
+        'path'     => '/profile.php',
+        'httponly' => true,
+        'samesite' => 'Strict'
+    ];
+    setcookie('error_access', '', $expire);
+    setcookie('error_from', '', $expire);
+}
+
 require __DIR__ . '/partials/header.php';
 ?>
         <div class="container_profile container_profile--fluid">
@@ -193,10 +221,11 @@ require __DIR__ . '/partials/header.php';
                     $oldLogin = $_SESSION['old_login'] ?? '';
                     $oldName = $_SESSION['old_name'] ?? '';
                     unset($_SESSION['old_login'], $_SESSION['old_name']);
+                    $showRegForm = ($errorFrom === 'reg' && $errorMessage !== '');
                     ?>
                     <div class="auth-page">
                         <div class="auth-card card">
-                        <div id="login_cont">
+                        <div id="login_cont"<?= $showRegForm ? ' style="display:none;"' : '' ?>>
                             <h1>Авторизация</h1>
                             <form action="validation/auth.php" method="post">
                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
@@ -208,10 +237,13 @@ require __DIR__ . '/partials/header.php';
                                     <label class="form-label" for="auth_pass">Пароль</label>
                                     <input class="input" id="auth_pass" type="password" name="user_pass" placeholder="Введите пароль" required>
                                 </div>
-                                <p class="alert alert--error" style="margin-bottom:0;"><?php if (isset($_SESSION['error_access'])): ?>
-                                        <?= escape($_SESSION['error_access'] ?? '') ?>
-                                    <?php endif; ?>
-                                </p>
+                                <?php // 5-f-1: плашка рисуется только когда есть
+                                      // что показать. Раньше <p> выводился всегда,
+                                      // а условие было внутри - получалась пустая
+                                      // красная полоса на каждом заходе ?>
+                                <?php if ($errorFrom === 'auth' && $errorMessage !== ''): ?>
+                                <div class="alert alert--error"><?= escape($errorMessage) ?></div>
+                                <?php endif; ?>
                                 <button class="btn btn--primary" type="submit">Войти</button>
                                 <div class="auth-switch">
                                     Нет аккаунта?
@@ -219,7 +251,7 @@ require __DIR__ . '/partials/header.php';
                                 </div>
                             </form>
                         </div>
-                        <div id="pass_cont" style="display:none;">
+                        <div id="pass_cont"<?= $showRegForm ? '' : ' style="display:none;"' ?>>
                             <h1>Регистрация</h1>
                             <form action="validation/reg.php" method="post">
                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
@@ -235,10 +267,9 @@ require __DIR__ . '/partials/header.php';
                                     <label class="form-label" for="reg_pass">Пароль</label>
                                     <input class="input" id="reg_pass" type="password" name="user_pass" placeholder="Минимум 8 символов" required>
                                 </div>
-                                <p class="alert alert--error" style="margin-bottom:0;"><?php if (isset($_SESSION['error_access'])): ?>
-                                        <?= escape($_SESSION['error_access'] ?? '') ?>
-                                    <?php endif; ?>
-                                </p>
+                                <?php if ($errorFrom === 'reg' && $errorMessage !== ''): ?>
+                                <div class="alert alert--error"><?= escape($errorMessage) ?></div>
+                                <?php endif; ?>
                                 <button class="btn btn--primary" type="submit">Регистрация</button>
                                 <div class="auth-switch">
                                     Уже зарегистрированы?

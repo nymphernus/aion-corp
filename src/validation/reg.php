@@ -53,6 +53,15 @@ if (mb_strlen($pass) < 8 || mb_strlen($pass) > 20) {
 if (!empty($errors)) {
     $_SESSION['old_login'] = $login;
     $_SESSION['old_name'] = $name;
+    // 5-f-1: error_access общий для входа и регистрации, поэтому
+    // отдельной меткой говорим profile.php, что сообщение из регистрации:
+    // форма входа свёрнута, и ошибка внутри неё была бы не видна
+    setcookie('error_from', 'reg', [
+        'expires' => time() + 60,
+        'path' => '/profile.php',
+        'httponly' => true,
+        'samesite' => 'Strict'
+    ]);
     setcookie('error_access', implode(", ", $errors), [
         'expires' => time() + 1,
         'path' => '/profile.php',
@@ -80,6 +89,13 @@ $user = $result->fetch_assoc();
 if ($user) {
     $_SESSION['old_login'] = $login;
     $_SESSION['old_name'] = $name;
+    // 5-f-1: см. выше - метка источника сообщения
+    setcookie('error_from', 'reg', [
+        'expires' => time() + 60,
+        'path' => '/profile.php',
+        'httponly' => true,
+        'samesite' => 'Strict'
+    ]);
     setcookie('error_access', "Такой пользователь уже существует", [
         'expires' => time() + 1,
         'path' => '/profile.php',

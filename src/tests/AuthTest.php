@@ -171,4 +171,99 @@ final class AuthTest extends AionTestCase
         $this->assertSame(302, $r['code']);
         $this->assertFalse($this->userExists($login));
     }
+
+    /**
+     * 5-f-1: сообщение о неверном пароле должно доходить до пользователя.
+     *
+     * Раньше validation/auth.php клал текст в cookie error_access, а
+     * profile.php читал $_SESSION['error_access'] — ключ, который не
+     * заполняет никто. Ошибка просто терялась: пользователь возвращался на
+     * чистую форму без единого объяснения.
+     */
+    public function testWrongPasswordShowsErrorMessage(): void
+    {
+        $login = $this->uniqueLogin('err_show_');
+        $this->trackCleanup($login);
+
+        $page = $this->httpGet('/profile.php');
+        $r = $this->httpPost('/validation/auth.php', [
+            'user_login' => $login,
+            'user_pass' => 'definitely_wrong_password',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(302, $r['code']);
+
+        $after = $this->httpGet('/profile.php');
+        $this->assertSame(200, $after['code']);
+        $this->assertStringContainsString(
+            'alert alert--error',
+            $after['body'],
+            'сообщение об ошибке должно показываться в плашке'
+        );
+        $this->assertStringContainsString('Неверный логин или пароль', $after['body']);
+
+        // cookie одноразовая: следующий заход должен быть чистым
+        $clean = $this->httpGet('/profile.php');
+        $this->assertStringNotContainsString(
+            'alert alert--error',
+            $clean['body'],
+            'сообщение не должно повторяться при следующем заходе'
+        );
+
+        $this->clearLoginAttempts($login);
+    }
+
+    /**
+     * 5-f-1: без ошибки плашки быть не должно.
+     *
+     * Разметка была <p class="alert alert--error"> с условием внутри, поэтому
+     * пустой красный блок высотой 26px висел на каждом заходе гостя.
+     */
+    public function testNoErrorAlertForGuestWithoutError(): void
+    {
+        $page = $this->httpGet('/profile.php');
+        $this->assertSame(200, $page['code']);
+        $this->assertStringNotContainsString(
+            'alert alert--error',
+            $page['body'],
+            'у гостя без ошибки красной плашки быть не должно'
+        );
+    }
+
+    /**
+     * 5-f-1: ошибка регистрации показывается в раскрытой форме регистрации.
+     *
+     * error_access общий для входа и регистрации, поэтому при провале
+     * регистрации текст попадал в свёрнутую форму входа и оставался невидимым.
+     * reg.php ставит метку error_from, по которой форма раскрывается.
+     */
+    public function testRegistrationErrorShowsInRegistrationForm(): void
+    {
+        $login = $this->uniqueLogin('err_reg_');
+        $this->trackCleanup($login);
+
+        $page = $this->httpGet('/profile.php');
+        $r = $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Тест',
+            'user_login' => $login,
+            'user_pass' => '123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(302, $r['code']);
+
+        $after = $this->httpGet('/profile.php');
+        $this->assertStringContainsString('Пароль должен быть от 8 до 20 символов', $after['body']);
+        // форма входа свёрнута, форма регистрации раскрыта
+        $this->assertMatchesRegularExpression(
+            '/id="login_cont"[^>]*style="display:none;/',
+            $after['body'],
+            'форма входа должна быть свёрнута при ошибке регистрации'
+        );
+        $this->assertMatchesRegularExpression(
+            '/id="pass_cont"[^>]*>/',
+            $after['body'],
+            'форма регистрации должна быть раскрыта при ошибке регистрации'
+        );
+        $this->assertStringNotContainsString('id="pass_cont" style="display:none;"', $after['body']);
+    }
 }
