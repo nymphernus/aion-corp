@@ -621,6 +621,46 @@ h1{
     color: var(--text-muted);
 }
 
+/* 3.7-g-3: нижние блоки дашборда — таблицы и график */
+.dashboard-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+/* полоски графика: высота в процентах от максимального дня */
+.dashboard-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 120px;
+    padding-top: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.dashboard-bar-wrap {
+    flex: 1 1 0;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+
+.dashboard-bar {
+    width: 100%;
+    min-height: 2px;
+    background: var(--accent);
+    border-radius: 2px 2px 0 0;
+}
+
+.dashboard-chart-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
 /* 3.7-f-4-1: единый сайдбар — имя/логин и пункты навигации */
 .profile-user-name {
     font-size: 16px;

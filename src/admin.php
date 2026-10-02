@@ -495,6 +495,10 @@ define('ADMIN_CONTEXT', true);
 // 3.7-f-4-2: модалки пользователя нужны на всех вкладках - из модалки
 // заказа можно перейти к покупателю
 require __DIR__ . '/partials/admin-user-modal.php';
+// 3.7-g-3: модалка заказа нужна и таблице заказов, и дашборду
+require __DIR__ . '/partials/admin-order-modal.php';
+// 3.7-g-3: общий контракт data-row для обеих таблиц с заказами
+require_once __DIR__ . '/admin/_order_row_data.php';
 
 // 3.7-g: дашборд - первая вкладка в роутинге и первый пункт сайдбара
 if ($tab === 'dashboard') {
