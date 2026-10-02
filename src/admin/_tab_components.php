@@ -379,6 +379,14 @@ if ($result) {
                                     <option value="SATA">SATA</option>
                                     <option value="M.2 NVMe PCIe 3.0">M.2 NVMe PCIe 3.0</option>
                                     <option value="M.2 NVMe PCIe 4.0">M.2 NVMe PCIe 4.0</option>
+                                    <!-- 3.7-j-2b: значения без указания версии PCIe.
+                                         Их проставил эшелон 2b из названий старых
+                                         накопителей («M.2» в имени, но не «NVMe»),
+                                         и без этих опций поле в модалке выглядело
+                                         пустым. Данные не стирались: хендлер пустые
+                                         значения из формы игнорирует. -->
+                                    <option value="M.2 NVMe">M.2 NVMe</option>
+                                    <option value="M.2">M.2</option>
                                     <option value="SAS">SAS</option>
                                 </select>
                             </div>
