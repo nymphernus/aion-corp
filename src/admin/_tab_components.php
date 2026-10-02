@@ -369,8 +369,9 @@ if ($result) {
                             </div>
                         </div>
 
-                        <!-- Интерфейс: HDD, SSD, Привод -->
-                        <div class="field-group" data-cat="8 9 10">
+                        <!-- Интерфейс: HDD, SSD. Категория 10 «Привод»
+                             удалена в 5-b, её компонентов в базе больше нет. -->
+                        <div class="field-group" data-cat="8 9">
                             <div class="form-group">
                                 <label class="form-label" for="ac_if">Интерфейс</label>
                                 <select class="input" id="ac_if" name="interface">

@@ -385,28 +385,6 @@ $rows = [
         'specs' => ['read_mbs' => 5000, 'write_mbs' => 3600, 'tbw' => 800, 'nand' => 'TLC', 'dram' => false],
     ],
 
-    // ── Приводы (cat 10) ──────────────────────────────────────────────
-    [
-        'name' => 'ASUS DRW-24D5MT SATA',
-        'category_id' => 10, 'interface' => 'SATA',
-        'price' => 1990, 'manufacturer' => 'ASUS', 'model' => 'DRW-24D5MT',
-        'description' => 'Внутренний DVD-привод для чтения и записи дисков формата DVD и CD. Подключается через SATA.',
-        'specs' => ['type' => 'DVD-RW', 'cache_kb' => 2048, 'silent' => true],
-    ],
-    [
-        'name' => 'LG GH24NSD1 DVD-RW SATA',
-        'category_id' => 10, 'interface' => 'SATA',
-        'price' => 2190, 'manufacturer' => 'LG', 'model' => 'GH24NSD1',
-        'description' => 'Надёжный привод для чтения и записи DVD/CD. Корпус M-ATX, полная совместимость с настольными ПК.',
-        'specs' => ['type' => 'DVD-RW', 'cache_kb' => 2048, 'silent' => false],
-    ],
-    [
-        'name' => 'Lite-On DVD-RW DUO DVDRW-16S1L11 SATA',
-        'category_id' => 10, 'interface' => 'SATA',
-        'price' => 2490, 'manufacturer' => 'Lite-On', 'model' => 'DVDRW-16S1L11',
-        'description' => 'Двухскоростной привод с поддержкой M-DISC для долговечного хранения данных на специальных дисках.',
-        'specs' => ['type' => 'DVD-RW', 'cache_kb' => 2048, 'mdisc' => true],
-    ],
 ];
 
 try {
