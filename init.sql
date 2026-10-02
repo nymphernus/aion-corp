@@ -602,6 +602,6 @@ UNLOCK TABLES;
 -- конфигуратор и которые вмёрзли в сид случайно. Пользовательских сборок
 -- в сиде быть не должно - их создаёт modules/configurator.php.
 -- ---------------------------------------------------------------------------
-INSERT INTO `assembly` (`assembly_id`, `assembly_name`, `cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `os`, `ssd_2_id`, `hdd_id`, `dvd_id`, `assembly_price`) VALUES (1, 'EinTech', 4, NULL, 44, 102, 133, 147, 117, 174, NULL, NULL, NULL, NULL, 30000);
+INSERT INTO `assembly` (`assembly_id`, `assembly_name`, `cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `os`, `ssd_2_id`, `hdd_id`, `dvd_id`, `assembly_price`) VALUES (1, 'EinTech', 5, NULL, 44, 102, 133, 147, 117, 174, NULL, NULL, NULL, NULL, 30000);
 INSERT INTO `assembly` (`assembly_id`, `assembly_name`, `cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `os`, `ssd_2_id`, `hdd_id`, `dvd_id`, `assembly_price`) VALUES (2, 'Eternal', 38, 83, 66, 104, 135, 149, 122, 178, NULL, NULL, NULL, NULL, 105000);
 INSERT INTO `assembly` (`assembly_id`, `assembly_name`, `cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `os`, `ssd_2_id`, `hdd_id`, `dvd_id`, `assembly_price`) VALUES (3, 'Magic Workbench', 29, 96, 56, 103, 143, 162, 125, 180, NULL, NULL, 170, NULL, 340000);
