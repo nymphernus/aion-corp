@@ -7,6 +7,83 @@ declare(strict_types=1);
 
 final class AssemblyTest extends AionTestCase
 {
+    /**
+     * Сборки, которые создал этот класс.
+     *
+     * 5-b, фикс 1. Конфигуратор создаёт сборку на каждом прогоне, и раньше
+     * тест удалял связи, но оставлял саму сборку - она оставалась сиротой
+     * навсегда. Список нужен, чтобы удалять точно то, что мы создали, а не
+     * всё подряд по времени.
+     *
+     * @var int[]
+     */
+    private static array $createdAssemblyIds = [];
+
+    /**
+     * Уборка после всех тестов класса.
+     *
+     * Сначала удаляются сборки, чьи номера мы точно знаем, вместе с их
+     * избранным и заказами. Потом - все сироты за последние пять минут: если
+     * тест упал посередине и номер не записался, сборка всё равно не
+     * останется мусором.
+     *
+     * Порог по времени, а не по assembly_id, - иначе под нож попало бы всё,
+     * что создано после сида, включая чужие сборки.
+     */
+    public static function tearDownAfterClass(): void
+    {
+        try {
+            $mysql = connect();
+        } catch (Throwable) {
+            return;
+        }
+
+        $cutoff = date('Y-m-d H:i:s', time() - 300);
+
+        $ids = self::$createdAssemblyIds;
+        self::$createdAssemblyIds = [];
+
+        $stmt = db_prepare($mysql, "SELECT assembly_id FROM assembly
+            WHERE assembly_id > 3 AND created_at > ?", 's', $cutoff);
+        $stmt->execute();
+        $recent = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        foreach ($recent as $row) {
+            $ids[] = (int) $row['assembly_id'];
+        }
+        $ids = array_values(array_unique(array_filter($ids)));
+        if (!$ids) {
+            $mysql->close();
+            return;
+        }
+
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $types = str_repeat('i', count($ids));
+
+        $mysql->begin_transaction();
+        try {
+            // сначала связи, иначе на них встанет внешний ключ
+            foreach (['favorites', 'orders'] as $table) {
+                $stmt = db_prepare($mysql, "DELETE FROM `$table` WHERE assembly_id IN ($ph)", $types, ...$ids);
+                $stmt->execute();
+                $stmt->close();
+            }
+            $stmt = db_prepare($mysql, "DELETE FROM assembly WHERE assembly_id IN ($ph)", $types, ...$ids);
+            $stmt->execute();
+            $deleted = $stmt->affected_rows;
+            $stmt->close();
+            $mysql->commit();
+        } catch (Throwable $e) {
+            $mysql->rollback();
+            $mysql->close();
+            throw $e;
+        }
+
+        fwrite(STDERR, sprintf("AssemblyTest: удалено сборок после прогонов - %d\n", $deleted));
+        $mysql->close();
+    }
+
     private function loginAsAdmin(): void
     {
         $adminPass = getenv('ADMIN_PASSWORD');
@@ -53,6 +130,8 @@ final class AssemblyTest extends AionTestCase
         preg_match('/Номер сборки - (\d+)/', $page['body'], $m);
         $n = (int) $m[1];
         $this->assertGreaterThan(3, $n, 'Конфигуратор не создал пользовательскую сборку');
+        // запоминаем: уборка в tearDownAfterClass удалит именно её
+        self::$createdAssemblyIds[] = $n;
 
         // 3. save → 302, запись в favorites
         $t2 = $this->extractCsrf($page['body']);
@@ -72,7 +151,8 @@ final class AssemblyTest extends AionTestCase
         $this->assertSame(302, $buy['code']);
         $this->assertSame(1, $this->countRows('orders', $uid, $n));
 
-        // Чистим созданные связи (сборку оставляем — она часть каталога)
+        // Связи чистим сразу, чтобы тест не оставлял после себя ничего,
+        // кроме самой сборки. Сборку убирает tearDownAfterClass.
         $this->deleteLink('favorites', $uid, $n);
         $this->deleteLink('orders', $uid, $n);
     }
