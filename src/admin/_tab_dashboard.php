@@ -81,47 +81,32 @@ while ($row = $lastOrdersResult->fetch_assoc()) {
     $lastOrders[] = $row;
 }
 
-// ── Топ-5 комплектующих по использованию в сборках ────────────────
-// UNION ALL по всем 11 FK-колонкам assembly вместо OR на всё:
-// OR не использует индексы, UNION - использует. Пустые слоты лежат
-// в NULL (проверено: нулей в колонках нет), поэтому фильтр на IS NOT NULL
-$topComponents = [];
-$stmt = db_prepare($mysql, "SELECT c.component_id, c.component_name, COUNT(*) AS uses
-                            FROM (
-                                SELECT cpu_id AS component_id FROM assembly
-                                UNION ALL SELECT gpu_id FROM assembly WHERE gpu_id IS NOT NULL
-                                UNION ALL SELECT motherboard_id FROM assembly
-                                UNION ALL SELECT ram_id FROM assembly
-                                UNION ALL SELECT case_id FROM assembly
-                                UNION ALL SELECT cooler_id FROM assembly
-                                UNION ALL SELECT power_supply_id FROM assembly
-                                UNION ALL SELECT ssd_id FROM assembly
-                                UNION ALL SELECT ssd_2_id FROM assembly WHERE ssd_2_id IS NOT NULL
-                                UNION ALL SELECT hdd_id FROM assembly WHERE hdd_id IS NOT NULL
-                                UNION ALL SELECT dvd_id FROM assembly WHERE dvd_id IS NOT NULL
-                            ) x
-                            JOIN components c ON c.component_id = x.component_id
-                            GROUP BY c.component_id, c.component_name
-                            ORDER BY uses DESC, c.component_name ASC
+// ── Последние 5 зарегистрированных ─────────────────────────────────
+// 3.7-g-5: дата регистрации в users отсутствует (user_regdate нет),
+// поэтому «последние» = наибольший user_id
+$recentUsers = [];
+$stmt = db_prepare($mysql, "SELECT user_id, user_name, user_login, user_group
+                            FROM users
+                            ORDER BY user_id DESC
                             LIMIT 5", '');
 $stmt->execute();
-$topComponentsResult = $stmt->get_result();
-while ($row = $topComponentsResult->fetch_assoc()) {
-    $topComponents[] = $row;
+$recentUsersResult = $stmt->get_result();
+while ($row = $recentUsersResult->fetch_assoc()) {
+    $recentUsers[] = $row;
 }
 
-// ── Топ-5 покупателей по числу заказов ────────────────────────────
-$topBuyers = [];
-$stmt = db_prepare($mysql, "SELECT u.user_id, u.user_name, u.user_login, COUNT(o.order_id) AS orders_count
-                            FROM users u
-                            JOIN orders o ON o.user_id = u.user_id
-                            GROUP BY u.user_id, u.user_name, u.user_login
-                            ORDER BY orders_count DESC, u.user_id ASC
+// ── Заканчивается на складе ───────────────────────────────────────
+// Порог 10, а не 5: при 5 почти весь каталог попадал бы в блок
+$lowStock = [];
+$stmt = db_prepare($mysql, "SELECT component_id, component_name, amount
+                            FROM components
+                            WHERE amount < 10
+                            ORDER BY amount ASC, component_id DESC
                             LIMIT 5", '');
 $stmt->execute();
-$topBuyersResult = $stmt->get_result();
-while ($row = $topBuyersResult->fetch_assoc()) {
-    $topBuyers[] = $row;
+$lowStockResult = $stmt->get_result();
+while ($row = $lowStockResult->fetch_assoc()) {
+    $lowStock[] = $row;
 }
 
 // ── Заказы по дням за 30 дней ─────────────────────────────────────
@@ -197,6 +182,7 @@ $daysWithOrders = count($byDay);
                     </div>
                 </div>
 
+
                 <div class="dashboard-grid-2">
                     <!-- Последние заказы: клик по строке открывает ту же
                          модалку, что и в таблице заказов - data-row собран
@@ -240,20 +226,28 @@ $daysWithOrders = count($byDay);
 <?php endif; ?>
                     </div>
 
+                    <!-- 3.7-g-5: заменил «Топ-5 комплектующих». Даты
+                         регистрации в users нет, поэтому «последние» -
+                         наибольший user_id -->
                     <div class="card">
-                        <h3>Топ-5 комплектующих</h3>
-                        <div class="dashboard-sub" style="margin-bottom:12px;">по числу сборок, где компонент установлен</div>
-<?php if ($topComponents === []): ?>
-                        <div class="profile-empty">Сборок пока нет</div>
+                        <h3>Последние 5 пользователей</h3>
+                        <div class="dashboard-sub" style="margin-bottom:12px;">по дате регистрации недоступно, сортировка по id</div>
+<?php if ($recentUsers === []): ?>
+                        <div class="profile-empty">Пользователей пока нет</div>
 <?php else: ?>
                         <div class="table-wrap">
                             <table class="table">
-                                <thead><tr><th>Название</th><th>Использований</th></tr></thead>
+                                <thead><tr><th>Имя</th><th>Логин</th><th>Группа</th></tr></thead>
                                 <tbody>
-<?php foreach ($topComponents as $row): ?>
+<?php foreach ($recentUsers as $row): ?>
                                     <tr>
-                                        <td><?= escape((string) $row['component_name']) ?></td>
-                                        <td><?= (int) $row['uses'] ?></td>
+                                        <td><?= escape((string) $row['user_name']) ?></td>
+                                        <td><?= escape((string) $row['user_login']) ?></td>
+                                        <td>
+                                            <span class="badge <?= $row['user_group'] === 'admin' ? 'badge--success' : 'badge--warning' ?>">
+                                                <?= $row['user_group'] === 'admin' ? 'Администратор' : 'Пользователь' ?>
+                                            </span>
+                                        </td>
                                     </tr>
 <?php endforeach; ?>
                                 </tbody>
@@ -264,21 +258,32 @@ $daysWithOrders = count($byDay);
                 </div>
 
                 <div class="dashboard-grid-2">
+                    <!-- 3.7-g-5: заменил «Топ-5 покупателей». Порог 10:
+                         при 5 в блок попадала бы почти весь каталог -->
                     <div class="card">
-                        <h3>Топ-5 покупателей</h3>
-                        <div class="dashboard-sub" style="margin-bottom:12px;">по числу заказов</div>
-<?php if ($topBuyers === []): ?>
-                        <div class="profile-empty">Заказов пока нет</div>
+                        <h3>Заканчивается на складе</h3>
+                        <div class="dashboard-sub" style="margin-bottom:12px;">осталось меньше 10 штук</div>
+<?php if ($lowStock === []): ?>
+                        <div class="dashboard-empty-ok">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Все позиции в наличии
+                        </div>
 <?php else: ?>
                         <div class="table-wrap">
                             <table class="table">
-                                <thead><tr><th>Имя</th><th>Логин</th><th>Заказов</th></tr></thead>
+                                <thead><tr><th>Название</th><th>Количество</th></tr></thead>
                                 <tbody>
-<?php foreach ($topBuyers as $row): ?>
+<?php foreach ($lowStock as $row): ?>
                                     <tr>
-                                        <td><?= escape((string) $row['user_name']) ?></td>
-                                        <td><?= escape((string) $row['user_login']) ?></td>
-                                        <td><?= (int) $row['orders_count'] ?></td>
+                                        <td><?= escape((string) $row['component_name']) ?></td>
+                                        <td>
+                                            <span class="badge <?= (int) $row['amount'] < 5 ? 'badge--error' : 'badge--warning' ?>">
+                                                <?= (int) $row['amount'] ?> шт.
+                                            </span>
+                                        </td>
                                     </tr>
 <?php endforeach; ?>
                                 </tbody>

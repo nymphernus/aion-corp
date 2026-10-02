@@ -661,6 +661,18 @@ h1{
     color: var(--text-muted);
 }
 
+/* 3.7-g-5: пустое состояние «всё в наличии» с галочкой */
+.dashboard-empty-ok {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    border-radius: 8px;
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--success);
+    font-size: 14px;
+}
+
 /* 3.7-f-4-1: единый сайдбар — имя/логин и пункты навигации */
 .profile-user-name {
     font-size: 16px;
