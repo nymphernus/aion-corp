@@ -279,6 +279,29 @@ CREATE TABLE `users` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
+--
+-- Table structure for table `site_settings`
+--
+
+DROP TABLE IF EXISTS `site_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `site_settings` (
+  `setting_key` varchar(64) NOT NULL,
+  `setting_value` mediumtext,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+-- 5-f-2: настройки сайта, которые админ правит из вкладки "Настройки сайта".
+-- Координаты и масштаб заполняются геокодером, map_snapshot_url - путём к
+-- готовому PNG-снимку. Пока снимка нет, на главной показывается заглушка.
+-- Пользовательские значения не хранятся в сиде осмысленно: после первого
+-- же сохранения их нужно залить в эту секцию вручную.
+INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('map_address_text', 'Москва, ул. Победы, д. 15'), ('map_lat', '55.7558'), ('map_lng', '37.6173'), ('map_zoom', '14'), ('map_snapshot_url', ''), ('contact_phone', '+7 (999) 999-99-99'), ('contact_email', 'mail@mail.ru'), ('contact_vk', ''), ('contact_telegram', ''), ('contact_whatsapp', '');
+
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;

@@ -8,6 +8,9 @@
 
 require_once __DIR__ . '/csrf.php';
 require_once __DIR__ . '/auth.php';
+// 5-f-2: настройки сайта. Подключается здесь, чтобы site.php пользовался
+// db_prepare из этого же файла, а страницам не приходилось знать про порядок
+require_once __DIR__ . '/site.php';
 
 if (!function_exists('connect')) {
     function connect(): mysqli
