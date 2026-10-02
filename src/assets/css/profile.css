@@ -558,6 +558,51 @@ h1{
     filter: invert(36%) sepia(93%) saturate(2000%) hue-rotate(348deg) brightness(95%);
 }
 
+/* 3.7-g: дашборд — четыре блока метрик */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.dashboard-card {
+    padding: 24px;
+}
+
+.dashboard-card h3 {
+    margin: 0 0 16px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.dashboard-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.dashboard-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+}
+
+.dashboard-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.dashboard-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
 /* 3.7-f-4-1: единый сайдбар — имя/логин и пункты навигации */
 .profile-user-name {
     font-size: 16px;

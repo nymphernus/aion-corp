@@ -49,7 +49,7 @@ if ($tab === '') {
     exit();
 }
 
-$allowedTabs = ['users' => true, 'orders' => true, 'components' => true];
+$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'dashboard' => true];
 if (!isset($allowedTabs[$tab])) {
     http_response_code(404);
     exit('Раздел не найден');
@@ -184,22 +184,27 @@ if ($tab === 'components') {
     $listQuery = implode('&', $qs);
 }
 
-$countSql = [
-    'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $listWhere,
-    'users' => 'SELECT COUNT(*) FROM users WHERE 1=1' . $listWhere,
-    'orders' => 'SELECT COUNT(*) FROM users,assembly,orders
-                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id'
-                 . $listWhere,
-][$tab];
-if ($listParams === []) {
-    $stmt = db_prepare($mysql, $countSql, '');
-} else {
-    $stmt = db_prepare($mysql, $countSql, $listTypes, ...$listParams);
+// 3.7-g: дашборду пагинация и счётчик строк не нужны, поэтому весь блок
+// с COUNT и paginate() для него пропускается. Иначе пришлось бы держать
+// в $countSql фиктивную запись ради значения, которое никто не читает.
+if ($tab !== 'dashboard') {
+    $countSql = [
+        'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $listWhere,
+        'users' => 'SELECT COUNT(*) FROM users WHERE 1=1' . $listWhere,
+        'orders' => 'SELECT COUNT(*) FROM users,assembly,orders
+                     WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id'
+                     . $listWhere,
+    ][$tab];
+    if ($listParams === []) {
+        $stmt = db_prepare($mysql, $countSql, '');
+    } else {
+        $stmt = db_prepare($mysql, $countSql, $listTypes, ...$listParams);
+    }
+    $stmt->execute();
+    $total = (int) $stmt->get_result()->fetch_row()[0];
+    // [$page, $pages, $offset] доступны во всех вкладках через общий scope
+    [$page, $pages, $offset] = paginate($tab, $total, $perPage, $listQuery);
 }
-$stmt->execute();
-$total = (int) $stmt->get_result()->fetch_row()[0];
-// [$page, $pages, $offset] доступны во всех вкладках через общий scope
-[$page, $pages, $offset] = paginate($tab, $total, $perPage, $listQuery);
 
 // Обработчики POST (перенесено из profile.php, SQL без изменений)
 if ($isAdmin && isset($_POST['deleteComponent'])) {
@@ -491,7 +496,10 @@ define('ADMIN_CONTEXT', true);
 // заказа можно перейти к покупателю
 require __DIR__ . '/partials/admin-user-modal.php';
 
-if ($tab === 'components') {
+// 3.7-g: дашборд - первая вкладка в роутинге и первый пункт сайдбара
+if ($tab === 'dashboard') {
+    require __DIR__ . '/admin/_tab_dashboard.php';
+} elseif ($tab === 'components') {
     require __DIR__ . '/admin/_tab_components.php';
 } elseif ($tab === 'orders') {
     require __DIR__ . '/admin/_tab_orders.php';
