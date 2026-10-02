@@ -75,35 +75,32 @@ $homeSubtitles = [
 if (!function_exists('build_card_icon')) {
     function build_card_icon(string $kind): string
     {
-        $open = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"'
+        $open = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
             . ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
 
         switch ($kind) {
             case 'gpu':
-                // Плата с вентилятором и разъёмом: прямоугольник, круг, два штриха.
+                // Прямоугольник с вентилятором и двумя штрихами разъёма.
                 return $open
-                    . '<rect x="2" y="5" width="20" height="13" rx="2"/>'
-                    . '<circle cx="11" cy="11.5" r="3.5"/>'
-                    . '<path d="M18 9h2.5"/><path d="M18 14h2.5"/>'
+                    . '<rect x="2" y="6" width="20" height="12" rx="2"></rect>'
+                    . '<circle cx="8" cy="12" r="2"></circle>'
+                    . '<path d="M14 10h6M14 14h6"></path>'
                     . '</svg>';
             case 'ram':
-                // Планка памяти: общая рамка и три чипа на ней.
+                // Планка памяти: рамка и ножки сверху и снизу. В спецификации
+                // у этого пути был лишний закрывающий </rect> - убран, иначе
+                // разметка невалидна и иконка не рисуется.
                 return $open
-                    . '<rect x="2" y="8" width="20" height="8" rx="1"/>'
-                    . '<rect x="5.5" y="10.5" width="3" height="3" rx="0.4"/>'
-                    . '<rect x="10.5" y="10.5" width="3" height="3" rx="0.4"/>'
-                    . '<rect x="15.5" y="10.5" width="3" height="3" rx="0.4"/>'
+                    . '<rect x="2" y="8" width="20" height="8" rx="1"></rect>'
+                    . '<path d="M6 8V6M10 8V6M14 8V6M18 8V6M6 16v2M10 16v2M14 16v2M18 16v2"></path>'
                     . '</svg>';
             case 'cpu':
             default:
                 // Процессор: корпус, ядро и ножки с четырёх сторон.
                 return $open
-                    . '<rect x="5" y="5" width="14" height="14" rx="2"/>'
-                    . '<rect x="9" y="9" width="6" height="6" rx="0.6"/>'
-                    . '<path d="M9 5V2"/><path d="M15 5V2"/>'
-                    . '<path d="M9 22v-3"/><path d="M15 22v-3"/>'
-                    . '<path d="M5 9H2"/><path d="M5 15H2"/>'
-                    . '<path d="M22 9h-3"/><path d="M22 15h-3"/>'
+                    . '<rect x="4" y="4" width="16" height="16" rx="2"></rect>'
+                    . '<rect x="9" y="9" width="6" height="6"></rect>'
+                    . '<path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"></path>'
                     . '</svg>';
         }
     }
@@ -134,24 +131,68 @@ if (!function_exists('build_card_icon')) {
                 <div class="cont_shell cont_shell_back">
 <div class="container_select">
                         <?php foreach ($homeBuilds as $homeBuild): ?>
-                            <?php $homeId = (int) $homeBuild['assembly_id']; ?>
-                            <div class="element_select">
-                                <a href="/assembly.php?init=<?= $homeId ?>">
-                                    <span class="select_image">
-                                        <span class="cont_img">
-                                            <?php if (!empty($homeBuild['case_image'])): ?>
-                                                <img src="<?= escape($homeBuild['case_image']) ?>"
-                                                     alt="<?= escape($homeBuild['case_name'] ?? $homeBuild['assembly_name']) ?>">
-                                            <?php endif; ?>
-                                        </span>
-                                        <span class="figure_par"></span>
-                                        <span class="cont_text">
-                                            <h1><?= escape($homeBuild['assembly_name']) ?></h1>
-                                            <p><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</p>
-                                        </span>
-                                    </span>
-                                </a>
-                            </div>
+                            <?php
+                            // Строка памяти собирается из колонок, а не из названия:
+                            // в названиях лежит «4gbx2», из которого объём и тип
+                            // не прочитать. Если колонки пусты, показываем название
+                            // как есть.
+                            $homeRamLine = '';
+                            if (!empty($homeBuild['ram_gb'])) {
+                                $homeRamLine = (int) $homeBuild['ram_gb'] . ' ГБ';
+                                if (!empty($homeBuild['ram_type'])) {
+                                    $homeRamLine .= ' ' . $homeBuild['ram_type'];
+                                    if (!empty($homeBuild['ram_mhz'])) {
+                                        $homeRamLine .= '-' . (int) $homeBuild['ram_mhz'];
+                                    }
+                                }
+                            } elseif (!empty($homeBuild['ram_name'])) {
+                                $homeRamLine = $homeBuild['ram_name'];
+                            }
+
+                            // Строки комплектующих с типом, по типу подбирается
+                            // иконка. Строка выводится только если комплектующее
+                            // действительно стоит в сборке: у сборки 1 дискретной
+                            // видеокарты нет.
+                            $homeSpecLines = [];
+                            if (!empty($homeBuild['cpu_name'])) {
+                                $homeSpecLines[] = ['cpu', $homeBuild['cpu_name']];
+                            }
+                            if (!empty($homeBuild['gpu_name'])) {
+                                $homeSpecLines[] = ['gpu', $homeBuild['gpu_name']];
+                            }
+                            if ($homeRamLine !== '') {
+                                $homeSpecLines[] = ['ram', $homeRamLine];
+                            }
+
+                            $homeId = (int) $homeBuild['assembly_id'];
+                            ?>
+                            <a class="build" href="/assembly.php?init=<?= $homeId ?>">
+                                <span class="build__accent"></span>
+                                <div class="build__image">
+                                    <?php if (!empty($homeSubtitles[$homeId])): ?>
+                                        <span class="build__tag"><?= escape($homeSubtitles[$homeId]) ?></span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($homeBuild['case_image'])): ?>
+                                        <img src="<?= escape($homeBuild['case_image']) ?>"
+                                             alt="<?= escape($homeBuild['assembly_name']) ?>">
+                                    <?php endif; ?>
+                                </div>
+                                <div class="build__body">
+                                    <h3 class="build__title"><?= escape($homeBuild['assembly_name']) ?></h3>
+                                    <ul class="build__specs">
+                                        <?php foreach ($homeSpecLines as [$homeSpecKind, $homeSpecText]): ?>
+                                            <li>
+                                                <?= build_card_icon($homeSpecKind) ?>
+                                                <span><?= escape($homeSpecText) ?></span>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                    <div class="build__bottom">
+                                        <span class="build__price"><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;&#8381;</span>
+                                        <span class="build__cta">&#8594;</span>
+                                    </div>
+                                </div>
+                            </a>
                         <?php endforeach; ?>
                     </div>
                 </div>
