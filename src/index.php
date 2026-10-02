@@ -54,12 +54,60 @@ try {
 // поэтому здесь то, что сборки действительно собой представляют:
 // 1 - i3-10100F без видеокарты, бюджетная офисная машина;
 // 2 - Ryzen 5 5600G с Radeon RX 6500 XT, бюджетный игровой комплект;
-// 3 - i7-12700F с RTX 3080 и 32 ГБ, рабочая станция.
+// Короткие метки под названием: по одному слову, без описания.
+// Подробности всё равно раскрываются в списке комплектующих, а длинный
+// текст под заголовком карточку перегружает.
 $homeSubtitles = [
-    1 => 'Бюджетная сборка для офиса',
-    2 => 'Игровая сборка',
-    3 => 'Рабочая станция',
+    1 => 'Офис',
+    2 => 'Игры',
+    3 => 'Про',
 ];
+
+/**
+ * Иконка комплектующего для карточки сборки.
+ *
+ * 3.6.3-b-3: контурные иконки в духе Feather, viewBox 24 и отрисовка
+ * в 16px через CSS. Раньше вместо иконок были синие точки списка - на
+ * такой мелкий размер это читалось как школьный маркированный список.
+ * Цвет и прозрачность задаёт CSS (currentColor + opacity), здесь только
+ * форма, поэтому под общий стиль интерфейса их красить не нужно.
+ */
+if (!function_exists('build_card_icon')) {
+    function build_card_icon(string $kind): string
+    {
+        $open = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"'
+            . ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+
+        switch ($kind) {
+            case 'gpu':
+                // Плата с вентилятором и разъёмом: прямоугольник, круг, два штриха.
+                return $open
+                    . '<rect x="2" y="5" width="20" height="13" rx="2"/>'
+                    . '<circle cx="11" cy="11.5" r="3.5"/>'
+                    . '<path d="M18 9h2.5"/><path d="M18 14h2.5"/>'
+                    . '</svg>';
+            case 'ram':
+                // Планка памяти: общая рамка и три чипа на ней.
+                return $open
+                    . '<rect x="2" y="8" width="20" height="8" rx="1"/>'
+                    . '<rect x="5.5" y="10.5" width="3" height="3" rx="0.4"/>'
+                    . '<rect x="10.5" y="10.5" width="3" height="3" rx="0.4"/>'
+                    . '<rect x="15.5" y="10.5" width="3" height="3" rx="0.4"/>'
+                    . '</svg>';
+            case 'cpu':
+            default:
+                // Процессор: корпус, ядро и ножки с четырёх сторон.
+                return $open
+                    . '<rect x="5" y="5" width="14" height="14" rx="2"/>'
+                    . '<rect x="9" y="9" width="6" height="6" rx="0.6"/>'
+                    . '<path d="M9 5V2"/><path d="M15 5V2"/>'
+                    . '<path d="M9 22v-3"/><path d="M15 22v-3"/>'
+                    . '<path d="M5 9H2"/><path d="M5 15H2"/>'
+                    . '<path d="M22 9h-3"/><path d="M22 15h-3"/>'
+                    . '</svg>';
+        }
+    }
+}
 ?>
             <div id="main__container">
                 <div class="slider">
@@ -104,25 +152,25 @@ $homeSubtitles = [
                                 $homeRamLine = $homeBuild['ram_name'];
                             }
 
-                            // Строки выводятся только для реально установленных
-                            // комплектующих: у сборки 1 дискретной видеокарты нет,
-                            // и пустую строку выводить незачем.
+                            // Строки комплектующих с типом, по типу подбирается
+                            // иконка. Строка выводится только если комплектующее
+                            // действительно стоит в сборке: у сборки 1 дискретной
+                            // видеокарты нет.
                             $homeSpecLines = [];
                             if (!empty($homeBuild['cpu_name'])) {
-                                $homeSpecLines[] = $homeBuild['cpu_name'];
+                                $homeSpecLines[] = ['cpu', $homeBuild['cpu_name']];
                             }
                             if (!empty($homeBuild['gpu_name'])) {
-                                $homeSpecLines[] = $homeBuild['gpu_name'];
+                                $homeSpecLines[] = ['gpu', $homeBuild['gpu_name']];
                             }
                             if ($homeRamLine !== '') {
-                                $homeSpecLines[] = $homeRamLine;
+                                $homeSpecLines[] = ['ram', $homeRamLine];
                             }
 
                             $homeId = (int) $homeBuild['assembly_id'];
                             ?>
                             <div class="element_select">
                                 <a class="build-card" href="/assembly.php?init=<?= $homeId ?>">
-                                    <span class="build-card__badge">Готовая сборка</span>
                                     <span class="build-card__image">
                                         <?php if (!empty($homeBuild['case_image'])): ?>
                                             <img src="<?= escape($homeBuild['case_image']) ?>"
@@ -132,11 +180,14 @@ $homeSubtitles = [
                                     <span class="build-card__body">
                                         <h3 class="build-card__title"><?= escape($homeBuild['assembly_name']) ?></h3>
                                         <?php if (!empty($homeSubtitles[$homeId])): ?>
-                                            <span class="build-card__subtitle"><?= escape($homeSubtitles[$homeId]) ?></span>
+                                            <span class="build-card__tag"><?= escape($homeSubtitles[$homeId]) ?></span>
                                         <?php endif; ?>
                                         <span class="build-card__specs">
-                                            <?php foreach ($homeSpecLines as $homeSpecLine): ?>
-                                                <span class="build-card__spec"><?= escape($homeSpecLine) ?></span>
+                                            <?php foreach ($homeSpecLines as [$homeSpecKind, $homeSpecText]): ?>
+                                                <span class="build-card__spec">
+                                                    <?= build_card_icon($homeSpecKind) ?>
+                                                    <span class="build-card__spec-text"><?= escape($homeSpecText) ?></span>
+                                                </span>
                                             <?php endforeach; ?>
                                         </span>
                                         <span class="build-card__price"><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</span>

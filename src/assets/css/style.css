@@ -301,11 +301,17 @@ body::-webkit-scrollbar-thumb {
    задаётся flex-basis, поэтому карточки делят строку поровну и сжимаются
    вместе с ней.
 
-   3.6.3-b-2: оформление переписано под класс .build-card. Старые
-   .select_image, .cont_img, .figure_par и .cont_text вычищены вместе с
-   разметкой в index.php. Карточка стала содержательной: фотография
-   корпуса, название, подпись, три строки комплектующих и цена, которая
-   видна всегда, а не по наведению.
+   3.6.3-b-2: карточки наполнили содержанием, данными из таблицы assembly.
+
+   3.6.3-b-3: оформление переделано в духе Apple и DJI. Что убрано и почему:
+   синяя полоса 3px сверху и badge «Готовая сборка» - кричали и превращали
+   карточку в шаблон; название синим - читалось как ссылка, а не как
+   название продукта; маркированный список с синими точками - на 13px это
+   выглядит как учебный список; линия над ценой - превращала цену в строку
+   сметы; фото в белом квадрате с полями - терялся эффект товара.
+   Осталось: фото во всю ширину карточки на спокойном градиенте, чёрное
+   название, короткий тег, строки комплектующих с иконками и цена синим
+   без всякой линии сверху.
 
    Секция .container_pc остаётся во всю ширину: рядом с ней два
    полноэкранных блока .container_conf и .container_about с фоновыми
@@ -350,105 +356,105 @@ body::-webkit-scrollbar-thumb {
     flex-direction: column;
     width: 100%;
     height: 100%;
-    padding: 24px;
-    position: relative;
     overflow: hidden;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-top: 3px solid var(--accent);
-    border-radius: 12px;
+    border-radius: 16px;
     box-shadow: var(--shadow-sm);
     color: var(--text);
     text-decoration: none;
-    transition: box-shadow .2s ease, transform .2s ease;
+    transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow .3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .build-card:hover {
-    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
     transform: translateY(-4px);
     text-decoration: none;
 }
-.build-card__badge {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    padding: 4px 10px;
-    background: var(--accent-light);
-    color: var(--accent);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    border-radius: 999px;
-}
+/* Фото во всю ширину карточки. Раньше оно стояло внутри общей отбивки со
+   всеми блоками и не выглядело как снимок товара. */
 .build-card__image {
-    height: 200px;
-    /* отступ сверху: иначе абсолютный badge в углу наезжает на фотографию
-       корпуса, измеренное перекрытие - 14px */
-    margin: 24px 0 16px;
+    height: 220px;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(180deg, #F8FAFC 0%, #EEF2F7 100%);
 }
 .build-card__image img {
-    max-width: 100%;
-    max-height: 100%;
+    max-width: 85%;
+    max-height: 85%;
     object-fit: contain;
+    transition: transform .4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.build-card:hover .build-card__image img {
+    transform: scale(1.05);
 }
 .build-card__body {
     display: flex;
     flex-direction: column;
     flex: 1;
+    padding: 20px;
 }
 .build-card__title {
-    margin: 0 0 4px;
+    margin: 0 0 10px;
     font-size: 22px;
     font-weight: 700;
-    color: var(--accent);
-    text-align: center;
-    transition: color .2s ease;
+    letter-spacing: -0.01em;
+    color: var(--text);
 }
-.build-card:hover .build-card__title {
-    color: var(--accent-hover);
-}
-.build-card__subtitle {
-    display: block;
+/* Короткая метка одним словом: подробности всё равно раскрывает список
+   комплектующих ниже, длинный текст под заголовком карточку перегружал. */
+.build-card__tag {
+    align-self: flex-start;
     margin-bottom: 16px;
-    font-size: 13px;
+    padding: 3px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
     color: var(--text-secondary);
-    text-align: center;
 }
 .build-card__specs {
-    display: block;
-    margin: 0 0 16px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
 }
 .build-card__spec {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 4px 0;
-    font-size: 13px;
-    color: var(--text);
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--text-secondary);
 }
-.build-card__spec::before {
-    content: '';
-    width: 4px;
-    height: 4px;
-    margin-top: 7px;
-    background: var(--accent);
-    border-radius: 50%;
+.build-card__spec svg {
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
+    color: var(--text-secondary);
+    opacity: .5;
 }
+/* Длинное название видеокарты переносится по словам, иначе строка
+   растягивает карточку и ломает высоты трёх карточек в ряд. */
+.build-card__spec-text {
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+/* Цена без разделительной линии: линия превращала её в строку сметы.
+   margin-top: auto прижимает цену к низу, когда комплектующих больше или
+   меньше, чем у соседних карточек. */
 .build-card__price {
-    display: block;
     margin-top: auto;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-    font-size: 20px;
+    padding-top: 16px;
+    font-size: 22px;
     font-weight: 700;
-    color: var(--text);
-    text-align: center;
+    letter-spacing: -0.01em;
+    color: var(--accent);
 }
 /*КОНФИГУРАТОР*/
 #cfg{
