@@ -56,21 +56,6 @@ function cfg_cheapest($mysql, $where, $types = '', $params = [])
 }
 
 /**
- * Имя сокета по его номеру.
- *
- * Карта продублирована из scripts/enrich_components.php (socketName),
- * где она и заполняется в описаниях. Подключать скрипт из модуля нельзя:
- * он рассчитан на запуск из командной строки.
- *
- * Номера 5 и 6 (LGA1851 и AM5) в карте enrich пока нет, для них возвращается
- * пустая строка - тогда фильтр по сокету просто не применяется.
- */
-function cfg_socket_name($socketId)
-{
-    return [1 => 'LGA1200', 2 => 'LGA1700', 3 => 'AM4'][(int)$socketId] ?? '';
-}
-
-/**
  * Самый дорогой компонент, но не дороже лимита.
  *
  * Если таких нет - берётся самый дешёвый из доступных: отказ от категории
@@ -109,6 +94,7 @@ function cfg_pick($mysql, $limit, $where, $types = '', $params = [])
 function configure($budget, $preference = 'universal', $osChoice = 'none')
 {
     require_once 'modules/connect.php';
+    require_once 'modules/components.php';
     $mysql = connect();
     mysqli_set_charset($mysql, 'utf8');
 
@@ -193,7 +179,11 @@ function configure($budget, $preference = 'universal', $osChoice = 'none')
             }
         }
 
-        $socketName = cfg_socket_name($cpu['socket_id']);
+        // 5-c: имена сокетов берутся из таблицы sockets, а не из карты в коде.
+// Карта покрывала три сокета из семи, и для LGA1851 с AM5 фильтр по
+// сокету просто не применялся.
+$socketMap = socket_types($mysql);
+$socketName = $socketMap[(int)$cpu['socket_id']] ?? '';
         $cooler = null;
         if ($socketName !== '') {
             $socketWhere = $tdpWhere

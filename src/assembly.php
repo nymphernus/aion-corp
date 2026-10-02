@@ -37,6 +37,7 @@ if (isset($_POST['price'])) {
 }
 
 require_once 'modules/connect.php';
+require_once 'modules/components.php';
 $mysql = connect();
 mysqli_set_charset($mysql, 'utf8');
 
@@ -55,48 +56,24 @@ $stmt = db_prepare($mysql, "SELECT * FROM assembly WHERE assembly_id = ?", "i", 
 $stmt->execute();
 $assemb = $stmt->get_result()->fetch_assoc();
 
-$stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['cpu_id']);
-$stmt->execute();
-$cpu = $stmt->get_result()->fetch_assoc();
+// 5-c: справочник сокетов из таблицы sockets, один раз на страницу. Раньше
+// имена сокетов были захардкожены в конфигураторе тремя значениями, а в
+// базе их семь, включая LGA1851 и AM5.
+$socketTypes = socket_types($mysql);
 
-$stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['motherboard_id']);
-$stmt->execute();
-$motherboard = $stmt->get_result()->fetch_assoc();
-
-// Инициализация переменных
-$gpu = null;
-$ssd2 = null;
-$hdd = null;
-$dvd = null;
-
-if (!empty($assemb['gpu_id'])) {
-    $stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['gpu_id']);
-    $stmt->execute();
-    $gpu = $stmt->get_result()->fetch_assoc();
-    $compId[2] = $gpu['component_id'];
-} else {
-    $gpu = null;
-}
-
-$stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['ram_id']);
-$stmt->execute();
-$ram = $stmt->get_result()->fetch_assoc();
-
-$stmt = db_prepare($mysql, "SELECT image, component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['case_id']);
-$stmt->execute();
-$case = $stmt->get_result()->fetch_assoc();
-
-$stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['cooler_id']);
-$stmt->execute();
-$cooler = $stmt->get_result()->fetch_assoc();
-
-$stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['power_supply_id']);
-$stmt->execute();
-$power_supply = $stmt->get_result()->fetch_assoc();
-
-$stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['ssd_id']);
-$stmt->execute();
-$ssd = $stmt->get_result()->fetch_assoc();
+// Компоненты тянутся целиком, а не по два поля: витрине нужны specs,
+// description и manufacturer, и любая новая колонка после этого доступна без
+// правки запроса. Выборка по первичному ключу, так что SELECT * здесь дёшев.
+// component_by_id() сама вернёт null на пустой или нулевой id, поэтому
+// проверки на непустоту не нужны.
+$cpu          = component_by_id($mysql, $assemb['cpu_id']);
+$motherboard  = component_by_id($mysql, $assemb['motherboard_id']);
+$ram          = component_by_id($mysql, $assemb['ram_id']);
+$case         = component_by_id($mysql, $assemb['case_id']);
+$cooler       = component_by_id($mysql, $assemb['cooler_id']);
+$power_supply = component_by_id($mysql, $assemb['power_supply_id']);
+$ssd          = component_by_id($mysql, $assemb['ssd_id']);
+$gpu          = component_by_id($mysql, $assemb['gpu_id']);
 
 $compId[0] = $cpu['component_id'];
 $compId[1] = $motherboard['component_id'];
@@ -111,29 +88,73 @@ if ($assemb['os']) {
     $compId[12] = $assemb['os'];
 }
 
-if ($assemb['ssd_2_id']) {
-    $stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['ssd_2_id']);
-    $stmt->execute();
-    $ssd2 = $stmt->get_result()->fetch_assoc();
+if ($gpu) {
+    $compId[2] = $gpu['component_id'];
+}
+
+// второй накопитель, жёсткий диск и привод есть не в каждой сборке
+$ssd2 = component_by_id($mysql, $assemb['ssd_2_id']);
+$hdd  = component_by_id($mysql, $assemb['hdd_id']);
+$dvd  = component_by_id($mysql, $assemb['dvd_id']);
+
+if ($ssd2) {
     $compId[9] = $ssd2['component_id'];
 }
 
-if ($assemb['hdd_id']) {
-    $stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['hdd_id']);
-    $stmt->execute();
-    $hdd = $stmt->get_result()->fetch_assoc();
+if ($hdd) {
     $compId[10] = $hdd['component_id'];
 }
 
-if ($assemb['dvd_id']) {
-    $stmt = db_prepare($mysql, "SELECT component_name, component_id FROM components WHERE component_id = ?", "i", $assemb['dvd_id']);
-    $stmt->execute();
-    $dvd = $stmt->get_result()->fetch_assoc();
+if ($dvd) {
     $compId[11] = $dvd['component_id'];
 }
 
 setcookie('arrId', serialize($compId), time() + 3600);
 // TODO: убрать после Stage 3.5, если не понадобится (save/buy больше не читают arrId).
+
+// 5-c: блок компонента одинаков для всех карточек - название, короткая
+// строка и раскрывающиеся подробности. Двенадцать копий разметки
+// разъехались бы при первой же правке, поэтому рисуется один раз здесь.
+$renderComponent = static function (?array $component, array $socketTypes): void {
+    if (!$component) {
+        return;
+    }
+
+    $pairs = component_specs($component, $socketTypes);
+    $brief = component_brief($component, $pairs);
+    $description = trim((string) ($component['description'] ?? ''));
+
+    if ($brief === '' && $description === '' && !$pairs) {
+        // показывать нечего: ни описания, ни характеристик
+        return;
+    }
+    ?>
+    <div class="kp-component">
+        <span class="kp-component__name"><?= escape($component['component_name'] ?? '') ?></span>
+        <?php if ($brief !== ''): ?>
+            <div class="kp-component__brief"><?= escape($brief) ?></div>
+        <?php endif; ?>
+        <?php if ($description !== '' || $pairs): ?>
+            <details class="kp-component__details">
+                <summary>Подробнее</summary>
+                <div class="kp-component__full">
+                    <?php if ($description !== ''): ?>
+                        <p><?= escape($description) ?></p>
+                    <?php endif; ?>
+                    <?php if ($pairs): ?>
+                        <dl class="kp-specs">
+                            <?php foreach ($pairs as $pair): ?>
+                                <dt><?= escape($pair[0]) ?></dt>
+                                <dd><?= escape($pair[1]) ?></dd>
+                            <?php endforeach; ?>
+                        </dl>
+                    <?php endif; ?>
+                </div>
+            </details>
+        <?php endif; ?>
+    </div>
+    <?php
+};
 
 // Используем $_SESSION вместо $_COOKIE
 $userId = $_SESSION['user_id'] ?? null;
@@ -186,6 +207,7 @@ require __DIR__ . '/partials/header.php';
                             <p>Процессор – сердце компьютера. Чем выше частота тем быстрее обрабатываются данные,
                                 а количество ядер позволяет распределить нагрузку и повысить быстродействие всей
                                 системы.</p>
+                        <?php $renderComponent($cpu, $socketTypes); ?>
                         </div>
                         <div class="arr_kp">
                             <p><?= escape($cpu['component_name'] ?? '') ?></p>
@@ -200,6 +222,7 @@ require __DIR__ . '/partials/header.php';
                                 комплектующие.
                                 Материнская плата не отвечает за быстродействие компьютера, но отвечает за функционал.
                             </p>
+                        <?php $renderComponent($motherboard, $socketTypes); ?>
                         </div>
                         <div class="arr_kp">
                             <p><?= escape($motherboard['component_name'] ?? '') ?></p>
@@ -213,6 +236,7 @@ require __DIR__ . '/partials/header.php';
                                 <h3>Видеокарта</h3>
                                 <p>Видеокарта – это устройство отвечающее за поддержку и быстродействие игрового процесса.
                                     Основой видеокарты есть графический чип, чем выше мощность тем лучше.</p>
+                            <?php $renderComponent($gpu, $socketTypes); ?>
                             </div>
                             <div class="arr_kp">
                                 <p><?= escape($gpu['component_name'] ?? '') ?></p>
@@ -226,6 +250,7 @@ require __DIR__ . '/partials/header.php';
                             <h3>Оперативная память</h3>
                             <p>Оперативная память – отвечает за то, с каким объемом данных в данный момент времени может
                                 работать процессор. Чем ее больше, тем быстрее работает компьютер.</p>
+                        <?php $renderComponent($ram, $socketTypes); ?>
                         </div>
                         <div class="arr_kp">
                             <p><?= escape($ram['component_name'] ?? '') ?></p>
@@ -240,6 +265,7 @@ require __DIR__ . '/partials/header.php';
                                 сети.
                                 Мощность блока питания выбирается всегда с запасом, так он дольше прослужит без пиковых
                                 нагрузок.</p>
+                        <?php $renderComponent($power_supply, $socketTypes); ?>
                         </div>
                         <div class="arr_kp">
                             <p><?= escape($power_supply['component_name'] ?? '') ?></p>
@@ -252,6 +278,7 @@ require __DIR__ . '/partials/header.php';
                             <h3>Корпус</h3>
                             <p>Корпус – не маловажная составляющая системного блока. Толщина стенок определяют прочность
                                 и шума-изоляцию. Размер влияет на охлаждение внутренних компонентов.</p>
+                        <?php $renderComponent($case, $socketTypes); ?>
                         </div>
                         <div class="arr_kp">
                             <p><?= escape($case['component_name'] ?? '') ?></p>
@@ -265,6 +292,7 @@ require __DIR__ . '/partials/header.php';
                             <p>Кулер – радиатор с прикреплёном вентилятором предназначенный для охлаждения процессора.
                                 Показатель теплоотвода (TDP) кулера не должен быть меньше показателя тепловыделения
                                 (TDP) процессора.</p>
+                        <?php $renderComponent($cooler, $socketTypes); ?>
                         </div>
                         <div class="arr_kp">
                             <p><?= escape($cooler['component_name'] ?? '') ?></p>
@@ -277,6 +305,7 @@ require __DIR__ . '/partials/header.php';
                             <h3>Накопитель SSD</h3>
                             <p>Твердотельный накопитель – это скоростное устройство для хранения данных. Его скорость
                                 работы в несколько раз быстрее обычного жесткого диска.</p>
+                        <?php $renderComponent($ssd, $socketTypes); ?>
                         </div>
                         <div class="arr_kp">
                             <p><?= escape($ssd['component_name'] ?? '') ?></p>
@@ -290,6 +319,7 @@ require __DIR__ . '/partials/header.php';
                                 <h3>Накопитель SSD 2</h3>
                                 <p>Твердотельный накопитель – это скоростное устройство для хранения данных. Его скорость
                                     работы в несколько раз быстрее обычного жесткого диска.</p>
+                            <?php $renderComponent($ssd2, $socketTypes); ?>
                             </div>
                             <div class="arr_kp">
                                 <p><?= escape($ssd2['component_name'] ?? '') ?></p>
@@ -304,6 +334,7 @@ require __DIR__ . '/partials/header.php';
                                 <h3>Накопитель HDD</h3>
                                 <p>Жесткий диск – устройство для хранения данных, характеризуется объемом и скоростью
                                     (чтение/запись) чем больше номинальный объем тем больше данных поместится.</p>
+                            <?php $renderComponent($hdd, $socketTypes); ?>
                             </div>
                             <div class="arr_kp">
                                 <p><?= escape($hdd['component_name'] ?? '') ?></p>
@@ -317,6 +348,7 @@ require __DIR__ . '/partials/header.php';
                             <div class="text_kp">
                                 <h3>Оптический привод</h3>
                                 <p>Оптический привод – устройство чтения и записи CD/DVD дисков.</p>
+                            <?php $renderComponent($dvd, $socketTypes); ?>
                             </div>
                             <div class="arr_kp">
                                 <p><?= escape($dvd['component_name'] ?? '') ?></p>

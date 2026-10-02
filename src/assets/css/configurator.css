@@ -172,3 +172,82 @@
         line-height: 32px;
     }
 }
+
+/* === Характеристики компонентов на витрине сборки === 5-c
+
+   Блок под описанием категории: название компонента, короткая строка
+   и раскрывающиеся подробности. Название — span, а не ссылка: страницы
+   компонента в проекте нет, а ?id= у assembly.php означает id сборки,
+   так что ссылка с component_id увела бы на случайную другую сборку.
+
+   Сам блок рисуется один раз замыканием $renderComponent в assembly.php:
+   двенадцать копий разметки разъехались бы при первой же правке. */
+
+.kp-component {
+    margin-top: 14px;
+}
+.kp-component__name {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+.kp-component__brief {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.kp-component__details {
+    margin-top: 8px;
+}
+.kp-component__details summary {
+    font-size: 13px;
+    color: var(--accent);
+    cursor: pointer;
+    user-select: none;
+}
+.kp-component__details summary::-webkit-details-marker {
+    display: none;
+}
+.kp-component__details summary::before {
+    content: '\25B8\00a0';
+    display: inline-block;
+}
+/* Поворот треугольника без transition. С анимацией Chrome держит
+   transform на summary::before залипшим на нуле: не поворачивается ни на
+   градус и не анимируется, проверено замерами transform через 30, 100,
+   200, 400 и 800 мс после раскрытия - всегда matrix(1, 0, 0, 1, 0, 0).
+   Без transition поворот отрабатывает сразу: анимации здесь нет, но
+   раскрытие работает как задумано. */
+.kp-component__details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.kp-component__full {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 13px;
+}
+.kp-component__full p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.kp-specs {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    margin: 12px 0 0;
+}
+.kp-specs dt {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.kp-specs dd {
+    margin: 0;
+    color: var(--text);
+}
