@@ -384,12 +384,14 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     -webkit-appearance: none;
 }
 
-/* ВРЕМЕННО: иконка возвращена для раздельного коммита */
+/* 3.6.3-a-4: иконка-стрелка из плейсхолдера убрана. Правило с
+   background: url(../images/arrow-forward-outline.svg) висело здесь
+   с 2022 года и на главной читалось как стрелка на кнопке рядом -
+   поле бюджета стоит сразу под героем. Полное переоформление поля
+   будет в 3.6.3-c */
 .price_input::placeholder{
 	color: #161616;
     opacity: 0.6;
-	background: url(../images/arrow-forward-outline.svg) no-repeat;
-	background-position: 80% 50%;
 }
 .price_input:hover{
 	transform: scale(1.1);
