@@ -105,6 +105,21 @@ if (!function_exists('build_card_icon')) {
         }
     }
 }
+
+// 5-f-2: контакты и снимок карты для секции внизу страницы. Читаются
+// одним запросом вместе с остальными настройками и кэшируются в static.
+$homeSettings = site_settings($mysqlHome);
+
+$contactPhone     = site_setting($homeSettings, 'contact_phone');
+$contactEmail     = site_setting($homeSettings, 'contact_email');
+$contactVk        = site_setting($homeSettings, 'contact_vk');
+$contactTelegram  = site_setting($homeSettings, 'contact_telegram');
+$contactWhatsapp  = site_setting($homeSettings, 'contact_whatsapp');
+$mapSnapshot      = site_setting($homeSettings, 'map_snapshot_url');
+$mapAddress       = site_setting($homeSettings, 'map_address_text');
+$mapLat           = site_setting($homeSettings, 'map_lat', '55.7558');
+$mapLng           = site_setting($homeSettings, 'map_lng', '37.6173');
+$mapZoom          = site_setting($homeSettings, 'map_zoom', '15');
 ?>
             <div id="main__container">
                 <div class="slider">
@@ -334,26 +349,82 @@ if (!function_exists('build_card_icon')) {
             </section>
 
 
-            <div class="container_about" style="background: url(assets/images/background_2.webp) no-repeat; background-size: cover;">
+<!--
+                5-f-2: контакты и карта берутся из site_settings, который
+                правит админ на вкладке «Настройки сайта».
+
+                Карта - это снимок, сделанный один раз в админке, а не живой
+                iframe: посетитель не грузит ни тайлы, ни Leaflet, внешних
+                запросов к OpenStreetMap при открытии главной нет вообще.
+                Если снимка ещё нет, показывается заглушка: так честнее,
+                чем пустой серый прямоугольник.
+
+                Клик по снимку открывает ту же точку в OpenStreetMap.
+            -->
+            <div class="container_about">
                 <a class="anch" name="information"></a>
                 <div class="cont_shell_about">
                     <div class="about_content">
-                        <div class="headline"><p>AION CORPORATION</p></div>
-                        <div class="lead">
-                            <p>Связь с нами</p>
-                            <a href="https://github.com/nymphernus"><img src="assets/images/logo-vk.svg"></a>
-                            <a href="https://github.com/nymphernus"><img src="assets/images/logo-whatsapp.svg"></a>
-                            <a href="https://github.com/nymphernus"><img src="assets/images/logo-telegram.svg"></a>
-                            <p>Горячая линия</p>
-                            <a href="tel:+79999999999">+7 (999) 999-99-99</a>
-                            <p>Почта</p>
-                            <a href="mailto:mail@mail.ru">mail@mail.ru</a>
+                        <h2 class="contacts__title">Свяжитесь с нами</h2>
+
+                        <div class="contacts__list">
+                            <div class="contact-item">
+                                <span class="contact-item__label">Телефон</span>
+<?php if ($contactPhone !== ''): ?>
+                                <a class="contact-item__value" href="tel:<?= escape(preg_replace('/[^\d+]/', '', $contactPhone)) ?>"><?= escape($contactPhone) ?></a>
+<?php endif; ?>
+                            </div>
+                            <div class="contact-item">
+                                <span class="contact-item__label">Email</span>
+<?php if ($contactEmail !== ''): ?>
+                                <a class="contact-item__value" href="mailto:<?= escape($contactEmail) ?>"><?= escape($contactEmail) ?></a>
+<?php endif; ?>
+                            </div>
+<?php if ($mapAddress !== ''): ?>
+                            <div class="contact-item">
+                                <span class="contact-item__label">Мы на карте</span>
+                                <span class="contact-item__value"><?= escape($mapAddress) ?></span>
+                            </div>
+<?php endif; ?>
                         </div>
 
-                    
+<?php
+// Иконку соцсети рисуем, только если адрес непустой. Пустая ссылка это
+// отсутствие иконки, а не иконка, ведущая в никуда.
+$socials = array_filter([
+    ['label' => 'VK',       'url' => $contactVk,       'icon' => '/assets/images/logo-vk.svg'],
+    ['label' => 'Telegram', 'url' => $contactTelegram, 'icon' => '/assets/images/logo-telegram.svg'],
+    ['label' => 'WhatsApp', 'url' => $contactWhatsapp, 'icon' => '/assets/images/logo-whatsapp.svg'],
+], static function ($item) {
+    return $item['url'] !== '';
+});
+?>
+<?php if ($socials): ?>
+                        <div class="contacts__socials">
+<?php foreach ($socials as $social): ?>
+                            <a class="social-icon" href="<?= escape($social['url']) ?>"
+                               target="_blank" rel="noopener noreferrer"
+                               title="<?= escape($social['label']) ?>">
+                                <img src="<?= escape(asset_url($social['icon'])) ?>" alt="<?= escape($social['label']) ?>">
+                            </a>
+<?php endforeach; ?>
+                        </div>
+<?php endif; ?>
                     </div>
-                    <div class="about_map"><iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d577348.4519017431!2d36.725910778778385!3d55.57995328139987!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x46b54afc73d4b0c9%3A0x3d44d6cc5757cf4c!2z0JzQvtGB0LrQstCw!5e0!3m2!1sru!2sru!4v1749035032575!5m2!1sru!2sru" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
-                
+
+                    <div class="about_map">
+<?php if ($mapSnapshot !== ''): ?>
+                        <a class="site-map-link"
+                           href="https://www.openstreetmap.org/?mlat=<?= escape(urlencode($mapLat)) ?>&amp;mlon=<?= escape(urlencode($mapLng)) ?>#map=<?= escape(urlencode($mapZoom)) ?>/<?= escape(urlencode($mapLat)) ?>/<?= escape(urlencode($mapLng)) ?>"
+                           target="_blank" rel="noopener noreferrer"
+                           title="Открыть карту в OpenStreetMap">
+                            <img class="site-map-img" src="<?= escape($mapSnapshot) ?>"
+                                 alt="Мы на карте - <?= escape($mapAddress) ?>" loading="lazy">
+                        </a>
+<?php else: ?>
+                        <div class="site-map-placeholder">Карта пока не настроена</div>
+<?php endif; ?>
+                    </div>
                 </div>
             </div>
 

@@ -711,6 +711,95 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 	height: 100%;
 	border-radius: 40px;
 }
+
+/* 5-f-2: карта на главной стала снимком, а не iframe. Размер задаёт
+   .site-map-img: без него картинка лежала бы в контейнере своей
+   высотой, а не растягивалась на всю площадь блока. */
+.site-map-link {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border-radius: 40px;
+	overflow: hidden;
+	transition: 200ms;
+}
+.site-map-link:hover {
+	box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+.site-map-img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+/* Снимка ещё нет: говорим об этом прямо, а не оставляем пустой блок */
+.site-map-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	border-radius: 40px;
+	background: var(--bg);
+	color: var(--text-secondary);
+	font-size: 16px;
+}
+
+/* Контакты. Полный редизайн раздела - 5-f-3, здесь только размеры:
+   без них новые блоки выводились бы размером с обычный текст. */
+.contacts__title {
+	margin: 0 0 24px;
+	font-size: 40px;
+	font-weight: bold;
+	text-align: center;
+}
+.contact-item {
+	margin-bottom: 20px;
+}
+.contact-item__label {
+	display: block;
+	font-size: 15px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	opacity: 0.7;
+	margin-bottom: 4px;
+}
+.contact-item__value {
+	font-size: 30px;
+	font-weight: 500;
+	color: inherit;
+	text-decoration: none;
+}
+.contact-item__value:hover {
+	opacity: 0.8;
+}
+.contacts__socials {
+	display: flex;
+	gap: 14px;
+	margin-top: 28px;
+}
+.social-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 56px;
+	background: white;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	transition: 200ms;
+}
+.social-icon img {
+	width: 28px;
+	height: 28px;
+	display: block;
+}
+.social-icon:hover {
+	border-color: var(--accent);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
 .cont_shell_about{
 	backdrop-filter: blur(10px);
 	height:100%;
