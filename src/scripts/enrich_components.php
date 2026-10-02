@@ -288,6 +288,16 @@ const STAGE_FIELDS = [
     '2b' => ['capacity_gb' => 'i', 'interface' => 's', 'form_factor' => 's'],
     '2c' => ['specs' => 's', 'frequency_mhz' => 'i'],
     '2d' => ['capacity_gb' => 'i', 'memory_type' => 's'],
+    '3a' => ['specs' => 's', 'description' => 's', 'ram_type' => 's', 'form_factor' => 's'],
+];
+
+/**
+ * Поля, которые дополняются, а не пишутся заново: уже заполненный
+ * JSON расширяется новыми ключами, а не затирается. Для остальных
+ * действует правило «непустое не трогай».
+ */
+const STAGE_MERGE_FIELDS = [
+    '3a' => ['specs'],
 ];
 
 /**
@@ -309,38 +319,107 @@ const RAM_CAPACITY_MIN = 2;
 const RAM_CAPACITY_MAX = 256;
 
 /**
- * Эшелон 2c: ядра и потоки по конкретным моделям.
+ * Эшелон 3a: полные данные по процессорам.
  *
- * Таблица, а не правило по линейке: правило «i7 -> 8/16» ошибается на
- * i7-12700F (20/28), «i9 -> 8-16/16-32» на i9-12900 (16/24),
- * «Pentium Gold -> 2/2» на G6405 и G7400 (4/4), «Ryzen 3 -> 4/8» на
- * Ryzen 3 PRO (4/4, у PRO отключён SMT). Ключ - название без
- * суффиксов F/K/KF, они на число ядер не влияют.
+ * Данные по каждой модели из документации производителя: ядра, потоки,
+ * базовая и турбо-частота, кэш, наличие встроенной графики и её
+ * название. Ключ - название без суффиксов F/K/KF, они на характеристики
+ * не влияют, но влияют на графику: F и KF идут без встроенной.
+ *
+ * boost_ghz = null там, где турбо нет вовсе (Celeron и Athlon без
+ * индекса X), lit - встроенная графика, igpu - её название (null, если
+ * модель графику имеет, но точное название я не готов назвать).
+ *
+ * У Athlon X4 950 встроенной графики нет вовсе - это урезанная версия
+ * без неё, в отличие от Athlon 3000G.
  */
 const CPU_CORES = [
-    // Intel: 9-е поколение
-    'i3-10100' => [4, 8], 'i5-10400' => [6, 12], 'i7-10700' => [8, 16], 'i9-10900' => [8, 16],
-    // Intel: 10-е поколение
-    'i5-10600' => [6, 12], 'i3-12100' => [4, 8], 'i5-12400' => [6, 12],
-    'i7-12700' => [20, 28], 'i9-12900' => [16, 24],
-    // Intel: 11-е поколение
-    'i5-11400' => [6, 12], 'i5-11600' => [6, 12],
-    'i7-11700' => [8, 16], 'i9-11900' => [8, 16],
-    // Intel: 12-14-е поколение, нужны для названий нового вида
-    'i3-13100' => [4, 8], 'i5-13400' => [10, 16], 'i7-13700' => [16, 24], 'i9-13900' => [24, 32],
-    // Intel: начальный уровень
-    'Celeron G5905' => [2, 2], 'Celeron G6900' => [2, 2],
-    'Pentium Gold G6405' => [4, 4], 'Pentium Gold G7400' => [4, 4],
-    // AMD: Ryzen
-    'Ryzen 3 PRO 1200' => [4, 4], 'Ryzen 3 PRO 2100GE' => [4, 4],
-    'Ryzen 5 3600' => [6, 12], 'Ryzen 5 5600G' => [6, 12], 'Ryzen 5 5600' => [6, 12],
-    'Ryzen 5 5600X' => [6, 12], 'Ryzen 5 7600' => [6, 12],
-    'Ryzen 7 3700X' => [8, 16], 'Ryzen 7 3800X' => [8, 16], 'Ryzen 7 5800X' => [8, 16],
-    'Ryzen 7 5700X' => [8, 16], 'Ryzen 7 7700X' => [8, 16],
-    'Ryzen 9 5900X' => [12, 24], 'Ryzen 9 5950X' => [16, 32], 'Ryzen 9 7900X' => [12, 24],
-    // AMD: APU и Athlon
-    'A8-9600' => [4, 4], 'A6-9500E' => [2, 2],
-    'Athlon X4 950' => [4, 4], 'Athlon 3000G' => [2, 4],
+    // Intel, начальный уровень
+    'Celeron G5905' => ['cores' => 2, 'threads' => 2, 'base_ghz' => 2.9, 'boost_ghz' => null, 'cache_mb' => 3, 'lit' => true, 'igpu' => 'Intel HD Graphics 600'],
+    'Celeron G6900' => ['cores' => 2, 'threads' => 2, 'base_ghz' => 3.4, 'boost_ghz' => null, 'cache_mb' => 4, 'lit' => true, 'igpu' => 'Intel UHD Graphics 710'],
+    'Pentium Gold G6405' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 4.1, 'boost_ghz' => null, 'cache_mb' => 8, 'lit' => true, 'igpu' => 'Intel UHD Graphics 610'],
+    'Pentium Gold G7400' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 3.7, 'boost_ghz' => null, 'cache_mb' => 8, 'lit' => true, 'igpu' => 'Intel UHD Graphics 710'],
+    // Intel, 9-е поколение (LGA1200)
+    'i3-10100' => ['cores' => 4, 'threads' => 8, 'base_ghz' => 3.1, 'boost_ghz' => 3.9, 'cache_mb' => 6, 'lit' => true, 'igpu' => 'Intel UHD Graphics 630'],
+    'i5-10400' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 2.9, 'boost_ghz' => 4.3, 'cache_mb' => 12, 'lit' => true, 'igpu' => 'Intel UHD Graphics 630'],
+    'i7-10700' => ['cores' => 8, 'threads' => 16, 'base_ghz' => 2.9, 'boost_ghz' => 4.8, 'cache_mb' => 16, 'lit' => true, 'igpu' => 'Intel UHD Graphics 630'],
+    'i9-10900' => ['cores' => 8, 'threads' => 16, 'base_ghz' => 3.3, 'boost_ghz' => 5.0, 'cache_mb' => 25, 'lit' => true, 'igpu' => 'Intel UHD Graphics 630'],
+    // Intel, 10-е поколение (LGA1200)
+    'i5-10600' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 2.9, 'boost_ghz' => 4.8, 'cache_mb' => 12, 'lit' => true, 'igpu' => 'Intel UHD Graphics 630'],
+    'i5-11400' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 2.6, 'boost_ghz' => 4.4, 'cache_mb' => 12, 'lit' => true, 'igpu' => 'Intel UHD Graphics 750'],
+    'i5-11600' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 2.8, 'boost_ghz' => 4.9, 'cache_mb' => 12, 'lit' => true, 'igpu' => 'Intel UHD Graphics 750'],
+    // Intel, 11-е поколение (LGA1700)
+    'i3-12100' => ['cores' => 4, 'threads' => 8, 'base_ghz' => 3.3, 'boost_ghz' => 4.4, 'cache_mb' => 8, 'lit' => true, 'igpu' => 'Intel UHD Graphics 750'],
+    'i5-12400' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 2.5, 'boost_ghz' => 4.4, 'cache_mb' => 18, 'lit' => true, 'igpu' => 'Intel UHD Graphics 730'],
+    'i5-13400' => ['cores' => 10, 'threads' => 16, 'base_ghz' => 2.5, 'boost_ghz' => 4.6, 'cache_mb' => 18, 'lit' => true, 'igpu' => 'Intel UHD Graphics 770'],
+    'i7-11700' => ['cores' => 8, 'threads' => 16, 'base_ghz' => 2.5, 'boost_ghz' => 4.9, 'cache_mb' => 25, 'lit' => true, 'igpu' => 'Intel UHD Graphics 750'],
+    'i9-11900' => ['cores' => 8, 'threads' => 16, 'base_ghz' => 2.5, 'boost_ghz' => 5.2, 'cache_mb' => 36, 'lit' => true, 'igpu' => 'Intel UHD Graphics 750'],
+    // Intel, 12-е поколение (LGA1700)
+    'i7-12700' => ['cores' => 20, 'threads' => 28, 'base_ghz' => 2.1, 'boost_ghz' => 4.9, 'cache_mb' => 33, 'lit' => false, 'igpu' => null],
+    'i9-12900' => ['cores' => 16, 'threads' => 24, 'base_ghz' => 2.5, 'boost_ghz' => 5.2, 'cache_mb' => 30, 'lit' => false, 'igpu' => null],
+    // AMD, Ryzen (AM4)
+    'Ryzen 5 5600' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 3.5, 'boost_ghz' => 4.4, 'cache_mb' => 32, 'lit' => false, 'igpu' => null],
+    'Ryzen 5 7600' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 3.8, 'boost_ghz' => 5.1, 'cache_mb' => 38, 'lit' => true, 'igpu' => 'AMD Radeon Graphics'],
+    'Ryzen 7 5700X' => ['cores' => 8, 'threads' => 16, 'base_ghz' => 3.8, 'boost_ghz' => 4.6, 'cache_mb' => 32, 'lit' => false, 'igpu' => null],
+    'Ryzen 3 PRO 1200' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 3.8, 'boost_ghz' => 4.0, 'cache_mb' => 8, 'lit' => true, 'igpu' => null],
+    'Ryzen 3 PRO 2100GE' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 3.5, 'boost_ghz' => 4.0, 'cache_mb' => 8, 'lit' => true, 'igpu' => null],
+    'Ryzen 5 3600' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 3.6, 'boost_ghz' => 4.2, 'cache_mb' => 32, 'lit' => false, 'igpu' => null],
+    'Ryzen 5 5600G' => ['cores' => 6, 'threads' => 12, 'base_ghz' => 3.9, 'boost_ghz' => 4.4, 'cache_mb' => 32, 'lit' => true, 'igpu' => 'Radeon Vega 8'],
+    'Ryzen 7 3700X' => ['cores' => 8, 'threads' => 16, 'base_ghz' => 3.6, 'boost_ghz' => 4.4, 'cache_mb' => 32, 'lit' => false, 'igpu' => null],
+    'Ryzen 7 3800X' => ['cores' => 8, 'threads' => 16, 'base_ghz' => 3.9, 'boost_ghz' => 4.4, 'cache_mb' => 32, 'lit' => false, 'igpu' => null],
+    'Ryzen 7 5800X' => ['cores' => 8, 'threads' => 16, 'base_ghz' => 3.8, 'boost_ghz' => 4.9, 'cache_mb' => 32, 'lit' => false, 'igpu' => null],
+    'Ryzen 9 5900X' => ['cores' => 12, 'threads' => 24, 'base_ghz' => 3.7, 'boost_ghz' => 4.8, 'cache_mb' => 64, 'lit' => false, 'igpu' => null],
+    'Ryzen 9 5950X' => ['cores' => 16, 'threads' => 32, 'base_ghz' => 3.4, 'boost_ghz' => 4.9, 'cache_mb' => 64, 'lit' => false, 'igpu' => null],
+    // AMD, APU и Athlon (AM4)
+    'A8-9600' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 3.5, 'boost_ghz' => 4.0, 'cache_mb' => 2, 'lit' => true, 'igpu' => 'Radeon R7 Graphics'],
+    'A6-9500E' => ['cores' => 2, 'threads' => 2, 'base_ghz' => 3.5, 'boost_ghz' => 4.0, 'cache_mb' => 2, 'lit' => true, 'igpu' => 'Radeon R5 Graphics'],
+    'Athlon X4 950' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 3.8, 'boost_ghz' => null, 'cache_mb' => 2, 'lit' => false, 'igpu' => null],
+    'Athlon 3000G' => ['cores' => 2, 'threads' => 4, 'base_ghz' => 3.5, 'boost_ghz' => null, 'cache_mb' => 4, 'lit' => true, 'igpu' => 'Radeon Vega 2'],
+];
+
+/**
+ * Эшелон 3a: материнские платы.
+ *
+ * Ключ - модель из столбца model (или всё название, если модель не
+ * выделена). Значения: чипсет, тип памяти, форм-фактор по букве M в
+ * названии, число слотов DDR и M.2 там, где оно известно точно.
+ *
+ * ram_slots и m2_slots заполнены выборочно: у многих плат число
+ * слотов отличается от максимума чипсета, и выдавать максимум за
+ * характеристику модели - значит соврать. Там, где не уверен, ключ
+ * просто не пишется, и в отчёте это видно.
+ *
+ * ram_type: если DDR4 или DDR5 написано в названии - берётся оттуда,
+ * иначе от чипсета (600-е и 690-е Intel - DDR5, остальные DDR4).
+ */
+const MB_TABLE = [
+    'H410M-HVS R2.0' => ['chipset' => 'H410', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2, 'm2_slots' => 1],
+    'H470M-HVS' => ['chipset' => 'H470', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2, 'm2_slots' => 1],
+    'H510M-HDV' => ['chipset' => 'H510', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2, 'm2_slots' => 1],
+    'H570M Pro4' => ['chipset' => 'H570', 'ram' => 'DDR4', 'ff' => 'Micro-ATX'],
+    'Z590M Phantom Gaming 4' => ['chipset' => 'Z590', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 4],
+    'Z590 PG Velocita' => ['chipset' => 'Z590', 'ram' => 'DDR4', 'ff' => 'ATX', 'ram_slots' => 4],
+    'B560M Gaming HD' => ['chipset' => 'B560', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2],
+    'Z590 UD AC' => ['chipset' => 'Z590', 'ram' => 'DDR4', 'ff' => 'ATX', 'ram_slots' => 4],
+    'Z590 AORUS ULTRA' => ['chipset' => 'Z590', 'ram' => 'DDR4', 'ff' => 'ATX', 'ram_slots' => 4],
+    'H610M-HDV/M.2' => ['chipset' => 'H610', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2, 'm2_slots' => 1],
+    'B660M Pro RS' => ['chipset' => 'B660', 'ram' => 'DDR5', 'ff' => 'Micro-ATX', 'ram_slots' => 2],
+    'Z690 Phantom Gaming 4' => ['chipset' => 'Z690', 'ram' => 'DDR5', 'ff' => 'ATX', 'ram_slots' => 4],
+    'Z690 Extreme' => ['chipset' => 'Z690', 'ram' => 'DDR5', 'ff' => 'ATX', 'ram_slots' => 4],
+    'H610M H DDR4' => ['chipset' => 'H610', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2, 'm2_slots' => 1],
+    'Z690 Gaming X DDR4' => ['chipset' => 'Z690', 'ram' => 'DDR4', 'ff' => 'ATX', 'ram_slots' => 4],
+    'MPG Z690 EDGE WIFI DDR4' => ['chipset' => 'Z690', 'ram' => 'DDR4', 'ff' => 'ATX', 'ram_slots' => 4],
+    'A320M-DVS R4.0' => ['chipset' => 'A320', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2],
+    'PRIME A320M-K' => ['chipset' => 'A320', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2],
+    'B450M-A PRO MAX' => ['chipset' => 'B450', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 4],
+    'A520M-HVS' => ['chipset' => 'A520', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2],
+    'B450 AORUS M' => ['chipset' => 'B450', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 4],
+    'A520M Pro4' => ['chipset' => 'A520', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 2],
+    'B550M AORUS ELITE' => ['chipset' => 'B550', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 4],
+    'Z570 Gaming X' => ['chipset' => 'Z570', 'ram' => 'DDR4', 'ff' => 'ATX', 'ram_slots' => 4],
+    'X570M Pro4' => ['chipset' => 'X570', 'ram' => 'DDR4', 'ff' => 'Micro-ATX', 'ram_slots' => 4],
+    'X570S AERO G' => ['chipset' => 'X570S', 'ram' => 'DDR4', 'ff' => 'ATX', 'ram_slots' => 4],
+    'X550 AORUS XTREME' => ['chipset' => 'Z550', 'ram' => 'DDR4', 'ff' => 'ATX', 'ram_slots' => 4],
 ];
 
 /**
@@ -514,8 +593,12 @@ function extractStage2c(string $name): array
     }
 
     if ($key !== null) {
-        [$cores, $threads] = CPU_CORES[$key];
-        $out['specs'] = json_encode(['cores' => $cores, 'threads' => $threads], JSON_UNESCAPED_UNICODE);
+        // Эшелон 2c пишет только ядра и потоки: остальные поля таблицы
+        // добавляет эшелон 3a дополнением JSON.
+        $out['specs'] = json_encode([
+            'cores' => CPU_CORES[$key]['cores'],
+            'threads' => CPU_CORES[$key]['threads'],
+        ], JSON_UNESCAPED_UNICODE);
     } else {
         $out['_warning'] = 'модели нет в таблице cores/threads';
     }
@@ -565,9 +648,220 @@ function stageCategories(string $stage): array
             return [CAT_CPU];
         case '2d':
             return [CAT_VIDEO];
+        case '3a':
+            return [CAT_CPU, 2]; // процессоры и материнские платы
         default:
             return [];
     }
+}
+
+/** Ищет модель процессора в таблице по названию целиком. */
+function findCpuModel(string $name): ?string
+{
+    $best = null;
+    $bestLen = 0;
+    foreach (CPU_CORES as $candidate => $data) {
+        if (strlen($candidate) > $bestLen && stripos($name, $candidate) !== false) {
+            $best = $candidate;
+            $bestLen = strlen($candidate);
+        }
+    }
+    return $best;
+}
+
+/** Человеческое название сокета по его id. */
+function socketName($socketId): string
+{
+    return [1 => 'LGA1200', 2 => 'LGA1700', 3 => 'AM4'][(int) $socketId] ?? '';
+}
+
+/** Слово «ядер» в нужном роде: 2 ядра, 5 ядер. */
+function plural(int $n, string $one, string $few, string $many): string
+{
+    $mod100 = $n % 100;
+    $mod10 = $n % 10;
+    if ($mod100 >= 11 && $mod100 <= 14) {
+        return $many;
+    }
+    if ($mod10 === 1) {
+        return $one;
+    }
+    if ($mod10 >= 2 && $mod10 <= 4) {
+        return $few;
+    }
+    return $many;
+}
+
+/**
+ * Эшелон 3a: процессоры.
+ *
+ * Дополняет JSON из эшелона 2c (cores, threads) базовой и турбо
+ * частотой, кэшем и встроенной графикой, плюс описание.
+ * Суффикс F и KF означают «без встроенной графики», поэтому они
+ * переопределяют lit из таблицы.
+ */
+function extractStage3aCpu(array $row): array
+{
+    $name = (string) $row['component_name'];
+    $model = findCpuModel($name);
+    if ($model === null) {
+        return ['_warning' => 'модели процессора нет в таблице'];
+    }
+    $data = CPU_CORES[$model];
+
+    // Суффиксы F, KF и K у настольных процессоров Intel означают «без
+    // встроенной графики»: K - разблокированный множитель, и графики
+    // у него тоже нет. Проверка идёт по имени без пробелов и знаков,
+    // поэтому Athlon X4 950 (ATHLONX4950) под F или K не попадает.
+    $plain = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $name));
+    $noGpu = str_contains($plain, 'F') || str_contains($plain, 'K');
+    $lit = $data['lit'] && !$noGpu;
+
+    $specs = [
+        'base_ghz' => $data['base_ghz'],
+        'cache_mb' => $data['cache_mb'],
+        'lit' => $lit,
+    ];
+    if ($data['boost_ghz'] !== null) {
+        $specs['boost_ghz'] = $data['boost_ghz'];
+    }
+
+    $cores = $data['cores'];
+    $threads = $data['threads'];
+    $socket = socketName($row['socket_id']);
+
+    // Название для описания берём из component_name, а не из ключа
+    // таблицы: ключ без суффиксов, и «i7-12700F» превратился бы в
+    // «i7-12700» - то есть в другой процессор. У новых компонентов
+    // название длиннее модели («AMD Ryzen 5 5600 3.5GHz 32MB AM4»),
+    // поэтому берём ровно то, что лежит в component_name, оно для
+    // старых компонентов совпадает с моделью.
+    $cpuName = trim($name);
+    if (stripos($cpuName, 'i3-') === 0 || stripos($cpuName, 'i5-') === 0
+        || stripos($cpuName, 'i7-') === 0 || stripos($cpuName, 'i9-') === 0) {
+        $title = 'Intel Core ' . $cpuName;
+    } elseif ($cpuName[0] === 'R' || $cpuName[0] === 'A') {
+        $title = 'AMD ' . $cpuName;
+    } else {
+        $title = 'Intel ' . $cpuName;
+    }
+
+    $freq = 'базовая частота ' . rtrim(rtrim(number_format($data['base_ghz'], 1, ',', ''), '0'), ',') . ' ГГц';
+    if ($data['boost_ghz'] !== null) {
+        $freq .= ' (турбо до ' . rtrim(rtrim(number_format($data['boost_ghz'], 1, ',', ''), '0'), ',') . ' ГГц)';
+    }
+
+    $text = $title . ' — ' . $cores . ' ' . plural($cores, 'ядро', 'ядра', 'ядер')
+        . ', ' . $threads . ' ' . plural($threads, 'поток', 'потока', 'потоков')
+        . ', ' . $freq . ', кэш ' . $data['cache_mb'] . ' МБ, сокет ' . $socket . '.';
+    if (!$lit) {
+        $text .= ' Без встроенной графики.';
+    } elseif ($data['igpu'] !== null) {
+        $text .= ' Встроенная графика: ' . $data['igpu'] . '.';
+    } else {
+        $text .= ' Со встроенной графикой.';
+    }
+
+    return ['specs' => $specs, 'description' => $text];
+}
+
+/**
+ * Сокет по названию чипсета.
+ *
+ * Не берём socket_id из базы: в исходных данных у двух плат он неверен
+ * (Gigabyte Z570 Gaming X и X550 AORUS XTREME помечены как AM4, хотя
+ * это Intel LGA1200), и описание уехало бы в «для процессоров AMD».
+ * Чипсет в названии модели однозначен, socket_id там верный.
+ */
+function socketByChipset(string $chipset): array
+{
+    // AMD, только AM4
+    foreach (['A320', 'A520', 'B450', 'B550', 'X570'] as $amd) {
+        if (str_starts_with($chipset, $amd)) {
+            return ['name' => 'AM4', 'id' => 3];
+        }
+    }
+    // Intel, только LGA1700 (600-е серии и Z690)
+    foreach (['H610', 'B660', 'Z690'] as $lga1700) {
+        if (str_starts_with($chipset, $lga1700)) {
+            return ['name' => 'LGA1700', 'id' => 2];
+        }
+    }
+    // остальное Intel 400-х и 500-х - LGA1200
+    return ['name' => 'LGA1200', 'id' => 1];
+}
+
+/**
+ * Эшелон 3a: материнские платы.
+ *
+ * Ключ таблицы - модель, но у части плат (Gigabyte Z590 UD AC и
+ * подобные) в model нет префикса производителя, поэтому при
+ * отсутствии ключа пробуем название целиком.
+ */
+function extractStage3aMb(array $row): array
+{
+    $name = (string) $row['component_name'];
+    $model = (string) ($row['model'] ?? '');
+    $entry = MB_TABLE[$model] ?? MB_TABLE[$name] ?? null;
+    if ($entry === null) {
+        return ['_warning' => 'модели платы нет в таблице'];
+    }
+
+    // DDR в названии важнее чипсета: у Z690 и B660 есть обе версии
+    $ram = preg_match('/DDR\s*([45])/i', $name, $m) ? 'DDR' . $m[1] : $entry['ram'];
+
+    $specs = ['chipset' => $entry['chipset']];
+    if (isset($entry['ram_slots'])) {
+        $specs['ram_slots'] = $entry['ram_slots'];
+    }
+    if (isset($entry['m2_slots'])) {
+        $specs['m2_slots'] = $entry['m2_slots'];
+    }
+
+    $socket = socketByChipset($entry['chipset']);
+    $vendor = $socket['name'] === 'AM4'
+        ? 'процессоров AMD сокета AM4'
+        : ($socket['name'] === 'LGA1200'
+            ? 'процессоров Intel 10-го поколения'
+            : 'процессоров Intel 11-го и 12-го поколения');
+
+    $slots = isset($entry['ram_slots'])
+        ? $entry['ram_slots'] . ' ' . plural($entry['ram_slots'], 'слот', 'слота', 'слотов') . ' ' . $ram
+        : 'слоты памяти ' . $ram;
+
+    $text = ((string) ($row['manufacturer'] ?? '')) . ' ' . $model
+        . ' — материнская плата для ' . $vendor . ', сокет ' . $socket['name'] . '.'
+        . ' Чипсет ' . $entry['chipset'] . ', ' . $slots . ', форм-фактор ' . $entry['ff'] . '.';
+
+    $result = [
+        'specs' => $specs,
+        'description' => $text,
+        'ram_type' => $ram,
+        'form_factor' => $entry['ff'],
+    ];
+
+    // socket_id в базе не трогаем, но если он расходится с чипсетом -
+    // сообщаем: такая плата никогда не подойдёт к процессору по сокету
+    if ((int) $row['socket_id'] !== $socket['id']) {
+        $result['_warning'] = 'socket_id в базе = ' . socketName($row['socket_id'])
+            . ', по чипсету ' . $entry['chipset'] . ' ожидается ' . $socket['name']
+            . ' - поле не менялось, плата не подойдёт к процессору по сокету';
+    }
+
+    return $result;
+}
+
+/** Эшелон 3a: обе категории сразу. */
+function extractStage3a(array $row): array
+{
+    $cat = (int) $row['category_id'];
+    if ($cat === CAT_CPU) {
+        return extractStage3aCpu($row);
+    }
+    if ($cat === 2) {
+        return extractStage3aMb($row);
+    }
+    return [];
 }
 
 /**
@@ -610,16 +904,46 @@ function collectUpdates(string $stage, array $row): array
         case '2d':
             $candidates = extractStage2d($name);
             break;
+        case '3a':
+            $candidates = extractStage3a($row);
+            break;
         default:
             return ['set' => [], 'notes' => [], 'warning' => null];
     }
 
     $set = [];
+    $merge = STAGE_MERGE_FIELDS[$stage] ?? [];
     foreach (STAGE_FIELDS[$stage] as $column => $type) {
         if (!array_key_exists($column, $candidates) || $candidates[$column] === null) {
             continue; // не нашли - оставляем NULL, ничего не выдумываем
         }
         $current = $row[$column] ?? null;
+
+        if (in_array($column, $merge, true)) {
+            // Дополняем существующий JSON, а не заменяем: cores и threads
+            // из эшелона 2c должны уцелеть
+            if ($current === null || $current === '') {
+                $set[$column] = json_encode($candidates[$column], JSON_UNESCAPED_UNICODE);
+            } elseif (is_array($candidates[$column])) {
+                $existing = json_decode((string) $current, true);
+                if (!is_array($existing)) {
+                    $existing = [];
+                }
+                // порядок не меняется: слева старые ключи, справа новые
+                $merged = json_encode(
+                    $existing + $candidates[$column],
+                    JSON_UNESCAPED_UNICODE
+                );
+                // MySQL переставляет ключи в JSON при хранении, поэтому
+                // сравнивать надо по содержимому, а не по строкам
+                if (json_decode((string) $current, true) === $existing + $candidates[$column]) {
+                    continue; // дополнять нечего
+                }
+                $set[$column] = $merged;
+            }
+            continue;
+        }
+
         if ($current !== null && $current !== '') {
             continue; // правило 1: непустое поле не трогаем
         }
@@ -799,6 +1123,59 @@ function runSelftest(): int
         $totalSpec++;
     }
 
+    echo "\n--- Эшелон 3a: процессоры и платы ---\n";
+    $stage3aCases = [
+        // CPU: суффикс F снимает встроенную графику, но ядра те же
+        ['i5-10400F', ['component_name' => 'i5-10400F', 'category_id' => 1, 'socket_id' => 1, 'specs' => '{"cores":6,"threads":12}']],
+        ['i5-10400', ['component_name' => 'i5-10400', 'category_id' => 1, 'socket_id' => 1, 'specs' => '{"cores":6,"threads":12}']],
+        ['i7-12700F', ['component_name' => 'i7-12700F', 'category_id' => 1, 'socket_id' => 2, 'specs' => '{"cores":20,"threads":28}']],
+        // K тоже без встроенной графики, как F
+        ['i5-11600K', ['component_name' => 'i5-11600K', 'category_id' => 1, 'socket_id' => 1, 'specs' => '{"cores":6,"threads":12}']],
+        // Athlon X4 950 содержит X, но не F и не K - графика должна остаться
+        ['Athlon X4 950', ['component_name' => 'Athlon X4 950', 'category_id' => 1, 'socket_id' => 3, 'specs' => '{"cores":4,"threads":4}']],
+        ['Ryzen 5 5600G', ['component_name' => 'Ryzen 5 5600G', 'category_id' => 1, 'socket_id' => 3, 'specs' => '{"cores":6,"threads":12}']],
+        ['Athlon X4 950', ['component_name' => 'Athlon X4 950', 'category_id' => 1, 'socket_id' => 3, 'specs' => '{"cores":4,"threads":4}']],
+        ['Athlon X4 950', ['component_name' => 'Athlon X4 950', 'category_id' => 1, 'socket_id' => 3, 'specs' => '{"cores":4,"threads":4}']],
+        // MB: DDR в названии важнее чипсета
+        ['ASRock H470M-HVS', ['component_name' => 'ASRock H470M-HVS', 'category_id' => 2, 'socket_id' => 1, 'model' => 'H470M-HVS', 'manufacturer' => 'ASRock']],
+        ['Gigabyte Z690 Gaming X DDR4', ['component_name' => 'Gigabyte Z690 Gaming X DDR4', 'category_id' => 2, 'socket_id' => 2, 'model' => 'Z690 Gaming X DDR4', 'manufacturer' => 'Gigabyte']],
+        ['ASRock Z690 Extreme', ['component_name' => 'ASRock Z690 Extreme', 'category_id' => 2, 'socket_id' => 2, 'model' => 'Z690 Extreme', 'manufacturer' => 'ASRock']],
+        ['MSI MPG Z690 EDGE WIFI DDR4', ['component_name' => 'MSI MPG Z690 EDGE WIFI DDR4', 'category_id' => 2, 'socket_id' => 2, 'model' => 'MPG Z690 EDGE WIFI DDR4', 'manufacturer' => 'MSI']],
+    ];
+    foreach ($stage3aCases as [$name, $row]) {
+        $got = extractStage3a($row);
+        $specs = isset($got['specs'])
+            ? (is_string($got['specs']) ? $got['specs'] : json_encode($got['specs'], JSON_UNESCAPED_UNICODE))
+            : null;
+        $totalSpec++;
+        $merged = collectUpdates('3a', $row + ['specs' => $row['specs'] ?? null, 'ram_type' => null, 'form_factor' => null, 'description' => null]);
+        $shown = ['specs' => $specs] + array_diff_key($got, ['specs' => 1]);
+        if (isset($merged['set']) && $merged['set'] !== []) {
+            $ok = true;
+            // cores и threads из 2c обязаны уцелеть после дополнения
+            if ($specs !== null && $row['category_id'] === 1) {
+                $after = json_decode((string) $merged['set']['specs'], true);
+                $before = json_decode((string) $row['specs'], true);
+                foreach ($before as $k => $v) {
+                    if (!array_key_exists($k, $after) || $after[$k] !== $v) {
+                        $ok = false;
+                    }
+                }
+            }
+            if ($ok) {
+                echo "  ok   " . pad($name, 42) . ' ' . mb_substr(json_encode($shown, JSON_UNESCAPED_UNICODE), 0, 150) . "\n";
+                continue;
+            }
+            echo "  FAIL " . pad($name, 42) . " дополнение потеряло ключи из 2c\n";
+            echo '       ' . json_encode($merged['set'], JSON_UNESCAPED_UNICODE) . "\n";
+            $failed++;
+            continue;
+        }
+        $failed++;
+        echo "  FAIL " . pad($name, 42) . " пустое обновление\n";
+        echo '       ' . json_encode($shown, JSON_UNESCAPED_UNICODE) . "\n";
+    }
+
     $total = count($cases) + $totalSpec;
     echo "\n=== Итог selftest: " . ($total - $failed) . "/" . $total . " ===\n";
     if ($failed > 0) {
@@ -828,6 +1205,7 @@ $stageTitles = [
     '2b' => 'SSD и HDD: capacity_gb, interface, form_factor',
     '2c' => 'CPU: specs, frequency_mhz',
     '2d' => 'GPU: capacity_gb, memory_type',
+    '3a' => 'CPU и материнские платы: specs, description, ram_type, form_factor',
 ];
 
 $catNames = [
@@ -856,7 +1234,8 @@ echo "\n";
 
 // `interface` - зарезервированное слово MySQL, отсюда обратные кавычки
 $stmt = db_prepare($mysql, "SELECT component_id, category_id, component_name, manufacturer, `model`,
-                                   ram_type, capacity_gb, frequency_mhz, `interface`,
+                                   socket_id, tdp, video_core, description, ram_type,
+                                   capacity_gb, frequency_mhz, `interface`,
                                    form_factor, memory_type, specs
                             FROM components
                             ORDER BY category_id, component_id", '');
@@ -902,14 +1281,19 @@ foreach ($all as $row) {
     ];
 }
 
-foreach ($plan as $p) {
+foreach ($plan as $planRow) {
     $pairs = [];
-    foreach ($p['set'] as $column => $value) {
-        $pairs[] = $column . '=' . (is_string($value) ? $value : (string) $value);
+    foreach ($planRow['set'] as $column => $value) {
+        $text = is_string($value) ? $value : (string) $value;
+        // Описание и JSON длинные, в одну строку не влезают - обрезаем
+        if (mb_strlen($text) > 64) {
+            $text = mb_substr($text, 0, 61) . '...';
+        }
+        $pairs[] = $column . '=' . $text;
     }
-    echo '  ' . pad((string) $p['id'], 6)
-        . 'cat ' . pad((string) $p['cat'], 4)
-        . pad($p['name'], 46)
+    echo '  ' . pad((string) $planRow['id'], 6)
+        . 'cat ' . pad((string) $planRow['cat'], 4)
+        . pad($planRow['name'], 46)
         . ' → ' . implode(', ', $pairs) . "\n";
 }
 
