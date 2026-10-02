@@ -1,122 +1,208 @@
 ## Описание проекта
-Данный проект представляет собой интернет-магазин персональных компьютеров индивидуальной комплектации с конструктором для создания собственных сборок. Пользователи могут выбирать компоненты, настраивать свои сборки и оформлять заказы. Проект реализован на PHP с использованием MySQL для хранения данных.
 
-## Алгоритм установки и запуска проекта
+Интернет-магазин персональных компьютеров индивидуальной комплектации с конструктором для создания собственных сборок. Пользователи выбирают компоненты, настраивают сборки и оформляют заказы. Стек — PHP 8.1, MySQL 8.0, Apache, всё в Docker.
 
-### Быстрый запуск (одна команда)
+**Полный отчёт о состоянии проекта: [REPORT.md](REPORT.md)** — что было сделано, что не сделано и какие риски остались.
+
+---
+
+## Быстрый запуск
 
 ```bash
-# Клонирование репозитория
 git clone https://github.com/nymphernus/aion-corp.git
 cd aion-corp
 
-# Копируем переменные окружения
-cp .env.example .env
-
-# Запуск приложения
+cp .env.example .env      # обязательно поменяйте пароли
 docker compose up -d --build
 ```
 
-Это создаст:
-- Веб-сервер Apache с PHP (порт 8080)
-- MySQL с предустановленной базой данных (порт 3306)
-- Автоматически импортирует init.sql при первом запуске
+Откроется на **http://localhost:8080**.
 
-### Первый запуск
+Что происходит при старте:
 
-При первом запуске (`docker compose up -d`) администратор создаётся **автоматически** на основе переменных окружения из `.env`:
+- поднимается MySQL 8.0, `init.sql` импортируется при первом создании volume;
+- Apache с PHP 8.1 ждёт готовности базы по healthcheck;
+- `docker/entrypoint.sh` создаёт администратора из `ADMIN_LOGIN` и `ADMIN_PASSWORD`;
+- затем запускается уборка осиротевших сборок старше часа — сборки, которые не добавили в избранное и не заказали.
 
-- `ADMIN_LOGIN` — логин администратора (по умолчанию `admin`)
-- `ADMIN_PASSWORD` — пароль администратора (по умолчанию `change_me_at_least_8_chars`)
+| Сервис | Порт снаружи | Примечание |
+|---|---|---|
+| `php` (Apache) | 8080 | доступен всем интерфейсам |
+| `db` (MySQL 8.0) | 3306 | привязан к `127.0.0.1`, наружу не слышен |
 
-> **Важно:** После первого запуска удалите `ADMIN_PASSWORD` из `.env` и выполните `docker compose up -d`, чтобы предотвратить повторное создание админа.
+Остановить: `docker compose down`.
 
-#### Смена пароля администратора
+---
 
-1. Подключитесь к базе данных:
-   ```bash
-   docker compose exec db mysql -uadmin -p aion_bd
-   ```
-2. Выполните SQL-запрос:
-   ```sql
-   UPDATE users SET user_pass = '<новый_хеш>' WHERE user_login = 'admin';
-   ```
-   Хеш можно получить через PHP:
-   ```php
-   echo password_hash('новый_пароль', PASSWORD_BCRYPT);
-   ```
+## Администратор
 
-#### Удаление администратора
+Создаётся автоматически при первом запуске из переменных `.env`:
+
+| Переменная | По умолчанию в `.env.example` |
+|---|---|
+| `ADMIN_LOGIN` | `admin` |
+| `ADMIN_PASSWORD` | `change_me_at_least_8_chars` |
+
+Скрипт вызывается с `--if-not-exists`, поэтому повторные запуски не пересоздают и не сбрасывают пароль. Если `ADMIN_PASSWORD` пустой, админ не создаётся вовсе.
+
+> **Важно:** пароль в `.env` хранится в открытом виде и нужен только для первичного создания. После первого запуска его лучше удалить из `.env`.
+
+Пароль хранится в базе как bcrypt-хеш. Сменить его вручную:
+
+```bash
+docker compose exec php php -r 'echo password_hash("новый_пароль", PASSWORD_BCRYPT), PHP_EOL;'
+```
+
+Полученный хеш подставить:
+
+```sql
+UPDATE users SET user_pass = '<хеш>' WHERE user_login = 'admin';
+```
+
+Удалить администратора:
 
 ```bash
 docker compose exec db mysql -uadmin -p aion_bd -e "DELETE FROM users WHERE user_login = 'admin';"
 ```
 
-### Проверка работы
+Создать админа вручную, минуя `.env`:
 
 ```bash
-# Главная страница
-curl http://localhost:8080/
-
-# Профиль
-curl http://localhost:8080/profile.php
-
-# Сборка
-curl http://localhost:8080/assembly.php?init=1
+docker compose exec -it php php /var/www/html/scripts/create_admin.php
 ```
 
-### Остановка
+---
+
+## Переменные окружения
+
+Значения по умолчанию — из `.env.example`.
+
+| Переменная | Назначение | Значение в `.env.example` |
+|---|---|---|
+| `MYSQL_ROOT_PASSWORD` | пароль root в MySQL | `root_password_change_me` |
+| `MYSQL_USER` | пользователь приложения | `admin` |
+| `MYSQL_PASSWORD` | пароль пользователя | `db_password_change_me` |
+| `ADMIN_LOGIN` | логин администратора | `admin` |
+| `ADMIN_PASSWORD` | пароль администратора | `change_me_at_least_8_chars` |
+| `DEBUG_SQL_COUNT` | непустое значение включает счётчик SQL-запросов | пусто, выключено |
+
+Имя базы и хост **не** задаются через `.env` — они зашиты в `docker-compose.yml`:
+
+| Параметр | Значение | Где используется |
+|---|---|---|
+| имя базы | `aion_bd` | `MYSQL_DATABASE` у `db`, `DB_NAME` у `php` |
+| хост БД | `db` | `DB_HOST` у `php` |
+
+> При запуске **без** Docker нужно задать `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` вручную — в `.env.example` этих переменных нет, и без них приложение вернёт 500.
+
+### Счётчик SQL-запросов
+
+Пригодится, чтобы увидеть, сколько запросов делает страница. Значение читается при старте контейнера, поэтому после правки `.env` нужен пересозпуск:
 
 ```bash
-docker compose down
+# в .env:  DEBUG_SQL_COUNT=1
+docker compose up -d php
+curl -s http://localhost:8080/assembly.php?init=1 | tail -3
+# внизу появится комментарий: <!-- db_prepare calls: 10 -->
 ```
 
-> **Важно:** `init.sql` применяется только при создании volume БД. При обновлении
-> схемы БД нужен пересозданный volume: `docker compose down -v && docker compose up -d --build`
-> (все данные БД будут удалены). TODO Stage 5: миграции БД вместо `down -v`.
+---
 
-### Переменные окружения
+## Тесты
 
-| Переменная | Описание | По умолчанию |
-|------------|----------|--------------|
-| `MYSQL_ROOT_PASSWORD` | Пароль root для MySQL | `change_me_root` |
-| `MYSQL_USER` | Пользователь MySQL | `change_me_user` |
-| `MYSQL_PASSWORD` | Пароль пользователя MySQL | `change_me_password` |
-| `MYSQL_DATABASE` | Имя базы данных | `aion_bd` |
-| `DB_HOST` | Хост базы данных | `db` |
-| `DB_NAME` | Имя базы данных | `aion_bd` |
+Тесты ходят по HTTP на живой сайт, поэтому контейнеры должны быть подняты.
 
-> **Примечание:** При запуске без Docker нужно экспортировать `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` вручную (см. `.env.example`). Иначе приложение вернёт 500 ошибку.
+```bash
+docker compose exec php php /var/www/html/tests/phpunit.phar \
+  -c /var/www/html/tests/phpunit.xml --testdox
+```
 
-## Технологии
-1. **PHP 8.1**: Основной серверный язык.
-2. **MySQL 8.0**: Хранение данных (товары, заказы, пользователи)
-3. **Apache** — веб-сервер
-4. **HTML/CSS/JavaScript** — фронтенд, включая динамическую работу конструктора
-5. **Docker** — контейнеризация для простоты развёртывания
+20 тестов, 89 утверждений. Файл `phpunit.phar` в репозиторий не попадает — после клонирования его нужно положить в `src/tests/` самостоятельно:
 
-## Скриншот
-<img src="https://user-images.githubusercontent.com/103174654/229752211-483a3cf6-5fd4-4694-bb82-413255d884c6.png" alt="img_1">
+```bash
+curl -sL https://phar.phpunit.de/phpunit-10.phar -o src/tests/phpunit.phar
+```
+
+Альтернатива — поставить зависимости через Composer (`composer.json` объявляет PHPUnit 10 и PHPStan):
+
+```bash
+composer install
+vendor/bin/phpunit -c src/tests/phpunit.xml
+```
+
+**Требование к базе:** в `assembly` должно быть не меньше трёх сборок с `id` 1–3 — они лежат в `init.sql`. Тесты создают сборки с `id > 3` и удаляют их за собой: после прогона должно остаться ровно 3 сборки.
+
+Отдельная проверка данных каталога, не входящая в PHPUnit:
+
+```bash
+docker compose exec php php /var/www/html/scripts/enrich_components.php --selftest
+```
+
+---
+
+## Обслуживание
+
+Уборка сборок, которые никто не сохранил и не заказал:
+
+```bash
+docker compose exec php php /var/www/html/scripts/cleanup_orphans.php --dry-run   # только показать
+docker compose exec php php /var/www/html/scripts/cleanup_orphans.php --hours=6    # удалить старше 6 часов
+docker compose exec php php /var/www/html/scripts/cleanup_orphans.php --help
+```
+
+По расписанию не выполняется — только один раз при старте контейнера. Cron не настроен.
+
+> **Важно:** `init.sql` применяется только при создании volume БД. После изменения схемы нужен пересозданный volume: `docker compose down -v && docker compose up -d --build` — **все данные будут удалены**. Отдельных миграций схемы в проекте нет.
+
+---
 
 ## Разработка
 
-### Dev-режим с volume
+Dev-режим с монтированием исходников:
 
 ```bash
 docker compose up -d
 ```
 
-Файлы из `src/` автоматически монтируются в контейнер.
-
-### Тесты
-
-```bash
-composer install
-vendor/bin/phpunit
-```
+`docker-compose.override.yml` монтирует `./src` в `/var/www/html`, так что правки в файлах видны сразу, без пересборки образа. Там же включается Xdebug с `client_host=host.docker.internal` — полезно для отладки из IDE на хосте.
 
 ### Статический анализ
 
+`composer.json` объявляет PHPStan, конфигурация — `phpstan-baseline.neon` (42 строки). Инструмент в репозиторий не установлен:
+
 ```bash
+composer install
 vendor/bin/phpstan analyse --level=5
 ```
+
+> **О путях:** каталог `src/` — это корень сайта. На хосте он так и называется `src/`, а внутри контейнера те же файлы лежат от `/var/www/html/`, поэтому в командах `docker compose exec` путь начинается с `/var/www/html/`. Команды, выполняемые на хосте (`composer`, `curl -o`, `vendor/bin/...`), наоборот, используют `src/`.
+
+---
+
+## Структура
+
+```
+src/
+├── index.php          главная
+├── assembly.php       конфигуратор и страница сборки
+├── profile.php        профиль покупателя
+├── admin.php          админка
+├── modules/           connect, csrf, auth, components, configurator, pagination
+├── partials/          header, footer, сайдбар профиля, модалки
+├── admin/             вкладки админки
+├── validation/        логин, регистрация, сброс пароля, выход
+├── scripts/           CLI: сид, обогащение, миграция, создание админа, уборка
+├── tests/             PHPUnit
+└── assets/            css, js, images
+init.sql               схема и данные каталога, 230 компонентов
+```
+
+Подробное описание архитектуры, разбора по слоям и состояния безопасности — в [REPORT.md](REPORT.md).
+
+---
+
+## Скриншот
+
+<img src="https://user-images.githubusercontent.com/103174654/229752211-483a3cf6-5fd4-4694-bb82-413255d884c6.png" alt="img_1">
+
+> Скриншот сделан до рефакторинга интерфейса. Актуальный вид — на локальном запуске.
