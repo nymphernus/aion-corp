@@ -93,6 +93,7 @@ CREATE TABLE `assembly` (
   `hdd_id` int DEFAULT NULL,
   `dvd_id` int DEFAULT NULL,
   `assembly_price` int NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`assembly_id`),
   KEY `cpu_id` (`cpu_id`,`gpu_id`,`motherboard_id`,`ram_id`,`case_id`,`cooler_id`,`power_supply_id`,`ssd_id`,`ssd_2_id`,`hdd_id`,`dvd_id`),
   KEY `gpu_id` (`gpu_id`),
