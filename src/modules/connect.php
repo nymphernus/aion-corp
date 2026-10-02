@@ -49,6 +49,12 @@ if (!function_exists('db_prepare')) {
      */
     function db_prepare(mysqli $mysql, string $sql, string $types = '', ...$params): mysqli_stmt
     {
+        // 5-d-3: счётчик запросов для замеров. Включается переменной окружения
+        // DEBUG_SQL_COUNT, по умолчанию пусто и ничего не стоит.
+        if (getenv('DEBUG_SQL_COUNT') !== false) {
+            $GLOBALS['db_prepare_calls'] = ($GLOBALS['db_prepare_calls'] ?? 0) + 1;
+        }
+
         $stmt = $mysql->prepare($sql);
         if ($stmt === false) {
             error_log("Prepare failed: " . $mysql->error);
