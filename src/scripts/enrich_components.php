@@ -291,6 +291,8 @@ const STAGE_FIELDS = [
     '3a' => ['specs' => 's', 'description' => 's', 'ram_type' => 's', 'form_factor' => 's'],
     '3b' => ['specs' => 's', 'description' => 's', 'frequency_mhz' => 'i'],
     '3c' => ['specs' => 's', 'description' => 's', 'rpm' => 'i'],
+    '3d' => ['specs' => 's', 'description' => 's', 'wattage' => 'i',
+             'cooler_type' => 's', 'form_factor' => 's'],
 ];
 
 /**
@@ -302,6 +304,7 @@ const STAGE_MERGE_FIELDS = [
     '3a' => ['specs'],
     '3b' => ['specs'],
     '3c' => ['specs'],
+    '3d' => ['specs'],
 ];
 
 /**
@@ -746,6 +749,257 @@ const HDD_TABLE = [
     '2tb' => ['rpm' => 5400, 'cache_mb' => null, 'skipped' => 'кэш у 2 ТБ: точный объём подтвердить не удалось'],
 ];
 
+/**
+ * Эшелон 3d: блоки питания, кулеры и корпуса.
+ *
+ * Мощность блока и размер радиатора читаются из названия, тип охлаждения
+ * и форм-фактор - из модели. Высота башенного кулера и допустимые
+ * размеры видеокарты и кулера в корпусе заполнены только там, где
+ * значение подтверждается; в остальных случаях стоит null с причиной
+ * в поле skipped, и она попадает в отчёт dry-run.
+ *
+ * Форм-факторы и тип охлаждения записаны теми же значениями, что и в
+ * списках админ-формы, иначе поле показывало бы пустое: cooler_type
+ * там Air и AIO с заглавной буквы, корпуса - ATX Mid-Tower,
+ * ATX Full-Tower, mATX Mid-Tower, Mini-ITX и Mid-Tower.
+ */
+const PSU_TABLE = [
+    'VTE400' => ['wattage' => 400, 'ff' => 'ATX'],
+    'VTX 600W' => ['wattage' => 600, 'ff' => 'ATX', 'cert' => null, 'skipped' => 'сертификат 80+ у этой линейки не подтверждён'],
+    'CV650' => ['wattage' => 650, 'ff' => 'ATX', 'cert' => '80+ Bronze', 'modular' => 'non-modular'],
+    'SYSTEM POWER 9' => ['wattage' => 600, 'ff' => 'ATX', 'cert' => '80+ Gold', 'modular' => 'non-modular'],
+    'Smart BX1' => ['wattage' => 550, 'ff' => 'ATX', 'cert' => '80+ Bronze', 'modular' => 'non-modular'],
+    'GEC 650' => ['wattage' => 650, 'ff' => 'ATX', 'cert' => '80+ Bronze', 'modular' => 'non-modular'],
+    'GEC 750' => ['wattage' => 750, 'ff' => 'ATX', 'cert' => '80+ Bronze', 'modular' => 'non-modular'],
+    'GX 800W' => ['wattage' => 800, 'ff' => 'ATX', 'cert' => '80+ Bronze', 'modular' => null, 'skipped' => 'модульность у этой линейки не подтверждена'],
+    'GX 1050W' => ['wattage' => 1050, 'ff' => 'ATX', 'cert' => null, 'modular' => null, 'skipped' => 'сертификат и модульность не подтверждены'],
+    'HPG-1200FM' => ['wattage' => 1200, 'ff' => 'ATX', 'cert' => null, 'modular' => null, 'skipped' => 'сертификат и модульность не подтверждены'],
+    'AORUS P1200W' => ['wattage' => 1200, 'ff' => 'ATX', 'cert' => '80+ Platinum', 'modular' => 'fully-modular'],
+    'UN450' => ['wattage' => 450, 'ff' => 'ATX', 'cert' => null, 'modular' => null, 'skipped' => 'сертификат и модульность не подтверждены'],
+];
+
+/**
+ * Кулеры. type: Air или AIO - значения списка админ-формы.
+ * height - высота башенного кулера в мм, radiator - размер СЖО в мм.
+ * Порядок ключей важен: «GAMMAXX 400K» раньше, чем «GAMMAXX 400 V2»,
+ * иначе более общий ключ перехватит название.
+ */
+const COOLER_TABLE = [
+    // башенные воздушные
+    'THETA 20' => ['type' => 'Air', 'height' => null, 'skipped' => 'высота кулера не подтверждена'],
+    'Alta 9' => ['type' => 'Air', 'height' => null, 'skipped' => 'высота кулера не подтверждена'],
+    'Gamma Archer' => ['type' => 'Air', 'height' => 148],
+    'Ice Blade 100' => ['type' => 'Air', 'height' => null, 'skipped' => 'высота кулера не подтверждена'],
+    'GAMMAXX 300' => ['type' => 'Air', 'height' => 150],
+    'GAMMAXX 400K' => ['type' => 'Air', 'height' => 160],
+    'GAMMAXX 400 V2' => ['type' => 'Air', 'height' => 160],
+    'GAMMAXX 400 EX' => ['type' => 'Air', 'height' => 160],
+    'PURE ROCK 2' => ['type' => 'Air', 'height' => 155],
+    'REDHAT' => ['type' => 'Air', 'height' => null, 'skipped' => 'высота кулера не подтверждена'],
+    'SHADOW ROCK SLIM' => ['type' => 'Air', 'height' => 155],
+    'AS500' => ['type' => 'Air', 'height' => 150],
+    'DARK ROCK 4' => ['type' => 'Air', 'height' => 159],
+    'AK620' => ['type' => 'Air', 'height' => 160],
+    'NH-U9DX' => ['type' => 'Air', 'height' => 125],
+    // системы жидкостного охлаждения: размер радиатора читается из названия
+    'MasterLiquid Lite 120' => ['type' => 'AIO', 'radiator' => 120],
+    'GAMMAXX L120 V2' => ['type' => 'AIO', 'radiator' => 120],
+    'GAMMAXX L240T' => ['type' => 'AIO', 'radiator' => 240],
+    'MasterLiquid ML360' => ['type' => 'AIO', 'radiator' => 360],
+    'LiQuRizer LQ240' => ['type' => 'AIO', 'radiator' => 240],
+    'AURAFLOW X 360' => ['type' => 'AIO', 'radiator' => 360],
+    'P7-L240' => ['type' => 'AIO', 'radiator' => 240],
+    // у iCUE H150i в названии 150, но радиатор на 280 мм - так у серии
+    'iCUE H150i' => ['type' => 'AIO', 'radiator' => 280],
+];
+
+/**
+ * Корпуса. Только форм-фактор: допустимые длины видеокарты и кулера
+ * зависят от конкретной модели, а не от серии, и по названию не
+ * восстанавливаются. Поэтому max_gpu_mm и max_cooler_mm не заполняются
+ * ни у одного корпуса - вместо них остаётся причина в отчёте.
+ */
+const CASE_TABLE = [
+    'BAA-106' => ['ff' => null, 'skipped' => 'модель не опознана, форм-фактор не подтверждён'],
+    'XP-329-XP500' => ['ff' => null, 'skipped' => 'модель не опознана, форм-фактор не подтверждён'],
+    'B185 White' => ['ff' => null, 'skipped' => 'модель не опознана, форм-фактор не подтверждён'],
+    'Accord K-16' => ['ff' => null, 'skipped' => 'модель не опознана, форм-фактор не подтверждён'],
+    'AeroCool Streak' => ['ff' => 'Mid-Tower'],
+    'Cylon' => ['ff' => 'Mid-Tower'],
+    'i3 Edge' => ['ff' => 'Mid-Tower'],
+    'FIGHTER 500' => ['ff' => 'Mid-Tower'],
+    'Aero One Mini' => ['ff' => 'Mini-ITX'],
+    '470T' => ['ff' => 'Mid-Tower'],
+    'Core G21' => ['ff' => 'Mid-Tower'],
+    'MX-660' => ['ff' => 'Mid-Tower'],
+    'AH T200' => ['ff' => 'Mid-Tower'],
+    'Blazer Essence' => ['ff' => 'Mid-Tower'],
+    'Obsidian Series 500D' => ['ff' => 'Mid-Tower'],
+    'View 71' => ['ff' => 'Mid-Tower'],
+    'Obsidian Series 1000D' => ['ff' => 'Mid-Tower'],
+];
+
+/** Ищет первый совпавший ключ таблицы по фрагменту названия. */
+function matchTable(array $table, string $name): ?array
+{
+    foreach ($table as $key => $data) {
+        if (stripos($name, $key) !== false) {
+            return [$key, $data];
+        }
+    }
+    return null;
+}
+
+/**
+ * Эшелон 3d: блок питания.
+ *
+ * Мощность и форм-фактор идут в отдельные колонки, в specs попадают
+ * сертификат и модульность, если они подтверждены.
+ */
+function extractStage3dPsu(array $row): array
+{
+    $name = (string) $row['component_name'];
+    $hit = matchTable(PSU_TABLE, $name);
+    if ($hit === null) {
+        return ['description' => trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name))
+            . ' — блок питания.', '_skipped' => ['модель не опознана']];
+    }
+    $data = $hit[1];
+
+    $specs = [];
+    if (isset($data['cert']) && $data['cert'] !== null) {
+        $specs['cert'] = $data['cert'];
+    }
+    if (isset($data['modular']) && $data['modular'] !== null) {
+        $specs['modular'] = $data['modular'];
+    }
+
+    $title = trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name));
+    $text = $title . ' — блок питания мощностью ' . $data['wattage'] . ' Вт';
+    if (isset($data['cert']) && $data['cert'] !== null) {
+        $text .= ' с сертификатом ' . $data['cert'];
+    }
+    $text .= '. Форм-фактор ' . $data['ff'] . '.';
+    if (isset($data['modular']) && $data['modular'] === 'fully-modular') {
+        $text .= ' Полностью модульный, кабели отсоединяются.';
+    } elseif (isset($data['modular']) && $data['modular'] === 'non-modular') {
+        $text .= ' Немодульный.';
+    }
+
+    $result = [
+        'description' => $text,
+        'wattage' => $data['wattage'],
+        'form_factor' => $data['ff'],
+    ];
+    if ($specs !== []) {
+        $result['specs'] = $specs;
+    }
+    if (isset($data['skipped'])) {
+        $result['_skipped'] = [$data['skipped']];
+    }
+    return $result;
+}
+
+/**
+ * Эшелон 3d: кулер.
+ *
+ * Тип охлаждения идёт в отдельную колонку cooler_type, размер
+ * радиатора или высота башни - в specs. Сокет в базе остаётся пустым:
+ * поддерживаемые сокеты у разных ревизий кулера отличаются, а в
+ * названии их нет.
+ */
+function extractStage3dCooler(array $row): array
+{
+    $name = (string) $row['component_name'];
+    $hit = matchTable(COOLER_TABLE, $name);
+    if ($hit === null) {
+        return ['description' => trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name))
+            . ' — кулер для процессора.', '_skipped' => ['модель не опознана']];
+    }
+    $data = $hit[1];
+
+    $specs = [];
+    if (isset($data['height']) && $data['height'] !== null) {
+        $specs['height_mm'] = $data['height'];
+    }
+    if (isset($data['radiator']) && $data['radiator'] !== null) {
+        $specs['radiator_mm'] = $data['radiator'];
+    }
+
+    $title = trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name));
+    if ($data['type'] === 'Air') {
+        $text = $title . ' — башенный воздушный кулер';
+        if (isset($specs['height_mm'])) {
+            $text .= ' высотой ' . $specs['height_mm'] . ' мм';
+        }
+        $text .= '. Подходит для процессоров Intel и AMD.';
+    } else {
+        $text = $title . ' — система жидкостного охлаждения с радиатором '
+            . $specs['radiator_mm'] . ' мм и помпой в блоке.';
+    }
+
+    $result = ['description' => $text, 'cooler_type' => $data['type']];
+    if ($specs !== []) {
+        $result['specs'] = $specs;
+    }
+    if (isset($data['skipped'])) {
+        $result['_skipped'] = [$data['skipped']];
+    }
+    return $result;
+}
+
+/**
+ * Эшелон 3d: корпус.
+ *
+ * Заполняется только форм-фактор: допустимая длина видеокарты и высота
+ * кулера у каждой модели свои, по названию не читаются.
+ */
+function extractStage3dCase(array $row): array
+{
+    $name = (string) $row['component_name'];
+    $hit = matchTable(CASE_TABLE, $name);
+    $title = trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name));
+
+    if ($hit === null) {
+        return ['description' => $title . ' — корпус для настольного компьютера.',
+            '_skipped' => ['модель не опознана']];
+    }
+    $data = $hit[1];
+
+    $text = $title . ' — корпус для настольного компьютера';
+    if ($data['ff'] !== null) {
+        $text .= ', форм-фактор ' . $data['ff'];
+    }
+    $text .= '.';
+
+    $result = ['description' => $text];
+    if ($data['ff'] !== null) {
+        $result['form_factor'] = $data['ff'];
+    }
+    // причина не заполнения sizes нужна всегда, даже когда форм-фактор есть
+    $reasons = ['допустимые длина видеокарты и высота кулера у этой модели не подтверждены'];
+    if (isset($data['skipped'])) {
+        array_unshift($reasons, $data['skipped']);
+    }
+    $result['_skipped'] = $reasons;
+    return $result;
+}
+
+/** Эшелон 3d: три категории сразу. */
+function extractStage3d(array $row): array
+{
+    switch ((int) $row['category_id']) {
+        case 5:
+            return extractStage3dPsu($row);
+        case 7:
+            return extractStage3dCooler($row);
+        case 6:
+            return extractStage3dCase($row);
+        default:
+            return [];
+    }
+}
+
 /** Категории, которые заполняет этап. Для эшелона 1 - все. */
 function stageCategories(string $stage): array
 {
@@ -764,6 +1018,8 @@ function stageCategories(string $stage): array
             return [CAT_VIDEO, CAT_MEMORY]; // видеокарты и оперативная память
         case '3c':
             return [CAT_SSD, 8, 10]; // накопители и оптические приводы
+        case '3d':
+            return [5, 7, 6]; // блоки питания, кулеры, корпуса
         default:
             return [];
     }
@@ -1301,6 +1557,9 @@ function collectUpdates(string $stage, array $row): array
         case '3c':
             $candidates = extractStage3c($row);
             break;
+        case '3d':
+            $candidates = extractStage3d($row);
+            break;
         default:
             return ['set' => [], 'notes' => [], 'warning' => null];
     }
@@ -1647,6 +1906,32 @@ function runSelftest(): int
         echo '       ' . json_encode($got, JSON_UNESCAPED_UNICODE) . "\n";
     }
 
+    echo "\n--- Эшелон 3d: блоки питания, кулеры, корпуса ---\n";
+    $stage3dCases = [
+        // мощность и форм-фактор в колонки, сертификат и модульность в JSON
+        ['Corsair CV650', ['component_name' => 'Corsair CV650', 'category_id' => 5, 'manufacturer' => 'Corsair', 'model' => 'CV650', 'specs' => null]],
+        ['GIGABYTE AORUS P1200W', ['component_name' => 'GIGABYTE AORUS P1200W', 'category_id' => 5, 'manufacturer' => 'Gigabyte', 'model' => 'AORUS P1200W', 'specs' => null]],
+        // AIO: радиатор читается из названия, у iCUE H150i он 280, а не 150
+        ['Corsair iCUE H150i RGB PRO XT', ['component_name' => 'Corsair iCUE H150i RGB PRO XT', 'category_id' => 7, 'manufacturer' => 'Corsair', 'model' => 'iCUE H150i RGB PRO XT', 'specs' => null]],
+        ['DEEPCOOL GAMMAXX 400K', ['component_name' => 'DEEPCOOL GAMMAXX 400K', 'category_id' => 7, 'manufacturer' => 'DeepCool', 'model' => 'GAMMAXX 400K', 'specs' => null]],
+        ['AeroCool Aero One Mini Frost', ['component_name' => 'AeroCool Aero One Mini Frost', 'category_id' => 6, 'manufacturer' => 'AeroCool', 'model' => 'Aero One Mini Frost', 'specs' => null]],
+    ];
+    foreach ($stage3dCases as [$name, $row]) {
+        $row += ['description' => null, 'wattage' => null, 'cooler_type' => null, 'form_factor' => null];
+        $got = extractStage3d($row);
+        $totalSpec++;
+        $merged = collectUpdates('3d', $row);
+        if (isset($merged['set']) && !empty($merged['set'])) {
+            $cols = array_diff_key($merged['set'], ['description' => 1, 'specs' => 1]);
+            echo "  ok   " . pad($name, 40) . ' ' . pad((string) json_encode($cols, JSON_UNESCAPED_UNICODE), 52)
+                . mb_substr((string) json_encode($merged['set']['specs'] ?? null, JSON_UNESCAPED_UNICODE), 0, 60) . "\n";
+            continue;
+        }
+        $failed++;
+        echo "  FAIL " . pad($name, 40) . " пустое обновление\n";
+        echo '       ' . json_encode($got, JSON_UNESCAPED_UNICODE) . "\n";
+    }
+
     $total = count($cases) + $totalSpec;
     echo "\n=== Итог selftest: " . ($total - $failed) . "/" . $total . " ===\n";
     if ($failed > 0) {
@@ -1679,6 +1964,7 @@ $stageTitles = [
     '3a' => 'CPU и материнские платы: specs, description, ram_type, form_factor',
     '3b' => 'GPU и RAM: specs, description, frequency_mhz',
     '3c' => 'SSD, HDD и DVD: specs, description, rpm',
+    '3d' => 'PSU, кулеры и корпуса: specs, description, wattage, cooler_type, form_factor',
 ];
 
 $catNames = [
