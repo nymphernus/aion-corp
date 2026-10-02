@@ -266,4 +266,45 @@ final class AuthTest extends AionTestCase
         );
         $this->assertStringNotContainsString('id="pass_cont" style="display:none;"', $after['body']);
     }
+
+    /**
+     * 5-f-1b: ошибка входа не должна показываться в форме регистрации.
+     *
+     * error_from живёт 60 секунд, error_access - одну. Если регистрация
+     * провалилась, страницу открыли позже, короткая cookie истекла, а
+     * error_from=reg осталась одна. Следующая неудачная попытка входа
+     * показывала «Неверный логин или пароль» в свёрнутой форме регистрации,
+     * а форма входа уезжала. Тест кладёт в cookie-jar остаток протухшей
+     * метки и проверяет, что форма входа остаётся на месте.
+     */
+    public function testLoginErrorStaysInLoginFormDespiteStaleMarker(): void
+    {
+        $page = $this->httpGet('/profile.php');
+
+        // остаток метки от неудачной регистрации, error_access давно истёк
+        $host = parse_url((string) BASE_URL, PHP_URL_HOST) ?: 'localhost';
+        $line = implode("\t", [
+            $host, 'FALSE', '/profile.php', 'FALSE',
+            (string) (time() + 50), 'error_from', 'reg',
+        ]);
+        file_put_contents($this->jar, $line . "\n", FILE_APPEND);
+
+        $r = $this->httpPost('/validation/auth.php', [
+            'user_login' => 'admin',
+            'user_pass' => 'definitely_wrong_password',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(302, $r['code']);
+
+        $after = $this->httpGet('/profile.php');
+        $this->assertStringContainsString('Неверный логин или пароль', $after['body']);
+        $this->assertStringContainsString(
+            'id="login_cont">',
+            $after['body'],
+            'ошибка входа обязана быть в форме входа, а не в свёрнутой форме регистрации'
+        );
+        $this->assertStringNotContainsString('id="pass_cont">', $after['body']);
+
+        $this->clearLoginAttempts('admin');
+    }
 }

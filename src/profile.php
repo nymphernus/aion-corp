@@ -195,19 +195,20 @@ $errorMessage = trim((string) ($_COOKIE['error_access'] ?? ''));
 // регистрации оказалось бы в свёрнутой форме входа и осталось бы невидимым.
 $errorFrom = ($_COOKIE['error_from'] ?? '') === 'reg' ? 'reg' : 'auth';
 
-if (isset($_COOKIE['error_access'])) {
-    // Гасим обе cookie ответом, срок в прошлом. Одного unset($_COOKIE[...])
-    // мало: он чистит массив только в этом запросе, браузер шлёт cookie
-    // снова, и текст висел бы до перезагрузки.
-    $expire = [
-        'expires'  => time() - 3600,
-        'path'     => '/profile.php',
-        'httponly' => true,
-        'samesite' => 'Strict'
-    ];
-    setcookie('error_access', '', $expire);
-    setcookie('error_from', '', $expire);
-}
+// Гасим обе cookie безусловно, а не только когда пришёл error_access.
+// error_from живёт 60 секунд, error_access - одну: если страницу открыли
+// позже, короткая cookie истёк бы, а метка источника осталась и следующая
+// ошибка показалась бы не в той форме. Срок в прошлом удаляет cookie у
+// клиента; одного unset($_COOKIE[...]) мало, массив чистится только в
+// этом запросе.
+$expire = [
+    'expires'  => time() - 3600,
+    'path'     => '/profile.php',
+    'httponly' => true,
+    'samesite' => 'Strict'
+];
+setcookie('error_access', '', $expire);
+setcookie('error_from', '', $expire);
 
 require __DIR__ . '/partials/header.php';
 ?>

@@ -130,6 +130,18 @@ $_SESSION['old_login'] = $login;
 
 if (!$passwordValid) {
     logFailedAttempt($mysql, $login, $ip);
+    // 5-f-1b: метка источника обязательна и здесь, не только в reg.php.
+    // error_from живёт 60 секунд, а error_access одну секунду. Если раньше
+    // провалилась регистрация, а страницу открыли позже, error_access уже
+    // истёк, и error_from=reg оставалась одна. Следующая неудачная попытка
+    // входа показывала «Неверный логин или пароль» в свёрнутой форме
+    // регистрации, а форма входа уезжала. Явная метка auth снимает это.
+    setcookie('error_from', 'auth', [
+        'expires' => time() + 60,
+        'path' => '/profile.php',
+        'httponly' => true,
+        'samesite' => 'Strict'
+    ]);
     setcookie('error_access', "Неверный логин или пароль", [
         'expires' => time() + 1,
         'path' => '/profile.php',
