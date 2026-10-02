@@ -129,7 +129,7 @@ function configure($budget, $preference = 'universal', $osChoice = 'none')
         $os = 'Ubuntu 24.04 LTS';
     }
 
-    $stmt = $mysql->prepare("SELECT MAX(assembly_id) FROM assembly");
+    $stmt = db_prepare($mysql, "SELECT MAX(assembly_id) FROM assembly");
     $stmt->execute();
     $checklast = $stmt->get_result()->fetch_array();
     $maxID = ($checklast[0] ?? 0) + 1;
@@ -228,24 +228,30 @@ function configure($budget, $preference = 'universal', $osChoice = 'none')
     }
 
     if (isset($cpu, $motherboard, $ram, $power_supply, $case, $cooler, $ssd)) {
-        $stmt = $mysql->prepare("INSERT INTO `assembly` (`assembly_id`,`assembly_name`, `cpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `assembly_price`) VALUES(?,?,?,?,?,?,?,?,?,?)");
-        $stmt->bind_param("isiiiiiiii",
-            $maxID, $name,
-            $cpu['component_id'], $motherboard['component_id'], $ram['component_id'],
-            $case['component_id'], $cooler['component_id'], $power_supply['component_id'],
-            $ssd['component_id'], $budget_whole
+        $stmt = db_prepare(
+            $mysql,
+            "INSERT INTO `assembly` (`assembly_id`,`assembly_name`, `cpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `assembly_price`) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            "isiiiiiiii",
+            $maxID,
+            $name,
+            $cpu['component_id'],
+            $motherboard['component_id'],
+            $ram['component_id'],
+            $case['component_id'],
+            $cooler['component_id'],
+            $power_supply['component_id'],
+            $ssd['component_id'],
+            $budget_whole
         );
         $stmt->execute();
 
         if (isset($gpu)) {
-            $stmt = $mysql->prepare("UPDATE `assembly` SET `gpu_id` = ? WHERE `assembly_id` = ?");
-            $stmt->bind_param("ii", $gpu['component_id'], $maxID);
+            $stmt = db_prepare($mysql, "UPDATE `assembly` SET `gpu_id` = ? WHERE `assembly_id` = ?", "ii", $gpu['component_id'], $maxID);
             $stmt->execute();
         }
 
         if (isset($os)) {
-            $stmt = $mysql->prepare("UPDATE `assembly` SET `os` = ? WHERE `assembly_id` = ?");
-            $stmt->bind_param("si", $os, $maxID);
+            $stmt = db_prepare($mysql, "UPDATE `assembly` SET `os` = ? WHERE `assembly_id` = ?", "si", $os, $maxID);
             $stmt->execute();
         }
 

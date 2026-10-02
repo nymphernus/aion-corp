@@ -46,7 +46,7 @@ if (!defined('ADMIN_CONTEXT')) {
                     </form>
 <?php
                     $checkSql = "SHOW COLUMNS FROM orders LIKE 'status'";
-                    $checkStmt = $mysql->prepare($checkSql);
+                    $checkStmt = db_prepare($mysql, $checkSql);
                     $checkStmt->execute();
                     $checkResult = $checkStmt->get_result();
 

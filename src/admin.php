@@ -29,8 +29,7 @@ if (empty($_SESSION['user_id'])) {
     exit();
 }
 
-$stmt = $mysql->prepare("SELECT user_group FROM `users` WHERE `user_id` = ?");
-$stmt->bind_param("i", $_SESSION['user_id']);
+$stmt = db_prepare($mysql, "SELECT user_group FROM `users` WHERE `user_id` = ?", "i", $_SESSION['user_id']);
 $stmt->execute();
 $adminRow = $stmt->get_result()->fetch_assoc();
 
@@ -332,8 +331,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     $status = $_POST['status'] ?? '';
     $orderId = $_POST['editOrderStatus'];
 
-    $stmt = $mysql->prepare("UPDATE orders SET status = ? WHERE order_id = ?");
-    $stmt->bind_param("si", $status, $orderId);
+    $stmt = db_prepare($mysql, "UPDATE orders SET status = ? WHERE order_id = ?", "si", $status, $orderId);
     $stmt->execute();
     csrf_rotate();
     header('Location: /admin.php?tab=orders');
@@ -489,16 +487,13 @@ if ($isAdmin && isset($_POST['deleteUser'])) {
     csrf_verify();
     $userId = $_POST['userId'] ?? 0;
 
-    $stmt = $mysql->prepare("DELETE FROM orders WHERE user_id = ?");
-    $stmt->bind_param("i", $userId);
+    $stmt = db_prepare($mysql, "DELETE FROM orders WHERE user_id = ?", "i", $userId);
     $stmt->execute();
 
-    $stmt = $mysql->prepare("DELETE FROM favorites WHERE user_id = ?");
-    $stmt->bind_param("i", $userId);
+    $stmt = db_prepare($mysql, "DELETE FROM favorites WHERE user_id = ?", "i", $userId);
     $stmt->execute();
 
-    $stmt = $mysql->prepare("DELETE FROM users WHERE user_id = ?");
-    $stmt->bind_param("i", $userId);
+    $stmt = db_prepare($mysql, "DELETE FROM users WHERE user_id = ?", "i", $userId);
     $stmt->execute();
 
     csrf_rotate();

@@ -14,8 +14,7 @@ if (!$mysql) {
 $userProfile = null;
 $userLogin = $_SESSION['user_login'] ?? null;
 if ($userLogin) {
-    $stmt = $mysql->prepare("SELECT * FROM `users` WHERE `user_login` = ?");
-    $stmt->bind_param("s", $userLogin);
+    $stmt = db_prepare($mysql, "SELECT * FROM `users` WHERE `user_login` = ?", "s", $userLogin);
     $stmt->execute();
     $validResult = $stmt->get_result();
     $userProfile = $validResult->fetch_assoc();
@@ -49,8 +48,7 @@ if ($userProfile) {
             exit();
         }
 
-        $stmt = $mysql->prepare("UPDATE `users` SET `user_name` = ? WHERE `user_login` = ?");
-        $stmt->bind_param("ss", $name, $_SESSION['user_login']);
+        $stmt = db_prepare($mysql, "UPDATE `users` SET `user_name` = ? WHERE `user_login` = ?", "ss", $name, $_SESSION['user_login']);
         $stmt->execute();
         $_SESSION['user_name'] = $name;
         csrf_rotate();
@@ -116,8 +114,7 @@ if ($userProfile) {
         csrf_verify();
         $number = $_POST['user_number'] ?? '';
 
-        $stmt = $mysql->prepare("UPDATE `users` SET `user_number` = ? WHERE `user_login` = ?");
-        $stmt->bind_param("ss", $number, $_SESSION['user_login']);
+        $stmt = db_prepare($mysql, "UPDATE `users` SET `user_number` = ? WHERE `user_login` = ?", "ss", $number, $_SESSION['user_login']);
         $stmt->execute();
         header('Location: /profile.php');
         exit();
@@ -127,8 +124,7 @@ if ($userProfile) {
         csrf_verify();
         $surname = $_POST['user_surname'] ?? '';
 
-        $stmt = $mysql->prepare("UPDATE `users` SET `user_surname` = ? WHERE `user_login` = ?");
-        $stmt->bind_param("ss", $surname, $_SESSION['user_login']);
+        $stmt = db_prepare($mysql, "UPDATE `users` SET `user_surname` = ? WHERE `user_login` = ?", "ss", $surname, $_SESSION['user_login']);
         $stmt->execute();
         header('Location: /profile.php');
         exit();
@@ -138,8 +134,7 @@ if ($userProfile) {
         csrf_verify();
         $email = $_POST['user_email'] ?? '';
 
-        $stmt = $mysql->prepare("UPDATE `users` SET `user_email` = ? WHERE `user_login` = ?");
-        $stmt->bind_param("ss", $email, $_SESSION['user_login']);
+        $stmt = db_prepare($mysql, "UPDATE `users` SET `user_email` = ? WHERE `user_login` = ?", "ss", $email, $_SESSION['user_login']);
         $stmt->execute();
         header('Location: /profile.php');
         exit();
@@ -147,19 +142,16 @@ if ($userProfile) {
 
     if (isset($_POST['deleteAssembly']) && isset($_POST['favoritId'])) {
         csrf_verify();
-        $stmt = $mysql->prepare("SELECT orders.assembly_id FROM users,assembly,orders WHERE ? = orders.assembly_id AND users.user_id = ?");
-        $stmt->bind_param("ii", $_POST['deleteAssembly'], $_SESSION['user_id']);
+        $stmt = db_prepare($mysql, "SELECT orders.assembly_id FROM users,assembly,orders WHERE ? = orders.assembly_id AND users.user_id = ?", "ii", $_POST['deleteAssembly'], $_SESSION['user_id']);
         $stmt->execute();
         $result = $stmt->get_result();
         $row = $result->fetch_array();
 
-        $stmt = $mysql->prepare("DELETE FROM favorites WHERE favorit_id = ?");
-        $stmt->bind_param("i", $_POST['favoritId']);
+        $stmt = db_prepare($mysql, "DELETE FROM favorites WHERE favorit_id = ?", "i", $_POST['favoritId']);
         $stmt->execute();
 
         if (($_POST['deleteAssembly'] > 3) && (!isset($row[0]))) {
-            $stmt = $mysql->prepare("DELETE FROM assembly WHERE assembly_id = ?");
-            $stmt->bind_param("i", $_POST['deleteAssembly']);
+            $stmt = db_prepare($mysql, "DELETE FROM assembly WHERE assembly_id = ?", "i", $_POST['deleteAssembly']);
             $stmt->execute();
         }
         header('Location: /profile.php');

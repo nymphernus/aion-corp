@@ -16,7 +16,7 @@ if (!defined('ADMIN_CONTEXT')) {
 
 $catRows = [];
 $sql = "SELECT * FROM categories ORDER BY `categories`.`category_id` ASC";
-$stmt = $mysql->prepare($sql);
+$stmt = db_prepare($mysql, $sql);
 $stmt->execute();
 $result = $stmt->get_result();
 if ($result) {
@@ -27,7 +27,7 @@ if ($result) {
 
 $socketRows = [];
 $sql = "SELECT * FROM sockets ORDER BY `sockets`.`socket_id` ASC";
-$stmt = $mysql->prepare($sql);
+$stmt = db_prepare($mysql, $sql);
 $stmt->execute();
 $result = $stmt->get_result();
 if ($result) {
