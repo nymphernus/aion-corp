@@ -464,6 +464,9 @@ document.addEventListener('click', function(e) {
             street: data.user_street ?? '',
             house: data.user_house ?? '',
             apartment: data.user_apartment ?? '',
+            // 3.7-g-7: без этого ключа поле «Дата регистрации» в модалке
+            // покупателя оставалось пустым при переходе из заказа
+            regdate: data.user_regdate ?? '',
         });
     }
     // 3.7-i-4: адрес собирается из шести полей.
