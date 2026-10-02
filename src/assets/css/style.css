@@ -248,7 +248,8 @@ body::-webkit-scrollbar-thumb {
     border: 1px solid rgba(255, 255, 255, 0.25);
     color: #fff;
     font-weight: 500;
-    padding: 14px 32px;
+    padding: 18px 40px;
+    font-size: 17px;
     border-radius: 10px;
     transition: 200ms;
     text-decoration: none;
@@ -383,6 +384,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     -webkit-appearance: none;
 }
 
+/* ВРЕМЕННО: иконка возвращена для раздельного коммита */
 .price_input::placeholder{
 	color: #161616;
     opacity: 0.6;
