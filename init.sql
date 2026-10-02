@@ -106,6 +106,7 @@ CREATE TABLE `assembly` (
   KEY `ssd_2_id` (`ssd_2_id`),
   KEY `hdd_id` (`hdd_id`),
   KEY `dvd_id` (`dvd_id`),
+  KEY `idx_created` (`created_at`),
   CONSTRAINT `assembly_ibfk_1` FOREIGN KEY (`cpu_id`) REFERENCES `components` (`component_id`),
   CONSTRAINT `assembly_ibfk_10` FOREIGN KEY (`hdd_id`) REFERENCES `components` (`component_id`),
   CONSTRAINT `assembly_ibfk_11` FOREIGN KEY (`dvd_id`) REFERENCES `components` (`component_id`),
@@ -166,6 +167,7 @@ CREATE TABLE `components` (
   `cooler_type` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`component_id`),
   KEY `category_id` (`category_id`,`socket_id`),
+  KEY `idx_cat_price` (`category_id`,`component_price`),
   KEY `components_ibfk_1` (`socket_id`),
   CONSTRAINT `components_ibfk_1` FOREIGN KEY (`socket_id`) REFERENCES `sockets` (`socket_id`),
   CONSTRAINT `components_ibfk_2` FOREIGN KEY (`category_id`) REFERENCES `categories` (`category_id`)
@@ -227,6 +229,7 @@ CREATE TABLE `orders` (
   PRIMARY KEY (`order_id`),
   UNIQUE KEY `user_id` (`user_id`,`assembly_id`),
   KEY `orders_ibfk_1` (`assembly_id`),
+  KEY `idx_status` (`status`),
   CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`assembly_id`) REFERENCES `assembly` (`assembly_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci AVG_ROW_LENGTH=5461;
 /*!40101 SET character_set_client = @saved_cs_client */;
