@@ -1,267 +1,237 @@
-.container_configurator{
-    width: 100vw;
-    min-height: 150vh;
-    height: auto;
-    overflow: hidden;
-	height:auto;
-    /* background:url(../images/background_4.jpg) no-repeat;
-    background-size:cover; */
-    background: linear-gradient(-45deg, #b6f2dd, #aca2fb, #b6f2dd);
-	background-size: 400%;
-	animation: gradient 10s ease infinite;
+/* Страница сборки /assembly.php. Файл грузится только этой страницей,
+   в старой вёрстке здесь же лежал анимированный лиловый градиент
+   .container_configurator — теперь фон общий, серый, из base.css.
+
+   Слева карточки компонентов, справа липкая сводка с ценой и кнопками.
+   На узких экранах колонки складываются в одну, и сводка перестаёт быть
+   липкой. */
+
+.build-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    max-width: 1280px;
+    margin: 114px auto 40px;
+    padding: 0 24px;
+    align-items: start;
 }
-.shell_cfg{
-    height: auto;
-    margin-top: 100px;
-    margin-bottom: 10px;
-    background-color: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    border-radius: 20px;
-    position: relative;
-	margin-left: auto;
-    margin-right: auto;
-	width: 85%;
-	justify-content: center;
-    display: flex;
-}
-.components{
-    width: 90%;
-    height: 100%;
-}
-.about_assembly{
-    background-color: rgba(211, 211, 211, 0.5);
-    width: 30%;
-    height: 700px;
-    border-radius: 35px;
-    margin-top: 5%;
-    margin-right: 1%;
-    margin-bottom: 1%;
-    padding-top: 2%;
-    padding-bottom: 2%;
-    line-height: 40px;
-    font-size: 20px;
-}
-.kp{
-    width: 98%;
-    height: auto;
-    min-height: 120px;
-    background-color: rgba(255, 255, 255, 0.6);
-    border-radius: 35px;
-    margin:1%;
-    display: flex;
-    font-size: 20px;
-    align-items: center;
-    padding:0 40px;
-    justify-content: space-between;
-}
-.text_kp{
-    margin-top: 25px;
-    height: auto;
-    width: 50%;
+
+.build-components {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
 }
-.text_kp p{
+
+/* --- карточка компонента --- */
+
+.comp-card {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: border-color 200ms, box-shadow 200ms;
+}
+.comp-card:hover {
+    border-color: rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.comp-card__icon {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    border-radius: 10px;
+}
+.comp-card__icon img {
+    max-width: 36px;
+    max-height: 36px;
+    object-fit: contain;
+}
+
+.comp-card__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.comp-card__category {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+}
+
+.comp-card__name {
     font-size: 16px;
-}
-.text_kp h3{
-    color:brown;
-}
-.img_kp{
-    height: 60%;
-    width: 10%;
-}
-.arr_kp{
-    width: 30%;
-}
-.arr_kp p{
-    font-weight: bold;
-    color: orangered;
-}
-.img_kp img{
-    width: 100%;
-    height: 100%;
-}
-
-.about_assembly .dv{
-    width: 100%;
-    height: 10%;
-    text-align: center;
-}
-.about_assembly p{
-    width: 100%;
-    padding-left: 10%;
-}
-.about_assembly input{
-    width: 70%;
-    height: 90%;
-	font-weight: bold;
-    font-size: 20px;
-	text-align: center;
-	text-decoration: none;
-	text-transform: uppercase;
-	letter-spacing: .08em;
-    border: 2px solid #AEA8D3;
-	color: #FFF;
-	background: #353535;
-	cursor: pointer;
-    transition: .4s;
-}
-.about_assembly h1{
-    color: rgb(36, 134, 191);
-}
-.about_assembly input:hover{
-	transform: scale(1.1);
-    color:rgb(200, 11, 11);
-}
-.assembly_img{
-    width: 80%;
-    height: 55%;
-    margin: auto;
-    margin-bottom: 3%;
-}
-.assemblyInf{
-    border: 1px solid black;
-    border-radius: 20px;
-    padding: 5px;
-    width: 80%;
-    margin: auto;
-    margin-bottom: 5px;
-}
-.caseImg{
-    width: 100%;
-    height: 100%;
-}
-
-/* Адаптив (3.6.4) */
-
-@media (max-width: 1024px) {
-    .shell_cfg {
-        width: 95%;
-    }
-    .about_assembly {
-        width: 35%;
-    }
-}
-
-@media (max-width: 768px) {
-    .shell_cfg {
-        flex-direction: column;
-        width: 100%;
-        margin-top: 110px;
-    }
-    .components {
-        width: 100%;
-    }
-    .kp {
-        flex-direction: column;
-        height: auto;
-        padding: 16px;
-        text-align: center;
-    }
-    .about_assembly {
-        width: 100%;
-        height: auto;
-        margin: 16px 0;
-    }
-    .about_assembly .dv input {
-        width: 100%;
-    }
-}
-
-@media (max-width: 480px) {
-    .about_assembly {
-        font-size: 16px;
-        line-height: 32px;
-    }
-}
-
-/* === Характеристики компонентов на витрине сборки === 5-c
-
-   Блок под описанием категории: название компонента, короткая строка
-   и раскрывающиеся подробности. Название — span, а не ссылка: страницы
-   компонента в проекте нет, а ?id= у assembly.php означает id сборки,
-   так что ссылка с component_id увела бы на случайную другую сборку.
-
-   Сам блок рисуется один раз замыканием $renderComponent в assembly.php:
-   двенадцать копий разметки разъехались бы при первой же правке. */
-
-.kp-component {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-}
-.kp-component__name {
-    display: block;
-    font-size: 15px;
     font-weight: 600;
     color: var(--text);
-}
-.kp-component__brief {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-top: 4px;
+    margin-bottom: 4px;
+    line-height: 1.3;
+    word-break: break-word;
 }
 
-.kp-component__details {
-    margin-top: 8px;
+.comp-card__brief {
+    font-size: 13px;
+    color: var(--text-secondary);
 }
-.kp-component__details summary {
+
+.comp-card__details {
+    margin-top: 12px;
+}
+.comp-card__details summary {
     font-size: 13px;
     color: var(--accent);
     cursor: pointer;
     user-select: none;
-    position: static;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
-.kp-component__details summary::-webkit-details-marker {
+.comp-card__details summary::-webkit-details-marker {
     display: none;
 }
-/* Chrome перестал уважать ::-webkit-details-marker: маркер рисуется через
-   list-style-type: disclosure-open и ::marker, поэтому если убрать только
-   первое, рядом с нашим треугольником из ::before рисуется ещё и нативный.
-   На скриншоте их было видно два. */
-.kp-component__details summary::marker {
+/* Chrome рисует свой маркер раскрытия через list-style-type, а не через
+   ::-webkit-details-marker, поэтому убрать надо оба - иначе рядом с нашим
+   треугольником из ::before встанет ещё и нативный. */
+.comp-card__details summary::marker {
     content: none;
 }
-.kp-component__details summary::before {
-    content: '\25B8\00a0';
+.comp-card__details summary::before {
+    content: '\25B8';
     display: inline-block;
+    font-size: 11px;
 }
-/* Поворот треугольника без transition. С анимацией Chrome держит
-   transform на summary::before залипшим на нуле: не поворачивается ни на
-   градус и не анимируется, проверено замерами transform через 30, 100,
-   200, 400 и 800 мс после раскрытия - всегда matrix(1, 0, 0, 1, 0, 0).
-   Без transition поворот отрабатывает сразу: анимации здесь нет, но
-   раскрытие работает как задумано. */
-.kp-component__details[open] summary::before {
+/* Поворот без transition: с анимацией Chrome держит transform на
+   summary::before залипшим на нуле, проверено замерами через 30, 100,
+   200, 400 и 800 мс после раскрытия - всегда matrix(1, 0, 0, 1, 0, 0). */
+.comp-card__details[open] summary::before {
     transform: rotate(90deg);
 }
 
-.kp-component__full {
+.comp-card__full {
     margin-top: 12px;
-    padding: 12px;
+    padding: 14px;
     background: var(--bg);
     border-radius: 8px;
     font-size: 13px;
-}
-.kp-component__full p {
-    margin: 0;
-    color: var(--text-secondary);
     line-height: 1.5;
 }
+.comp-card__description {
+    color: var(--text);
+    margin: 0 0 12px;
+}
 
-.kp-specs {
+.comp-specs {
     display: grid;
     grid-template-columns: max-content 1fr;
     gap: 6px 16px;
-    margin: 12px 0 0;
+    margin: 0;
 }
-.kp-specs dt {
+.comp-specs dt {
     color: var(--text-secondary);
     font-weight: 500;
 }
-.kp-specs dd {
+.comp-specs dd {
     margin: 0;
     color: var(--text);
+    word-break: break-word;
+}
+
+/* --- сводка сборки --- */
+
+.build-summary {
+    position: sticky;
+    top: 114px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.build-summary__image {
+    height: 240px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #F8FAFC 0%, #EEF2F7 100%);
+    border-radius: 12px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+.build-summary__image img {
+    max-height: 85%;
+    max-width: 85%;
+    object-fit: contain;
+}
+
+.build-summary__title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+}
+
+.build-summary__number {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.build-summary__price {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    padding: 20px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    letter-spacing: -0.01em;
+}
+
+.build-summary__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.build-summary__actions .btn {
+    width: 100%;
+    height: 48px;
+    font-size: 15px;
+    justify-content: center;
+}
+.build-summary__form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.build-summary__hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin: 8px 0 0;
+}
+
+/* --- адаптив --- */
+
+@media (max-width: 1024px) {
+    .build-layout {
+        grid-template-columns: 1fr;
+    }
+    .build-summary {
+        position: static;
+    }
 }

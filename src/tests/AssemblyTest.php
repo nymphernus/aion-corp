@@ -123,11 +123,13 @@ final class AssemblyTest extends AionTestCase
         ]);
         $this->assertSame(302, $cfg['code']);
 
-        // 2. Открываем созданную сборку, запоминаем N
+        // 2. Открываем созданную сборку, запоминаем N.
+        // 5-c-redesign: номер выводится в сводке как «Сборка №N»,
+        // раньше это был отдельный блок «Номер сборки - N»
         $page = $this->httpGet('/assembly.php');
         $this->assertSame(200, $page['code']);
-        $this->assertMatchesRegularExpression('/Номер сборки - (\d+)/', $page['body']);
-        preg_match('/Номер сборки - (\d+)/', $page['body'], $m);
+        $this->assertMatchesRegularExpression('/Сборка №(\d+)/', $page['body']);
+        preg_match('/Сборка №(\d+)/', $page['body'], $m);
         $n = (int) $m[1];
         $this->assertGreaterThan(3, $n, 'Конфигуратор не создал пользовательскую сборку');
         // запоминаем: уборка в tearDownAfterClass удалит именно её
