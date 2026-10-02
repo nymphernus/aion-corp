@@ -19,7 +19,10 @@ $userName = $userProfile['user_name'] ?? ($_SESSION['user_name'] ?? '');
 $userLogin = $userProfile['user_login'] ?? ($_SESSION['user_login'] ?? '');
 $userInitial = mb_strtoupper(mb_substr((string) $userName, 0, 1, 'UTF-8'), 'UTF-8');
 
-$adminTabs = ['dashboard', 'users', 'orders', 'components'];
+// 3.7-g-2: дашборд убран из $adminTabs, он лежит рядом с аккордеоном
+// отдельным пунктом. Иначе на дашборде подсвечивалось бы и «Панель
+// управления» в summary, и «Дашборд» в подпунктах.
+$adminTabs = ['users', 'orders', 'components'];
 $isAdminSection = in_array($activeTab, $adminTabs, true);
 ?>
                 <aside class="profile-sidebar">
@@ -40,13 +43,14 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                         <button type="button" class="profile-nav-item<?= $activeSection === 'card-builds' ? ' active' : '' ?>" data-action="switch" data-target="card-builds">Мои заказы</button>
                         <button type="button" class="profile-nav-item<?= $activeSection === 'card-fav' ? ' active' : '' ?>" data-action="switch" data-target="card-fav">Избранное</button>
 <?php else: ?>
+                        <!-- 3.7-g-2: дашборд вынесен из аккордеона отдельным
+                             пунктом - это точка входа, а не раздел -->
+                        <a href="/admin.php?tab=dashboard" class="profile-nav-item<?= $activeTab === 'dashboard' ? ' active' : '' ?>">Дашборд</a>
                         <details class="profile-nav-group"<?= $isAdminSection ? ' open' : '' ?>>
                             <summary class="profile-nav-item<?= $isAdminSection ? ' active' : '' ?>">Панель управления</summary>
                             <div class="profile-nav-sub">
 <?php
     $adminLinks = [
-        // 3.7-g: дашборд первым - с него начинают работу в панели
-        'dashboard' => ['/admin.php?tab=dashboard', 'Дашборд'],
         'users' => ['/admin.php?tab=users', 'Пользователи'],
         'orders' => ['/admin.php?tab=orders', 'Заказы'],
         'components' => ['/admin.php?tab=components', 'Комплектующие'],

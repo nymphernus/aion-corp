@@ -44,7 +44,7 @@ if ($result) {
 <?php endif; ?>
                 <section class="card admin-panel">
                     <div class="admin-header">
-                        <h1>Управление комплектующими</h1>
+                        <h1 class="admin-title">Управление комплектующими</h1>
                         <button type="button" class="btn btn--primary" data-action="open-modal" data-modal="addComponentModal">+ Добавить</button>
                     </div>
 

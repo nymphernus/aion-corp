@@ -54,7 +54,7 @@ $revenueAll = $scalar($mysql, "SELECT COALESCE(SUM(a.assembly_price), 0)
 
 $money = static fn (int $value): string => number_format($value, 0, ',', "\u{202F}") . ' ₽';
 ?>
-                <h1>Дашборд</h1>
+                <h1 class="admin-title">Дашборд</h1>
 
                 <div class="dashboard-grid">
                     <div class="card dashboard-card">
