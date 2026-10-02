@@ -1,405 +1,197 @@
--- phpMyAdmin SQL Dump
--- version 5.2.0
--- https://www.phpmyadmin.net/
+-- ============================================================================
+--  AION CORP - начальная загрузка базы (Stage 3.7-j-3)
 --
--- Хост: 127.0.0.1
--- Время создания: Июн 17 2022 г., 03:37
--- Версия сервера: 10.4.24-MariaDB
--- Версия PHP: 8.1.4
+--  Что внутри:
+--    - схема всех восьми таблиц (CREATE TABLE) с текущими индексами,
+--      внешними ключами и счётчиками AUTO_INCREMENT;
+--    - справочники: categories (10), sockets (7);
+--    - components (235) - все 20 колонок, с заполненными manufacturer,
+--      model, specs, ram_type, capacity_gb, frequency_mhz, memory_type,
+--      interface и form_factor.
+--
+--  Чего внутри нет и почему:
+--    - users       - учётные записи создаёт docker/entrypoint.sh через
+--                    scripts/create_admin.php --if-not-exists, логин и пароль
+--                    берутся из ADMIN_LOGIN и ADMIN_PASSWORD окружения;
+--    - assembly    - каталог сборок создаёт пользователь в конфигураторе
+--                    (modules/configurator.php берёт MAX(assembly_id)+1),
+--                    в старом файле лежали 5 строк тестовых сборок 2022 года;
+--    - orders, favorites - данные пользователей;
+--    - login_attempts - журнал неудачных попыток входа.
+--
+--  Пересобрано 2 октября 2026 командой:
+--    mysqldump --no-data aion_bd
+--    mysqldump --no-create-info --skip-extended-insert --complete-insert \
+--              aion_bd categories sockets components
+--
+--  Файл выполняется автоматически при первом старте контейнера mysql,
+--  потому что смонтирован в /docker-entrypoint-initdb.d/init.sql. Чтобы
+--  применить заново на существующем томе, нужно удалить том:
+--    docker compose down -v && docker compose up -d
+--
+--  Счётчики AUTO_INCREMENT приведены в порядок вручную: у пустых
+--  таблиц (users, orders, favorites, assembly, login_attempts) они
+--  стоят на 1, у components - 243, то есть сразу за последним
+--  вставленным id 242. В выгрузке с рабочей базы приехали
+--  выжженные тестами значения (users - 310, orders - 117), из-за
+--  чего первый пользователь свежей установки получал id 310.
+--
+--  Замечание про гонку при первом старте: образ mysql после
+--  init.sql перезапускает mysqld с временного сервера, поэтому
+--  php-контейнер ловит «Connection refused» и ждёт - этим занимается
+--  цикл в docker/entrypoint.sh. Проверять БД надо после того, как в
+--  логах php появилась строка «Админ создан», а не сразу после
+--  docker compose up -d.
+--
+--  Кодировка UTF-8 без BOM. Если PowerShell пишет этот файл перенаправлением
+--  (>), он получается в UTF-16LE и mysql его не прочитает. Собирать файл
+--  через [System.IO.File]::WriteAllText с UTF8Encoding($false).
+-- ============================================================================
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
-
+-- MySQL dump 10.13  Distrib 8.0.46, for Linux (x86_64)
+--
+-- Host: localhost    Database: aion_bd
+-- ------------------------------------------------------
+-- Server version	8.0.46
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- База данных: `u1697528_aion_bd`
+-- Table structure for table `assembly`
 --
 
--- --------------------------------------------------------
-
---
--- Структура таблицы `assembly`
---
-
+DROP TABLE IF EXISTS `assembly`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `assembly` (
-  `assembly_id` int(11) NOT NULL,
+  `assembly_id` int NOT NULL AUTO_INCREMENT,
   `assembly_name` varchar(255) NOT NULL,
-  `cpu_id` int(11) NOT NULL,
-  `gpu_id` int(11) DEFAULT NULL,
-  `motherboard_id` int(11) NOT NULL,
-  `ram_id` int(11) NOT NULL,
-  `case_id` int(11) NOT NULL,
-  `cooler_id` int(11) NOT NULL,
-  `power_supply_id` int(11) NOT NULL,
-  `ssd_id` int(11) NOT NULL,
+  `cpu_id` int NOT NULL,
+  `gpu_id` int DEFAULT NULL,
+  `motherboard_id` int NOT NULL,
+  `ram_id` int NOT NULL,
+  `case_id` int NOT NULL,
+  `cooler_id` int NOT NULL,
+  `power_supply_id` int NOT NULL,
+  `ssd_id` int NOT NULL,
   `os` varchar(255) DEFAULT NULL,
-  `ssd_2_id` int(11) DEFAULT NULL,
-  `hdd_id` int(11) DEFAULT NULL,
-  `dvd_id` int(11) DEFAULT NULL,
-  `assembly_price` int(11) NOT NULL
-) ENGINE=InnoDB AVG_ROW_LENGTH=5461 DEFAULT CHARSET=utf8;
+  `ssd_2_id` int DEFAULT NULL,
+  `hdd_id` int DEFAULT NULL,
+  `dvd_id` int DEFAULT NULL,
+  `assembly_price` int NOT NULL,
+  PRIMARY KEY (`assembly_id`),
+  KEY `cpu_id` (`cpu_id`,`gpu_id`,`motherboard_id`,`ram_id`,`case_id`,`cooler_id`,`power_supply_id`,`ssd_id`,`ssd_2_id`,`hdd_id`,`dvd_id`),
+  KEY `gpu_id` (`gpu_id`),
+  KEY `motherboard_id` (`motherboard_id`),
+  KEY `ram_id` (`ram_id`),
+  KEY `case_id` (`case_id`),
+  KEY `cooler_id` (`cooler_id`),
+  KEY `power_supply_id` (`power_supply_id`),
+  KEY `ssd_id` (`ssd_id`),
+  KEY `ssd_2_id` (`ssd_2_id`),
+  KEY `hdd_id` (`hdd_id`),
+  KEY `dvd_id` (`dvd_id`),
+  CONSTRAINT `assembly_ibfk_1` FOREIGN KEY (`cpu_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_10` FOREIGN KEY (`hdd_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_11` FOREIGN KEY (`dvd_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_2` FOREIGN KEY (`gpu_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_3` FOREIGN KEY (`motherboard_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_4` FOREIGN KEY (`ram_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_5` FOREIGN KEY (`case_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_6` FOREIGN KEY (`cooler_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_7` FOREIGN KEY (`power_supply_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_8` FOREIGN KEY (`ssd_id`) REFERENCES `components` (`component_id`),
+  CONSTRAINT `assembly_ibfk_9` FOREIGN KEY (`ssd_2_id`) REFERENCES `components` (`component_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb3 AVG_ROW_LENGTH=5461;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Дамп данных таблицы `assembly`
+-- Table structure for table `categories`
 --
 
-INSERT INTO `assembly` (`assembly_id`, `assembly_name`, `cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `os`, `ssd_2_id`, `hdd_id`, `dvd_id`, `assembly_price`) VALUES
-(1, 'EinTech', 4, NULL, 44, 102, 133, 147, 117, 174, NULL, NULL, NULL, NULL, 30000),
-(2, 'Eternal', 38, 83, 66, 104, 135, 149, 122, 178, NULL, NULL, NULL, NULL, 105000),
-(3, 'Magic Workbench', 29, 96, 56, 103, 143, 162, 125, 180, NULL, NULL, 170, NULL, 340000),
-(4, '#4', 18, NULL, 47, 109, 139, 150, 123, 177, NULL, NULL, NULL, NULL, 90192),
-(5, '#5', 43, NULL, 71, 116, 144, 167, 127, 181, NULL, NULL, NULL, NULL, 459892);
-
--- --------------------------------------------------------
-
---
--- Структура таблицы `categories`
---
-
+DROP TABLE IF EXISTS `categories`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `categories` (
-  `category_id` int(11) NOT NULL,
-  `category_name` varchar(255) CHARACTER SET utf8 NOT NULL
-) ENGINE=InnoDB AVG_ROW_LENGTH=1820 DEFAULT CHARSET=utf8mb4;
+  `category_id` int NOT NULL AUTO_INCREMENT,
+  `category_name` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
+  PRIMARY KEY (`category_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci AVG_ROW_LENGTH=1820;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Дамп данных таблицы `categories`
+-- Table structure for table `components`
 --
 
-INSERT INTO `categories` (`category_id`, `category_name`) VALUES
-(1, 'Процессор'),
-(2, 'Материнская плата'),
-(3, 'Видеокарта'),
-(4, 'Оперативная память'),
-(5, 'Блок питания'),
-(6, 'Корпус'),
-(7, 'Кулер'),
-(8, 'HDD'),
-(9, 'SSD'),
-(10, 'Привод');
-
--- --------------------------------------------------------
-
---
--- Структура таблицы `components`
---
-
+DROP TABLE IF EXISTS `components`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `components` (
-  `component_id` int(11) NOT NULL,
-  `component_name` varchar(255) CHARACTER SET utf8 NOT NULL,
+  `component_id` int NOT NULL AUTO_INCREMENT,
+  `component_name` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `description` varchar(500) DEFAULT NULL,
-  `category_id` int(11) NOT NULL,
-  `socket_id` int(11) DEFAULT NULL,
+  `category_id` int NOT NULL,
+  `socket_id` int DEFAULT NULL,
   `video_core` tinyint(1) DEFAULT NULL,
-  `tdp` int(11) DEFAULT NULL,
-  `image` varchar(255) CHARACTER SET utf8 DEFAULT NULL,
-  `component_price` int(11) NOT NULL,
-  `amount` int(10) NOT NULL,
+  `tdp` int DEFAULT NULL,
+  `image` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `component_price` int NOT NULL,
+  `amount` int NOT NULL,
   `manufacturer` varchar(100) DEFAULT NULL,
   `model` varchar(100) DEFAULT NULL,
   `specs` json DEFAULT NULL,
   `ram_type` varchar(10) DEFAULT NULL,
-  `capacity_gb` int(11) DEFAULT NULL,
-  `frequency_mhz` int(11) DEFAULT NULL,
+  `capacity_gb` int DEFAULT NULL,
+  `frequency_mhz` int DEFAULT NULL,
   `memory_type` varchar(20) DEFAULT NULL,
-  `wattage` int(11) DEFAULT NULL,
+  `wattage` int DEFAULT NULL,
   `interface` varchar(20) DEFAULT NULL,
   `form_factor` varchar(20) DEFAULT NULL,
-  `rpm` int(11) DEFAULT NULL,
-  `cooler_type` varchar(20) DEFAULT NULL
-) ENGINE=InnoDB AVG_ROW_LENGTH=181 DEFAULT CHARSET=utf8mb4;
+  `rpm` int DEFAULT NULL,
+  `cooler_type` varchar(20) DEFAULT NULL,
+  PRIMARY KEY (`component_id`),
+  KEY `category_id` (`category_id`,`socket_id`),
+  KEY `components_ibfk_1` (`socket_id`),
+  CONSTRAINT `components_ibfk_1` FOREIGN KEY (`socket_id`) REFERENCES `sockets` (`socket_id`),
+  CONSTRAINT `components_ibfk_2` FOREIGN KEY (`category_id`) REFERENCES `categories` (`category_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=243 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci AVG_ROW_LENGTH=181;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Дамп данных таблицы `components`
+-- Table structure for table `favorites`
 --
 
-INSERT INTO `components` (`component_id`, `component_name`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`) VALUES
-(1, 'Celeron G5905', 1, 1, 1, 58, NULL, 2350, 10),
-(2, 'Pentium Gold G6405', 1, 1, 1, 58, NULL, 3800, 10),
-(3, 'A8-9600', 1, 3, 1, 65, NULL, 5499, 10),
-(4, 'i3-10100F', 1, 1, 0, 65, NULL, 4000, 10),
-(5, 'i3-10100', 1, 1, 1, 65, NULL, 5500, 10),
-(6, 'i5-10400', 1, 1, 1, 65, NULL, 6250, 10),
-(7, 'i5-11400F', 1, 1, 0, 65, NULL, 7450, 10),
-(8, 'i5-10400F', 1, 1, 0, 65, NULL, 6600, 10),
-(9, 'i5-11400F', 1, 1, 1, 65, NULL, 8000, 10),
-(10, 'i5-10600KF', 1, 1, 0, 125, NULL, 8200, 10),
-(11, 'i5-10400F', 1, 1, 0, 65, NULL, 6600, 10),
-(12, 'i5-10600', 1, 1, 1, 65, NULL, 8500, 10),
-(13, 'i5-11600', 1, 1, 1, 65, NULL, 9600, 10),
-(14, 'i5-11600KF', 1, 1, 0, 125, NULL, 10150, 10),
-(15, 'i5-11600K', 1, 1, 1, 125, NULL, 10350, 10),
-(16, 'i7-10700F', 1, 1, 0, 65, NULL, 12150, 10),
-(17, 'i7-10700F', 1, 1, 0, 65, NULL, 12150, 10),
-(18, 'i7-11700', 1, 1, 1, 65, NULL, 12200, 10),
-(19, 'i9-10900F', 1, 1, 0, 65, NULL, 14700, 10),
-(20, 'i9-10900', 1, 1, 1, 65, NULL, 15200, 10),
-(21, 'i9-11900F', 1, 1, 0, 65, NULL, 15750, 10),
-(22, 'i9-11900KF', 1, 1, 0, 125, NULL, 19000, 10),
-(23, 'Celeron G6900', 1, 2, 1, 46, NULL, 4999, 10),
-(24, 'Pentium Gold G7400', 1, 2, 1, 46, NULL, 10999, 10),
-(25, 'i3-12100F', 1, 2, 0, 89, NULL, 12599, 10),
-(26, 'i3-12100', 1, 2, 1, 89, NULL, 14999, 10),
-(27, 'i5-12400F', 1, 2, 0, 117, NULL, 16599, 10),
-(28, 'i5-12400', 1, 2, 1, 117, NULL, 18599, 10),
-(29, 'i7-12700F', 1, 2, 0, 180, NULL, 32599, 10),
-(30, 'i9-12900F', 1, 2, 0, 202, NULL, 48999, 10),
-(31, 'i9-12900KF', 1, 2, 0, 241, NULL, 54999, 10),
-(32, 'A6-9500E', 1, 3, 1, 35, NULL, 3399, 10),
-(33, 'Athlon X4 950', 1, 3, 0, 65, NULL, 3699, 10),
-(34, 'Athlon 3000G', 1, 3, 1, 35, NULL, 5899, 10),
-(35, 'Ryzen 3 PRO 1200', 1, 3, 0, 65, NULL, 7299, 10),
-(36, 'Ryzen 3 PRO 2100GE', 1, 3, 1, 35, NULL, 10199, 10),
-(37, 'Ryzen 5 3600', 1, 3, 0, 65, NULL, 15899, 10),
-(38, 'Ryzen 5 5600G', 1, 3, 1, 65, NULL, 19699, 10),
-(39, 'Ryzen 7 3700X', 1, 3, 0, 65, NULL, 22899, 10),
-(40, 'Ryzen 7 3800X', 1, 3, 0, 105, NULL, 23199, 10),
-(41, 'Ryzen 7 5800X', 1, 3, 0, 105, NULL, 28199, 10),
-(42, 'Ryzen 9 5900X', 1, 3, 0, 105, NULL, 39999, 10),
-(43, 'Ryzen 9 5950X', 1, 3, 0, 105, NULL, 55299, 10),
-(44, 'ASRock H410M-HVS R2.0', 2, 1, NULL, NULL, NULL, 2100, 10),
-(45, 'ASRock H470M-HVS', 2, 1, NULL, NULL, NULL, 2250, 10),
-(46, 'ASRock H510M-HDV', 2, 1, NULL, NULL, NULL, 2500, 10),
-(47, 'ASRock H570M Pro4', 2, 1, NULL, NULL, NULL, 4500, 10),
-(48, 'ASRock Z590M Phantom Gaming 4', 2, 1, NULL, NULL, NULL, 5000, 10),
-(49, 'ASRock Z590 PG Velocita', 2, 1, NULL, NULL, NULL, 10500, 10),
-(50, 'Gigabyte B560M Gaming HD', 2, 1, NULL, NULL, NULL, 3250, 10),
-(51, 'Gigabyte B560M Gaming HD', 2, 1, NULL, NULL, NULL, 3250, 10),
-(52, 'Gigabyte Z590 UD AC', 2, 1, NULL, NULL, NULL, 5750, 10),
-(53, 'Gigabyte Z590 AORUS ULTRA', 2, 1, NULL, NULL, NULL, 8500, 10),
-(54, 'ASRock H610M-HDV/M.2', 2, 2, NULL, NULL, NULL, 8499, 10),
-(55, 'ASRock B660M Pro RS', 2, 2, NULL, NULL, NULL, 10999, 10),
-(56, 'ASRock Z690 Phantom Gaming 4', 2, 2, NULL, NULL, NULL, 13999, 10),
-(57, 'ASRock Z690 Extreme', 2, 2, NULL, NULL, NULL, 21999, 10),
-(58, 'Gigabyte H610M H DDR4', 2, 2, NULL, NULL, NULL, 6999, 10),
-(59, 'Gigabyte Z690 Gaming X DDR4', 2, 2, NULL, NULL, NULL, 15999, 10),
-(60, 'MSI MPG Z690 EDGE WIFI DDR4', 2, 2, NULL, NULL, NULL, 26999, 10),
-(61, 'ASRock A320M-DVS R4.0', 2, 3, NULL, NULL, NULL, 2999, 10),
-(62, 'ASUS PRIME A320M-K', 2, 3, NULL, NULL, NULL, 3799, 10),
-(63, 'MSI B450M-A PRO MAX', 2, 3, NULL, NULL, NULL, 3899, 10),
-(64, 'ASRock A520M-HVS', 2, 3, NULL, NULL, NULL, 4199, 10),
-(65, 'Gigabyte B450 AORUS M', 2, 3, NULL, NULL, NULL, 4999, 10),
-(66, 'ASRock A520M Pro4', 2, 3, NULL, NULL, NULL, 6799, 10),
-(67, 'Gigabyte B550M AORUS ELITE', 2, 3, NULL, NULL, NULL, 8999, 10),
-(68, 'Gigabyte Z570 Gaming X', 2, 3, NULL, NULL, NULL, 10999, 10),
-(69, 'ASRock X570M Pro4', 2, 3, NULL, NULL, NULL, 15999, 10),
-(70, 'Gigabyte X570S AERO G', 2, 3, NULL, NULL, NULL, 29999, 10),
-(71, 'Gigabyte X550 AORUS XTREME', 2, 3, NULL, NULL, NULL, 64999, 10),
-(72, 'MSI GeForce 210', 3, NULL, NULL, NULL, NULL, 3399, 10),
-(73, 'GIGABYTE GeForce GT 730', 3, NULL, NULL, NULL, NULL, 4950, 10),
-(74, 'MSI GeForce 210', 3, NULL, NULL, NULL, NULL, 3399, 10),
-(75, 'GIGABYTE GeForce GT 730', 3, NULL, NULL, NULL, NULL, 4950, 10),
-(76, 'PowerColor AMD Radeon R7 240', 3, NULL, NULL, NULL, NULL, 5899, 10),
-(77, 'GIGABYTE GeForce GT 1030 Low Profile D4 2G', 3, NULL, NULL, NULL, NULL, 6899, 10),
-(78, 'PowerColor AMD Radeon 550 LP', 3, NULL, NULL, NULL, NULL, 9999, 10),
-(79, 'MSI AMD Radeon RX 550 AERO ITX OC', 3, NULL, NULL, NULL, NULL, 11799, 10),
-(80, 'AFOX GTX 750', 3, NULL, NULL, NULL, NULL, 8399, 10),
-(81, 'Palit GeForce GTX 1050 Ti STORMX', 3, NULL, NULL, NULL, NULL, 11279, 10),
-(82, 'ASUS GeForce GTX 1650 PHOENIX OC', 3, NULL, NULL, NULL, NULL, 16499, 10),
-(83, 'PowerColor AMD Radeon RX 6500 XT ITX', 3, NULL, NULL, NULL, NULL, 28499, 10),
-(84, 'Palit GeForce GTX 1660 SUPER STORMX', 3, NULL, NULL, NULL, NULL, 20399, 10),
-(85, 'Palit GeForce RTX 3050 Dual', 3, NULL, NULL, NULL, NULL, 39999, 10),
-(86, 'GIGABYTE GeForce RTX 2060 D6 6G (rev. 2.0)', 3, NULL, NULL, NULL, NULL, 25799, 10),
-(87, 'MSI GeForce RTX 3050 GAMING X', 3, NULL, NULL, NULL, NULL, 46799, 10),
-(88, 'ASRock AMD Radeon RX 6600 Challenger D', 3, NULL, NULL, NULL, NULL, 47999, 10),
-(89, 'GIGABYTE GeForce RTX 3060 EAGLE OC (LHR)', 3, NULL, NULL, NULL, NULL, 60199, 10),
-(90, 'Palit GeForce RTX 3060 Ti DUAL OC V1 (LHR)', 3, NULL, NULL, NULL, NULL, 70999, 10),
-(91, 'ZOTAC GAMING GeForce RTX 3060 Ti AMP LHR White Edition', 3, NULL, NULL, NULL, NULL, 82999, 10),
-(92, 'Powercolor AMD Radeon RX 6700 XT Fighter', 3, NULL, NULL, NULL, NULL, 89099, 10),
-(93, 'Palit GeForce RTX 3070 JetStream OC (LHR)', 3, NULL, NULL, NULL, NULL, 91399, 10),
-(94, 'GIGABYTE GeForce RTX 3080 GAMING OC (LHR)', 3, NULL, NULL, NULL, NULL, 101899, 10),
-(95, 'PowerColor Red Devil AMD Radeon RX 6800 XT', 3, NULL, NULL, NULL, NULL, 115599, 10),
-(96, 'GIGABYTE GeForce RTX 3080 GAMING OC', 3, NULL, NULL, NULL, NULL, 120099, 10),
-(97, 'KFA2 GeForce RTX 3080 Ti SG', 3, NULL, NULL, NULL, NULL, 145599, 10),
-(98, 'Palit GeForce RTX 3090 GamingPro', 3, NULL, NULL, NULL, NULL, 222999, 10),
-(99, 'Palit GeForce RTX 3090 TI GameRock OC', 3, NULL, NULL, NULL, NULL, 232999, 10),
-(102, 'Patriot Signature Line 4gbx2', 4, NULL, NULL, NULL, NULL, 2599, 10),
-(103, 'A-Data XPG Spectrix D60G RGB 16gbx2', 4, NULL, NULL, NULL, NULL, 15999, 10),
-(104, 'Kingston FURY Beast Black 4gbx4', 4, NULL, NULL, NULL, NULL, 9999, 10),
-(105, 'Kingston FURY Beast Black 4gbx2', 4, NULL, NULL, NULL, NULL, 4199, 10),
-(106, 'Goodram Iridium 4gbx2', 4, NULL, NULL, NULL, NULL, 5099, 10),
-(107, 'A-Data XPG GAMMIX D20 8gbx2', 4, NULL, NULL, NULL, NULL, 5999, 10),
-(108, 'Corsair Vengeance LPX 8gbx2', 4, NULL, NULL, NULL, NULL, 6299, 10),
-(109, 'Patriot Viper Steel 8gbx2', 4, NULL, NULL, NULL, NULL, 7799, 10),
-(110, 'A-Data XPG SPECTRIX D50 RGB 8gbx2', 4, NULL, NULL, NULL, NULL, 10299, 10),
-(111, 'Patriot Viper Elite II 16gbx2', 4, NULL, NULL, NULL, NULL, 11999, 10),
-(112, 'Patriot Viper Steel 16gbx2', 4, NULL, NULL, NULL, NULL, 13499, 10),
-(113, 'Kingston FURY Beast Black 16gbx2', 4, NULL, NULL, NULL, NULL, 14499, 10),
-(114, 'Kingston FURY Beast Black 32gbx2', 4, NULL, NULL, NULL, NULL, 26299, 10),
-(115, 'G.Skill TRIDENT Z Neo 32gbx2', 4, NULL, NULL, NULL, NULL, 35999, 10),
-(116, 'G.Skill Trident Z Royal 32gbx2', 4, NULL, NULL, NULL, NULL, 61999, 10),
-(117, 'Cougar VTE400', 5, NULL, NULL, NULL, NULL, 3199, 10),
-(118, 'Cougar VTX 600W', 5, NULL, NULL, NULL, NULL, 4350, 10),
-(119, 'Corsair CV650', 5, NULL, NULL, NULL, NULL, 4799, 10),
-(120, 'be quiet! SYSTEM POWER 9 600W', 5, NULL, NULL, NULL, NULL, 4999, 10),
-(121, 'Thermaltake Smart BX1 550W', 5, NULL, NULL, NULL, NULL, 5099, 10),
-(122, 'Cougar GEC 650', 5, NULL, NULL, NULL, NULL, 5711, 10),
-(123, 'Cougar GEC 750', 5, NULL, NULL, NULL, NULL, 6399, 10),
-(124, 'Cougar GX 800W', 5, NULL, NULL, NULL, NULL, 7699, 10),
-(125, 'Cougar GX 1050W', 5, NULL, NULL, NULL, NULL, 12499, 10),
-(126, 'HIPER HPG-1200FM', 5, NULL, NULL, NULL, NULL, 15999, 10),
-(127, 'GIGABYTE AORUS P1200W', 5, NULL, NULL, NULL, NULL, 29999, 10),
-(128, 'ExeGate BAA-106', 6, NULL, NULL, NULL, 'assets/images/cases/baa-16.png', 1599, 10),
-(129, 'ExeGate XP-329-XP500', 6, NULL, NULL, NULL, 'assets/images/cases/xp-329.png', 1999, 10),
-(130, 'GiNZZU B185 White', 6, NULL, NULL, NULL, 'assets/images/cases/b185w.png', 2599, 10),
-(131, 'Accord K-16', 6, NULL, NULL, NULL, 'assets/images/cases/k-16.png', 2750, 10),
-(132, 'AeroCool Streak', 6, NULL, NULL, NULL, 'assets/images/cases/streak.png', 2799, 10),
-(133, 'AeroCool Cylon White', 6, NULL, NULL, NULL, 'assets/images/cases/cylonw.png', 3799, 10),
-(134, 'ZALMAN i3 Edge', 6, NULL, NULL, NULL, 'assets/images/cases/i3edge.png', 4299, 10),
-(135, 'MONTECH FIGHTER 500', 6, NULL, NULL, NULL, 'assets/images/cases/fighter500.png', 4799, 10),
-(136, 'AeroCool Aero One Mini Frost', 6, NULL, NULL, NULL, 'assets/images/cases/aomf.png', 5199, 10),
-(137, 'Corsair 470T RGB', 6, NULL, NULL, NULL, 'assets/images/cases/470trgb.png', 5999, 10),
-(138, 'Thermaltake Core G21 Tempered Glass Edition', 6, NULL, NULL, NULL, 'assets/images/cases/g21tge.png', 6999, 10),
-(139, 'Cougar MX-660 Iron RGB', 6, NULL, NULL, NULL, 'assets/images/cases/mx-660irgb.png', 7599, 10),
-(140, 'Thermaltake AH T200', 6, NULL, NULL, NULL, 'assets/images/cases/aht200.png', 11999, 10),
-(141, 'Cougar Blazer Essence', 6, NULL, NULL, NULL, 'assets/images/cases/essence.png', 17419, 10),
-(142, 'Corsair Obsidian Series 500D', 6, NULL, NULL, NULL, 'assets/images/cases/obs500d.png', 20799, 10),
-(143, 'Thermaltake View 71 Tempered Glass SNOW Edition RGB', 6, NULL, NULL, NULL, 'assets/images/cases/view71.png', 25349, 10),
-(144, 'Corsair Obsidian Series 1000D', 6, NULL, NULL, NULL, 'assets/images/cases/obs1000d.png', 58999, 10),
-(145, 'DEEPCOOL Theta 20', 7, NULL, NULL, 82, NULL, 599, 10),
-(146, 'DEEPCOOL Alta 9', 7, NULL, NULL, 65, NULL, 499, 10),
-(147, 'DEEPCOOL Gamma Archer', 7, NULL, NULL, 95, NULL, 799, 10),
-(148, 'DEEPCOOL Ice Blade 100', 7, NULL, NULL, 100, NULL, 850, 10),
-(149, 'DEEPCOOL GAMMAXX 300', 7, NULL, NULL, 130, NULL, 1399, 10),
-(150, 'DEEPCOOL GAMMAXX 400K', 7, NULL, NULL, 150, NULL, 1699, 10),
-(151, 'DEEPCOOL GAMMAXX 400 V2', 7, NULL, NULL, 180, NULL, 1799, 10),
-(152, 'DEEPCOOL GAMMAXX 400 EX', 7, NULL, NULL, 180, NULL, 2599, 10),
-(153, 'be quiet! PURE ROCK 2', 7, NULL, NULL, 150, NULL, 3799, 10),
-(154, 'DEEPCOOL REDHAT', 7, NULL, NULL, 250, NULL, 4199, 10),
-(155, 'be quiet! SHADOW ROCK SLIM', 7, NULL, NULL, 160, NULL, 4499, 10),
-(156, 'DEEPCOOL AS500', 7, NULL, NULL, 220, NULL, 5299, 10),
-(157, 'be quiet! DARK ROCK 4', 7, NULL, NULL, 200, NULL, 5999, 10),
-(158, 'DEEPCOOL AK620', 7, NULL, NULL, 200, NULL, 6299, 10),
-(159, 'Noctua NH-U9DX i4', 7, NULL, NULL, 200, NULL, 7409, 10),
-(160, 'Cooler Master MasterLiquid Lite 120', 7, NULL, NULL, 180, NULL, 3799, 10),
-(161, 'DEEPCOOL GAMMAXX L120 V2', 7, NULL, NULL, 150, NULL, 4050, 10),
-(162, 'DEEPCOOL GAMMAXX L240T WHITE', 7, NULL, NULL, 200, NULL, 4699, 10),
-(163, 'Cooler Master MasterLiquid ML360 RGB TR4 Edition', 7, NULL, NULL, 250, NULL, 4999, 10),
-(164, 'Xilence Performance A+ LiQuRizer LQ240.W.ARGB', 7, NULL, NULL, 300, NULL, 7799, 10),
-(165, 'ID-Cooling AURAFLOW X 360 SNOW', 7, NULL, NULL, 300, NULL, 7999, 10),
-(166, 'AeroCool P7-L240', 7, NULL, NULL, 380, NULL, 9749, 10),
-(167, 'Corsair iCUE H150i RGB PRO XT', 7, NULL, NULL, 400, NULL, 17999, 10),
-(168, 'Western Digital Blue 500gb', 8, NULL, NULL, NULL, NULL, 3499, 10),
-(169, 'Western Digital Blue 1tb', 8, NULL, NULL, NULL, NULL, 2799, 10),
-(170, 'Western Digital Blue 2tb', 8, NULL, NULL, NULL, NULL, 4999, 10),
-(171, 'A-Data Ultimate SU650 M.2 120gb', 9, NULL, NULL, NULL, NULL, 1650, 10),
-(172, 'Kingston A400 M.2 120gb', 9, NULL, NULL, NULL, NULL, 1999, 10),
-(173, 'GIGABYTE NVMe SSD M.2 256gb', 9, NULL, NULL, NULL, NULL, 2399, 10),
-(174, 'Apacer AST280 M.2 240gb', 9, NULL, NULL, NULL, NULL, 2199, 10),
-(175, 'A-Data XPG SX6000 Pro M.2 256gb', 9, NULL, NULL, NULL, NULL, 3599, 10),
-(176, 'ExeGate NextPro KC2000TP480 M.2 480gb', 9, NULL, NULL, NULL, NULL, 4699, 10),
-(177, 'ExeGate NextPro+ KC2000TP512 M.2 512gb', 9, NULL, NULL, NULL, NULL, 4799, 10),
-(178, 'Kingston NV1 M.2 500gb', 9, NULL, NULL, NULL, NULL, 4550, 10),
-(179, 'Samsung 970 EVO Plus M.2 500gb', 9, NULL, NULL, NULL, NULL, 9999, 10),
-(180, 'Samsung 980 M.2 500gb', 9, NULL, NULL, NULL, NULL, 8899, 10),
-(181, 'Samsung 980 PRO M.2 1tb', 9, NULL, NULL, NULL, NULL, 24999, 10),
-(182, 'Western Digital Blue M.2 2tb', 9, NULL, NULL, NULL, NULL, 23999, 10),
-(183, 'Western Digital Blue M.2 1tb', 9, NULL, NULL, NULL, NULL, 9999, 10),
-(184, 'ExeGate UN450', 5, NULL, NULL, NULL, NULL, 1199, 10),
-(185, 'DVD-RW LG GH24NSD5', 10, NULL, NULL, NULL, NULL, 1099, 10),
-(186, 'Patriot Burst Elite 480gb', 9, NULL, NULL, NULL, NULL, 3999, 10),
-(187, 'Patriot Burst Elite 960gb', 9, NULL, NULL, NULL, NULL, 8499, 10);
-
--- --------------------------------------------------------
-
---
--- Структура таблицы `favorites`
---
-
+DROP TABLE IF EXISTS `favorites`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `favorites` (
-  `favorit_id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `assembly_id` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `favorit_id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `assembly_id` int NOT NULL,
+  PRIMARY KEY (`favorit_id`),
+  KEY `user_id` (`user_id`,`assembly_id`),
+  KEY `assembly_id` (`assembly_id`),
+  CONSTRAINT `favorites_ibfk_1` FOREIGN KEY (`assembly_id`) REFERENCES `assembly` (`assembly_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Дамп данных таблицы `favorites`
+-- Table structure for table `login_attempts`
 --
 
-INSERT INTO `favorites` (`favorit_id`, `user_id`, `assembly_id`) VALUES
-(1, 12, 2),
-(2, 12, 2);
-
--- --------------------------------------------------------
-
---
--- Структура таблицы `orders`
---
-
-CREATE TABLE `orders` (
-  `order_id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `assembly_id` int(11) NOT NULL,
-  `status` varchar(50) DEFAULT 'Обрабатывается',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB AVG_ROW_LENGTH=5461 DEFAULT CHARSET=utf8mb4;
-
--- --------------------------------------------------------
-
---
--- Структура таблицы `sockets`
---
-
-CREATE TABLE `sockets` (
-  `socket_id` int(11) NOT NULL,
-  `socket_type` varchar(255) CHARACTER SET utf8 NOT NULL
-) ENGINE=InnoDB AVG_ROW_LENGTH=5461 DEFAULT CHARSET=utf8mb4;
-
---
--- Дамп данных таблицы `sockets`
---
-
-INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES
-(1, 'LGA1200'),
-(2, 'LGA1700'),
-(3, 'AM4'),
-(4, 'LGA1151'),
-(5, 'LGA1851'),
-(6, 'AM5'),
-(7, 'LGA1150');
-
--- --------------------------------------------------------
-
---
--- Структура таблицы `users`
---
-
-CREATE TABLE `users` (
-  `user_id` int(5) UNSIGNED NOT NULL,
-  `user_name` varchar(20) NOT NULL,
-  `user_surname` varchar(30) DEFAULT NULL,
-  `user_login` varchar(25) NOT NULL,
-  `user_pass` varchar(255) NOT NULL,
-  `user_group` varchar(10) NOT NULL,
-  `user_regdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `user_address` varchar(1000) DEFAULT NULL,
-  `user_region` varchar(100) DEFAULT NULL,
-  `user_email` varchar(50) DEFAULT NULL,
-  `user_number` varchar(13) DEFAULT NULL,
-  `user_city` varchar(100) DEFAULT NULL,
-  `user_street` varchar(150) DEFAULT NULL,
-  `user_house` varchar(20) DEFAULT NULL,
-  `user_apartment` varchar(20) DEFAULT NULL,
-  `user_postal_code` varchar(10) DEFAULT NULL
-) ENGINE=MyISAM AVG_ROW_LENGTH=172 DEFAULT CHARSET=utf8;
-
---
--- Дамп данных таблицы `users`
---
-
--- Админ создаётся через src/scripts/create_admin.php (Stage 3, п. 7k)
-
---
--- Структура таблицы `login_attempts` (rate-limit для auth.php)
---
-
-CREATE TABLE IF NOT EXISTS `login_attempts` (
+DROP TABLE IF EXISTS `login_attempts`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `login_attempts` (
   `id` int NOT NULL AUTO_INCREMENT,
   `login` varchar(25) NOT NULL,
   `ip` varchar(45) NOT NULL,
@@ -409,159 +201,411 @@ CREATE TABLE IF NOT EXISTS `login_attempts` (
   KEY `ip` (`ip`),
   KEY `login_time` (`login`,`attempt_time`),
   KEY `ip_time` (`ip`,`attempt_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Индексы сохранённых таблиц
+-- Table structure for table `orders`
 --
 
---
--- Индексы таблицы `assembly`
---
-ALTER TABLE `assembly`
-  ADD PRIMARY KEY (`assembly_id`),
-  ADD KEY `cpu_id` (`cpu_id`,`gpu_id`,`motherboard_id`,`ram_id`,`case_id`,`cooler_id`,`power_supply_id`,`ssd_id`,`ssd_2_id`,`hdd_id`,`dvd_id`),
-  ADD KEY `gpu_id` (`gpu_id`),
-  ADD KEY `motherboard_id` (`motherboard_id`),
-  ADD KEY `ram_id` (`ram_id`),
-  ADD KEY `case_id` (`case_id`),
-  ADD KEY `cooler_id` (`cooler_id`),
-  ADD KEY `power_supply_id` (`power_supply_id`),
-  ADD KEY `ssd_id` (`ssd_id`),
-  ADD KEY `ssd_2_id` (`ssd_2_id`),
-  ADD KEY `hdd_id` (`hdd_id`),
-  ADD KEY `dvd_id` (`dvd_id`);
+DROP TABLE IF EXISTS `orders`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `orders` (
+  `order_id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `assembly_id` int NOT NULL,
+  `status` varchar(50) DEFAULT 'Обрабатывается',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`order_id`),
+  UNIQUE KEY `user_id` (`user_id`,`assembly_id`),
+  KEY `orders_ibfk_1` (`assembly_id`),
+  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`assembly_id`) REFERENCES `assembly` (`assembly_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci AVG_ROW_LENGTH=5461;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Индексы таблицы `categories`
---
-ALTER TABLE `categories`
-  ADD PRIMARY KEY (`category_id`);
-
---
--- Индексы таблицы `components`
---
-ALTER TABLE `components`
-  ADD PRIMARY KEY (`component_id`),
-  ADD KEY `category_id` (`category_id`,`socket_id`),
-  ADD KEY `components_ibfk_1` (`socket_id`);
-
---
--- Индексы таблицы `favorites`
---
-ALTER TABLE `favorites`
-  ADD PRIMARY KEY (`favorit_id`),
-  ADD KEY `user_id` (`user_id`,`assembly_id`),
-  ADD KEY `assembly_id` (`assembly_id`);
-
---
--- Индексы таблицы `orders`
---
-ALTER TABLE `orders`
-  ADD PRIMARY KEY (`order_id`),
-  ADD UNIQUE KEY `user_id` (`user_id`,`assembly_id`),
-  ADD KEY `orders_ibfk_1` (`assembly_id`);
-
---
--- Индексы таблицы `sockets`
---
-ALTER TABLE `sockets`
-  ADD PRIMARY KEY (`socket_id`);
-
---
--- Индексы таблицы `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`user_id`),
-  ADD UNIQUE KEY `user_id` (`user_id`),
-  ADD KEY `user_login` (`user_login`);
-
---
--- AUTO_INCREMENT для сохранённых таблиц
+-- Table structure for table `sockets`
 --
 
---
--- AUTO_INCREMENT для таблицы `assembly`
---
-ALTER TABLE `assembly`
-  MODIFY `assembly_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=256;
+DROP TABLE IF EXISTS `sockets`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sockets` (
+  `socket_id` int NOT NULL AUTO_INCREMENT,
+  `socket_type` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
+  PRIMARY KEY (`socket_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci AVG_ROW_LENGTH=5461;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- AUTO_INCREMENT для таблицы `categories`
---
-ALTER TABLE `categories`
-  MODIFY `category_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
-
---
--- AUTO_INCREMENT для таблицы `components`
---
-ALTER TABLE `components`
-  MODIFY `component_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=188;
-
---
--- AUTO_INCREMENT для таблицы `favorites`
---
-ALTER TABLE `favorites`
-  MODIFY `favorit_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
-
---
--- AUTO_INCREMENT для таблицы `orders`
---
-ALTER TABLE `orders`
-  MODIFY `order_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
-
---
--- AUTO_INCREMENT для таблицы `sockets`
---
-ALTER TABLE `sockets`
-  MODIFY `socket_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT для таблицы `users`
---
-ALTER TABLE `users`
-  MODIFY `user_id` int(5) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
-
---
--- Ограничения внешнего ключа сохраненных таблиц
+-- Table structure for table `users`
 --
 
---
--- Ограничения внешнего ключа таблицы `assembly`
---
-ALTER TABLE `assembly`
-  ADD CONSTRAINT `assembly_ibfk_1` FOREIGN KEY (`cpu_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_10` FOREIGN KEY (`hdd_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_11` FOREIGN KEY (`dvd_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_2` FOREIGN KEY (`gpu_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_3` FOREIGN KEY (`motherboard_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_4` FOREIGN KEY (`ram_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_5` FOREIGN KEY (`case_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_6` FOREIGN KEY (`cooler_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_7` FOREIGN KEY (`power_supply_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_8` FOREIGN KEY (`ssd_id`) REFERENCES `components` (`component_id`),
-  ADD CONSTRAINT `assembly_ibfk_9` FOREIGN KEY (`ssd_2_id`) REFERENCES `components` (`component_id`);
+DROP TABLE IF EXISTS `users`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `users` (
+  `user_id` int unsigned NOT NULL AUTO_INCREMENT,
+  `user_name` varchar(20) NOT NULL,
+  `user_surname` varchar(30) DEFAULT NULL,
+  `user_login` varchar(25) NOT NULL,
+  `user_pass` varchar(255) NOT NULL,
+  `user_group` varchar(10) NOT NULL,
+  `user_regdate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `user_address` varchar(1000) DEFAULT NULL,
+  `user_region` varchar(100) DEFAULT NULL,
+  `user_email` varchar(50) DEFAULT NULL,
+  `user_number` varchar(13) DEFAULT NULL,
+  `user_city` varchar(100) DEFAULT NULL,
+  `user_street` varchar(150) DEFAULT NULL,
+  `user_house` varchar(20) DEFAULT NULL,
+  `user_apartment` varchar(20) DEFAULT NULL,
+  `user_postal_code` varchar(10) DEFAULT NULL,
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  KEY `user_login` (`user_login`)
+) ENGINE=MyISAM AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb3 AVG_ROW_LENGTH=172;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
---
--- Ограничения внешнего ключа таблицы `components`
---
-ALTER TABLE `components`
-  ADD CONSTRAINT `components_ibfk_1` FOREIGN KEY (`socket_id`) REFERENCES `sockets` (`socket_id`),
-  ADD CONSTRAINT `components_ibfk_2` FOREIGN KEY (`category_id`) REFERENCES `categories` (`category_id`);
-
---
--- Ограничения внешнего ключа таблицы `favorites`
---
-ALTER TABLE `favorites`
-  ADD CONSTRAINT `favorites_ibfk_1` FOREIGN KEY (`assembly_id`) REFERENCES `assembly` (`assembly_id`);
-
---
--- Ограничения внешнего ключа таблицы `orders`
---
-ALTER TABLE `orders`
-  ADD CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`assembly_id`) REFERENCES `assembly` (`assembly_id`);
-COMMIT;
-
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-10-02  8:18:09
+
+-- MySQL dump 10.13  Distrib 8.0.46, for Linux (x86_64)
+--
+-- Host: localhost    Database: aion_bd
+-- ------------------------------------------------------
+-- Server version	8.0.46
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Dumping data for table `categories`
+--
+
+LOCK TABLES `categories` WRITE;
+/*!40000 ALTER TABLE `categories` DISABLE KEYS */;
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (1,'Процессор');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (2,'Материнская плата');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (3,'Видеокарта');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (4,'Оперативная память');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (5,'Блок питания');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (6,'Корпус');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (7,'Кулер');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (8,'HDD');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (9,'SSD');
+INSERT INTO `categories` (`category_id`, `category_name`) VALUES (10,'Привод');
+/*!40000 ALTER TABLE `categories` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `sockets`
+--
+
+LOCK TABLES `sockets` WRITE;
+/*!40000 ALTER TABLE `sockets` DISABLE KEYS */;
+INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES (1,'LGA1200');
+INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES (2,'LGA1700');
+INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES (3,'AM4');
+INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES (4,'LGA1151');
+INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES (5,'LGA1851');
+INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES (6,'AM5');
+INSERT INTO `sockets` (`socket_id`, `socket_type`) VALUES (7,'LGA1150');
+/*!40000 ALTER TABLE `sockets` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `components`
+--
+
+LOCK TABLES `components` WRITE;
+/*!40000 ALTER TABLE `components` DISABLE KEYS */;
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (1,'Celeron G5905',NULL,1,1,1,58,NULL,2350,10,'Intel','Celeron G5905','{\"cores\": 2, \"threads\": 2}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (2,'Pentium Gold G6405',NULL,1,1,1,58,NULL,3800,10,'Intel','Pentium Gold G6405','{\"cores\": 4, \"threads\": 4}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (3,'A8-9600',NULL,1,3,1,65,NULL,5499,10,'AMD','A8-9600','{\"cores\": 4, \"threads\": 4}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (4,'i3-10100F',NULL,1,1,0,65,NULL,4000,10,'Intel','i3-10100F','{\"cores\": 4, \"threads\": 8}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (5,'i3-10100',NULL,1,1,1,65,NULL,5500,10,'Intel','i3-10100','{\"cores\": 4, \"threads\": 8}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (6,'i5-10400',NULL,1,1,1,65,NULL,6250,10,'Intel','i5-10400','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (7,'i5-11400F',NULL,1,1,0,65,NULL,7450,10,'Intel','i5-11400F','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (8,'i5-10400F',NULL,1,1,0,65,NULL,6600,10,'Intel','i5-10400F','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (9,'i5-11400F',NULL,1,1,1,65,NULL,8000,10,'Intel','i5-11400F','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (10,'i5-10600KF',NULL,1,1,0,125,NULL,8200,10,'Intel','i5-10600KF','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (11,'i5-10400F',NULL,1,1,0,65,NULL,6600,10,'Intel','i5-10400F','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (12,'i5-10600',NULL,1,1,1,65,NULL,8500,10,'Intel','i5-10600','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (13,'i5-11600',NULL,1,1,1,65,NULL,9600,10,'Intel','i5-11600','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (14,'i5-11600KF',NULL,1,1,0,125,NULL,10150,10,'Intel','i5-11600KF','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (15,'i5-11600K',NULL,1,1,1,125,NULL,10350,10,'Intel','i5-11600K','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (16,'i7-10700F',NULL,1,1,0,65,NULL,12150,10,'Intel','i7-10700F','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (17,'i7-10700F',NULL,1,1,0,65,NULL,12150,10,'Intel','i7-10700F','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (18,'i7-11700',NULL,1,1,1,65,NULL,12200,10,'Intel','i7-11700','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (19,'i9-10900F',NULL,1,1,0,65,NULL,14700,10,'Intel','i9-10900F','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (20,'i9-10900',NULL,1,1,1,65,NULL,15200,10,'Intel','i9-10900','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (21,'i9-11900F',NULL,1,1,0,65,NULL,15750,10,'Intel','i9-11900F','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (22,'i9-11900KF',NULL,1,1,0,125,NULL,19000,10,'Intel','i9-11900KF','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (23,'Celeron G6900',NULL,1,2,1,46,NULL,4999,10,'Intel','Celeron G6900','{\"cores\": 2, \"threads\": 2}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (24,'Pentium Gold G7400',NULL,1,2,1,46,NULL,10999,10,'Intel','Pentium Gold G7400','{\"cores\": 4, \"threads\": 4}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (25,'i3-12100F',NULL,1,2,0,89,NULL,12599,10,'Intel','i3-12100F','{\"cores\": 4, \"threads\": 8}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (26,'i3-12100',NULL,1,2,1,89,NULL,14999,10,'Intel','i3-12100','{\"cores\": 4, \"threads\": 8}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (27,'i5-12400F',NULL,1,2,0,117,NULL,16599,10,'Intel','i5-12400F','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (28,'i5-12400',NULL,1,2,1,117,NULL,18599,10,'Intel','i5-12400','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (29,'i7-12700F',NULL,1,2,0,180,NULL,32599,10,'Intel','i7-12700F','{\"cores\": 20, \"threads\": 28}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (30,'i9-12900F',NULL,1,2,0,202,NULL,48999,10,'Intel','i9-12900F','{\"cores\": 16, \"threads\": 24}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (31,'i9-12900KF',NULL,1,2,0,241,NULL,54999,10,'Intel','i9-12900KF','{\"cores\": 16, \"threads\": 24}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (32,'A6-9500E',NULL,1,3,1,35,NULL,3399,10,'AMD','A6-9500E','{\"cores\": 2, \"threads\": 2}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (33,'Athlon X4 950',NULL,1,3,0,65,NULL,3699,10,'AMD','Athlon X4 950','{\"cores\": 4, \"threads\": 4}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (34,'Athlon 3000G',NULL,1,3,1,35,NULL,5899,10,'AMD','Athlon 3000G','{\"cores\": 2, \"threads\": 4}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (35,'Ryzen 3 PRO 1200',NULL,1,3,0,65,NULL,7299,10,'AMD','Ryzen 3 PRO 1200','{\"cores\": 4, \"threads\": 4}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (36,'Ryzen 3 PRO 2100GE',NULL,1,3,1,35,NULL,10199,10,'AMD','Ryzen 3 PRO 2100GE','{\"cores\": 4, \"threads\": 4}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (37,'Ryzen 5 3600',NULL,1,3,0,65,NULL,15899,10,'AMD','Ryzen 5 3600','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (38,'Ryzen 5 5600G',NULL,1,3,1,65,NULL,19699,10,'AMD','Ryzen 5 5600G','{\"cores\": 6, \"threads\": 12}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (39,'Ryzen 7 3700X',NULL,1,3,0,65,NULL,22899,10,'AMD','Ryzen 7 3700X','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (40,'Ryzen 7 3800X',NULL,1,3,0,105,NULL,23199,10,'AMD','Ryzen 7 3800X','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (41,'Ryzen 7 5800X',NULL,1,3,0,105,NULL,28199,10,'AMD','Ryzen 7 5800X','{\"cores\": 8, \"threads\": 16}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (42,'Ryzen 9 5900X',NULL,1,3,0,105,NULL,39999,10,'AMD','Ryzen 9 5900X','{\"cores\": 12, \"threads\": 24}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (43,'Ryzen 9 5950X',NULL,1,3,0,105,NULL,55299,10,'AMD','Ryzen 9 5950X','{\"cores\": 16, \"threads\": 32}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (44,'ASRock H410M-HVS R2.0',NULL,2,1,NULL,NULL,NULL,2100,10,'ASRock','H410M-HVS R2.0',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (45,'ASRock H470M-HVS',NULL,2,1,NULL,NULL,NULL,2250,10,'ASRock','H470M-HVS',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (46,'ASRock H510M-HDV',NULL,2,1,NULL,NULL,NULL,2500,10,'ASRock','H510M-HDV',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (47,'ASRock H570M Pro4',NULL,2,1,NULL,NULL,NULL,4500,10,'ASRock','H570M Pro4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (48,'ASRock Z590M Phantom Gaming 4',NULL,2,1,NULL,NULL,NULL,5000,10,'ASRock','Z590M Phantom Gaming 4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (49,'ASRock Z590 PG Velocita',NULL,2,1,NULL,NULL,NULL,10500,10,'ASRock','Z590 PG Velocita',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (50,'Gigabyte B560M Gaming HD',NULL,2,1,NULL,NULL,NULL,3250,10,'Gigabyte','B560M Gaming HD',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (51,'Gigabyte B560M Gaming HD',NULL,2,1,NULL,NULL,NULL,3250,10,'Gigabyte','B560M Gaming HD',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (52,'Gigabyte Z590 UD AC',NULL,2,1,NULL,NULL,NULL,5750,10,'Gigabyte','Z590 UD AC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (53,'Gigabyte Z590 AORUS ULTRA',NULL,2,1,NULL,NULL,NULL,8500,10,'Gigabyte','Z590 AORUS ULTRA',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (54,'ASRock H610M-HDV/M.2',NULL,2,2,NULL,NULL,NULL,8499,10,'ASRock','H610M-HDV/M.2',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (55,'ASRock B660M Pro RS',NULL,2,2,NULL,NULL,NULL,10999,10,'ASRock','B660M Pro RS',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (56,'ASRock Z690 Phantom Gaming 4',NULL,2,2,NULL,NULL,NULL,13999,10,'ASRock','Z690 Phantom Gaming 4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (57,'ASRock Z690 Extreme',NULL,2,2,NULL,NULL,NULL,21999,10,'ASRock','Z690 Extreme',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (58,'Gigabyte H610M H DDR4',NULL,2,2,NULL,NULL,NULL,6999,10,'Gigabyte','H610M H DDR4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (59,'Gigabyte Z690 Gaming X DDR4',NULL,2,2,NULL,NULL,NULL,15999,10,'Gigabyte','Z690 Gaming X DDR4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (60,'MSI MPG Z690 EDGE WIFI DDR4',NULL,2,2,NULL,NULL,NULL,26999,10,'MSI','MPG Z690 EDGE WIFI DDR4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (61,'ASRock A320M-DVS R4.0',NULL,2,3,NULL,NULL,NULL,2999,10,'ASRock','A320M-DVS R4.0',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (62,'ASUS PRIME A320M-K',NULL,2,3,NULL,NULL,NULL,3799,10,'ASUS','PRIME A320M-K',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (63,'MSI B450M-A PRO MAX',NULL,2,3,NULL,NULL,NULL,3899,10,'MSI','B450M-A PRO MAX',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (64,'ASRock A520M-HVS',NULL,2,3,NULL,NULL,NULL,4199,10,'ASRock','A520M-HVS',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (65,'Gigabyte B450 AORUS M',NULL,2,3,NULL,NULL,NULL,4999,10,'Gigabyte','B450 AORUS M',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (66,'ASRock A520M Pro4',NULL,2,3,NULL,NULL,NULL,6799,10,'ASRock','A520M Pro4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (67,'Gigabyte B550M AORUS ELITE',NULL,2,3,NULL,NULL,NULL,8999,10,'Gigabyte','B550M AORUS ELITE',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (68,'Gigabyte Z570 Gaming X',NULL,2,3,NULL,NULL,NULL,10999,10,'Gigabyte','Z570 Gaming X',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (69,'ASRock X570M Pro4',NULL,2,3,NULL,NULL,NULL,15999,10,'ASRock','X570M Pro4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (70,'Gigabyte X570S AERO G',NULL,2,3,NULL,NULL,NULL,29999,10,'Gigabyte','X570S AERO G',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (71,'Gigabyte X550 AORUS XTREME',NULL,2,3,NULL,NULL,NULL,64999,10,'Gigabyte','X550 AORUS XTREME',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (72,'MSI GeForce 210',NULL,3,NULL,NULL,NULL,NULL,3399,10,'MSI','GeForce 210',NULL,NULL,1,NULL,'GDDR3',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (73,'GIGABYTE GeForce GT 730',NULL,3,NULL,NULL,NULL,NULL,4950,10,'Gigabyte','GeForce GT 730',NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (74,'MSI GeForce 210',NULL,3,NULL,NULL,NULL,NULL,3399,10,'MSI','GeForce 210',NULL,NULL,1,NULL,'GDDR3',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (75,'GIGABYTE GeForce GT 730',NULL,3,NULL,NULL,NULL,NULL,4950,10,'Gigabyte','GeForce GT 730',NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (76,'PowerColor AMD Radeon R7 240',NULL,3,NULL,NULL,NULL,NULL,5899,10,'PowerColor','AMD Radeon R7 240',NULL,NULL,2,NULL,'GDDR3',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (77,'GIGABYTE GeForce GT 1030 Low Profile D4 2G',NULL,3,NULL,NULL,NULL,NULL,6899,10,'Gigabyte','GeForce GT 1030 Low Profile D4 2G',NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (78,'PowerColor AMD Radeon 550 LP',NULL,3,NULL,NULL,NULL,NULL,9999,10,'PowerColor','AMD Radeon 550 LP',NULL,NULL,2,NULL,'GDDR5',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (79,'MSI AMD Radeon RX 550 AERO ITX OC',NULL,3,NULL,NULL,NULL,NULL,11799,10,'MSI','AMD Radeon RX 550 AERO ITX OC',NULL,NULL,4,NULL,'GDDR5',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (80,'AFOX GTX 750',NULL,3,NULL,NULL,NULL,NULL,8399,10,'AFOX','GTX 750',NULL,NULL,2,NULL,'GDDR5',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (81,'Palit GeForce GTX 1050 Ti STORMX',NULL,3,NULL,NULL,NULL,NULL,11279,10,'Palit','GeForce GTX 1050 Ti STORMX',NULL,NULL,4,NULL,'GDDR5',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (82,'ASUS GeForce GTX 1650 PHOENIX OC',NULL,3,NULL,NULL,NULL,NULL,16499,10,'ASUS','GeForce GTX 1650 PHOENIX OC',NULL,NULL,4,NULL,'GDDR5',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (83,'PowerColor AMD Radeon RX 6500 XT ITX',NULL,3,NULL,NULL,NULL,NULL,28499,10,'PowerColor','AMD Radeon RX 6500 XT ITX',NULL,NULL,4,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (84,'Palit GeForce GTX 1660 SUPER STORMX',NULL,3,NULL,NULL,NULL,NULL,20399,10,'Palit','GeForce GTX 1660 SUPER STORMX',NULL,NULL,6,NULL,'GDDR5',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (85,'Palit GeForce RTX 3050 Dual',NULL,3,NULL,NULL,NULL,NULL,39999,10,'Palit','GeForce RTX 3050 Dual',NULL,NULL,8,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (86,'GIGABYTE GeForce RTX 2060 D6 6G (rev. 2.0)',NULL,3,NULL,NULL,NULL,NULL,25799,10,'Gigabyte','GeForce RTX 2060 D6 6G (rev. 2.0)',NULL,NULL,6,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (87,'MSI GeForce RTX 3050 GAMING X',NULL,3,NULL,NULL,NULL,NULL,46799,10,'MSI','GeForce RTX 3050 GAMING X',NULL,NULL,8,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (88,'ASRock AMD Radeon RX 6600 Challenger D',NULL,3,NULL,NULL,NULL,NULL,47999,10,'ASRock','AMD Radeon RX 6600 Challenger D',NULL,NULL,8,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (89,'GIGABYTE GeForce RTX 3060 EAGLE OC (LHR)',NULL,3,NULL,NULL,NULL,NULL,60199,10,'Gigabyte','GeForce RTX 3060 EAGLE OC (LHR)',NULL,NULL,12,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (90,'Palit GeForce RTX 3060 Ti DUAL OC V1 (LHR)',NULL,3,NULL,NULL,NULL,NULL,70999,10,'Palit','GeForce RTX 3060 Ti DUAL OC V1 (LHR)',NULL,NULL,8,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (91,'ZOTAC GAMING GeForce RTX 3060 Ti AMP LHR White Edition',NULL,3,NULL,NULL,NULL,NULL,82999,10,'Zotac','GAMING GeForce RTX 3060 Ti AMP LHR White Edition',NULL,NULL,8,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (92,'Powercolor AMD Radeon RX 6700 XT Fighter',NULL,3,NULL,NULL,NULL,NULL,89099,10,'PowerColor','AMD Radeon RX 6700 XT Fighter',NULL,NULL,12,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (93,'Palit GeForce RTX 3070 JetStream OC (LHR)',NULL,3,NULL,NULL,NULL,NULL,91399,10,'Palit','GeForce RTX 3070 JetStream OC (LHR)',NULL,NULL,8,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (94,'GIGABYTE GeForce RTX 3080 GAMING OC (LHR)',NULL,3,NULL,NULL,NULL,NULL,101899,10,'Gigabyte','GeForce RTX 3080 GAMING OC (LHR)',NULL,NULL,10,NULL,'GDDR6X',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (95,'PowerColor Red Devil AMD Radeon RX 6800 XT',NULL,3,NULL,NULL,NULL,NULL,115599,10,'PowerColor','Red Devil AMD Radeon RX 6800 XT',NULL,NULL,16,NULL,'GDDR6',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (96,'GIGABYTE GeForce RTX 3080 GAMING OC',NULL,3,NULL,NULL,NULL,NULL,120099,10,'Gigabyte','GeForce RTX 3080 GAMING OC',NULL,NULL,10,NULL,'GDDR6X',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (97,'KFA2 GeForce RTX 3080 Ti SG',NULL,3,NULL,NULL,NULL,NULL,145599,10,'KFA2','GeForce RTX 3080 Ti SG',NULL,NULL,12,NULL,'GDDR6X',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (98,'Palit GeForce RTX 3090 GamingPro',NULL,3,NULL,NULL,NULL,NULL,222999,10,'Palit','GeForce RTX 3090 GamingPro',NULL,NULL,24,NULL,'GDDR6X',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (99,'Palit GeForce RTX 3090 TI GameRock OC',NULL,3,NULL,NULL,NULL,NULL,232999,10,'Palit','GeForce RTX 3090 TI GameRock OC',NULL,NULL,24,NULL,'GDDR6X',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (102,'Patriot Signature Line 4gbx2',NULL,4,NULL,NULL,NULL,NULL,2599,10,'Patriot','Signature Line 4gbx2',NULL,'DDR4',8,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (103,'A-Data XPG Spectrix D60G RGB 16gbx2',NULL,4,NULL,NULL,NULL,NULL,15999,10,'A-Data','XPG Spectrix D60G RGB 16gbx2',NULL,'DDR4',32,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (104,'Kingston FURY Beast Black 4gbx4',NULL,4,NULL,NULL,NULL,NULL,9999,10,'Kingston','FURY Beast Black 4gbx4',NULL,'DDR4',16,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (105,'Kingston FURY Beast Black 4gbx2',NULL,4,NULL,NULL,NULL,NULL,4199,10,'Kingston','FURY Beast Black 4gbx2',NULL,'DDR4',8,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (106,'Goodram Iridium 4gbx2',NULL,4,NULL,NULL,NULL,NULL,5099,10,'GOODRAM','Iridium 4gbx2',NULL,'DDR4',8,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (107,'A-Data XPG GAMMIX D20 8gbx2',NULL,4,NULL,NULL,NULL,NULL,5999,10,'A-Data','XPG GAMMIX D20 8gbx2',NULL,'DDR4',16,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (108,'Corsair Vengeance LPX 8gbx2',NULL,4,NULL,NULL,NULL,NULL,6299,10,'Corsair','Vengeance LPX 8gbx2',NULL,'DDR4',16,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (109,'Patriot Viper Steel 8gbx2',NULL,4,NULL,NULL,NULL,NULL,7799,10,'Patriot','Viper Steel 8gbx2',NULL,'DDR4',16,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (110,'A-Data XPG SPECTRIX D50 RGB 8gbx2',NULL,4,NULL,NULL,NULL,NULL,10299,10,'A-Data','XPG SPECTRIX D50 RGB 8gbx2',NULL,'DDR4',16,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (111,'Patriot Viper Elite II 16gbx2',NULL,4,NULL,NULL,NULL,NULL,11999,10,'Patriot','Viper Elite II 16gbx2',NULL,'DDR4',32,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (112,'Patriot Viper Steel 16gbx2',NULL,4,NULL,NULL,NULL,NULL,13499,10,'Patriot','Viper Steel 16gbx2',NULL,'DDR4',32,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (113,'Kingston FURY Beast Black 16gbx2',NULL,4,NULL,NULL,NULL,NULL,14499,10,'Kingston','FURY Beast Black 16gbx2',NULL,'DDR4',32,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (114,'Kingston FURY Beast Black 32gbx2',NULL,4,NULL,NULL,NULL,NULL,26299,10,'Kingston','FURY Beast Black 32gbx2',NULL,'DDR4',64,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (115,'G.Skill TRIDENT Z Neo 32gbx2',NULL,4,NULL,NULL,NULL,NULL,35999,10,'G.Skill','TRIDENT Z Neo 32gbx2',NULL,'DDR4',64,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (116,'G.Skill Trident Z Royal 32gbx2',NULL,4,NULL,NULL,NULL,NULL,61999,10,'G.Skill','Trident Z Royal 32gbx2',NULL,'DDR4',64,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (117,'Cougar VTE400',NULL,5,NULL,NULL,NULL,NULL,3199,10,'Cougar','VTE400',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (118,'Cougar VTX 600W',NULL,5,NULL,NULL,NULL,NULL,4350,10,'Cougar','VTX 600W',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (119,'Corsair CV650',NULL,5,NULL,NULL,NULL,NULL,4799,10,'Corsair','CV650',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (120,'be quiet! SYSTEM POWER 9 600W',NULL,5,NULL,NULL,NULL,NULL,4999,10,'be quiet!','SYSTEM POWER 9 600W',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (121,'Thermaltake Smart BX1 550W',NULL,5,NULL,NULL,NULL,NULL,5099,10,'Thermaltake','Smart BX1 550W',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (122,'Cougar GEC 650',NULL,5,NULL,NULL,NULL,NULL,5711,10,'Cougar','GEC 650',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (123,'Cougar GEC 750',NULL,5,NULL,NULL,NULL,NULL,6399,10,'Cougar','GEC 750',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (124,'Cougar GX 800W',NULL,5,NULL,NULL,NULL,NULL,7699,10,'Cougar','GX 800W',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (125,'Cougar GX 1050W',NULL,5,NULL,NULL,NULL,NULL,12499,10,'Cougar','GX 1050W',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (126,'HIPER HPG-1200FM',NULL,5,NULL,NULL,NULL,NULL,15999,10,'HIPER','HPG-1200FM',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (127,'GIGABYTE AORUS P1200W',NULL,5,NULL,NULL,NULL,NULL,29999,10,'Gigabyte','AORUS P1200W',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (128,'ExeGate BAA-106',NULL,6,NULL,NULL,NULL,'assets/images/cases/baa-16.png',1599,10,'ExeGate','BAA-106',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (129,'ExeGate XP-329-XP500',NULL,6,NULL,NULL,NULL,'assets/images/cases/xp-329.png',1999,10,'ExeGate','XP-329-XP500',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (130,'GiNZZU B185 White',NULL,6,NULL,NULL,NULL,'assets/images/cases/b185w.png',2599,10,'GiNZZU','B185 White',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (131,'Accord K-16',NULL,6,NULL,NULL,NULL,'assets/images/cases/k-16.png',2750,10,'Accord','K-16',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (132,'AeroCool Streak',NULL,6,NULL,NULL,NULL,'assets/images/cases/streak.png',2799,10,'AeroCool','Streak',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (133,'AeroCool Cylon White',NULL,6,NULL,NULL,NULL,'assets/images/cases/cylonw.png',3799,10,'AeroCool','Cylon White',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (134,'ZALMAN i3 Edge',NULL,6,NULL,NULL,NULL,'assets/images/cases/i3edge.png',4299,10,'ZALMAN','i3 Edge',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (135,'MONTECH FIGHTER 500',NULL,6,NULL,NULL,NULL,'assets/images/cases/fighter500.png',4799,10,'MONTECH','FIGHTER 500',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (136,'AeroCool Aero One Mini Frost',NULL,6,NULL,NULL,NULL,'assets/images/cases/aomf.png',5199,10,'AeroCool','Aero One Mini Frost',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (137,'Corsair 470T RGB',NULL,6,NULL,NULL,NULL,'assets/images/cases/470trgb.png',5999,10,'Corsair','470T RGB',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (138,'Thermaltake Core G21 Tempered Glass Edition',NULL,6,NULL,NULL,NULL,'assets/images/cases/g21tge.png',6999,10,'Thermaltake','Core G21 Tempered Glass Edition',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (139,'Cougar MX-660 Iron RGB',NULL,6,NULL,NULL,NULL,'assets/images/cases/mx-660irgb.png',7599,10,'Cougar','MX-660 Iron RGB',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (140,'Thermaltake AH T200',NULL,6,NULL,NULL,NULL,'assets/images/cases/aht200.png',11999,10,'Thermaltake','AH T200',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (141,'Cougar Blazer Essence',NULL,6,NULL,NULL,NULL,'assets/images/cases/essence.png',17419,10,'Cougar','Blazer Essence',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (142,'Corsair Obsidian Series 500D',NULL,6,NULL,NULL,NULL,'assets/images/cases/obs500d.png',20799,10,'Corsair','Obsidian Series 500D',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (143,'Thermaltake View 71 Tempered Glass SNOW Edition RGB',NULL,6,NULL,NULL,NULL,'assets/images/cases/view71.png',25349,10,'Thermaltake','View 71 Tempered Glass SNOW Edition RGB',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (144,'Corsair Obsidian Series 1000D',NULL,6,NULL,NULL,NULL,'assets/images/cases/obs1000d.png',58999,10,'Corsair','Obsidian Series 1000D',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (145,'DEEPCOOL Theta 20',NULL,7,NULL,NULL,82,NULL,599,10,'DeepCool','Theta 20',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (146,'DEEPCOOL Alta 9',NULL,7,NULL,NULL,65,NULL,499,10,'DeepCool','Alta 9',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (147,'DEEPCOOL Gamma Archer',NULL,7,NULL,NULL,95,NULL,799,10,'DeepCool','Gamma Archer',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (148,'DEEPCOOL Ice Blade 100',NULL,7,NULL,NULL,100,NULL,850,10,'DeepCool','Ice Blade 100',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (149,'DEEPCOOL GAMMAXX 300',NULL,7,NULL,NULL,130,NULL,1399,10,'DeepCool','GAMMAXX 300',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (150,'DEEPCOOL GAMMAXX 400K',NULL,7,NULL,NULL,150,NULL,1699,10,'DeepCool','GAMMAXX 400K',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (151,'DEEPCOOL GAMMAXX 400 V2',NULL,7,NULL,NULL,180,NULL,1799,10,'DeepCool','GAMMAXX 400 V2',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (152,'DEEPCOOL GAMMAXX 400 EX',NULL,7,NULL,NULL,180,NULL,2599,10,'DeepCool','GAMMAXX 400 EX',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (153,'be quiet! PURE ROCK 2',NULL,7,NULL,NULL,150,NULL,3799,10,'be quiet!','PURE ROCK 2',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (154,'DEEPCOOL REDHAT',NULL,7,NULL,NULL,250,NULL,4199,10,'DeepCool','REDHAT',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (155,'be quiet! SHADOW ROCK SLIM',NULL,7,NULL,NULL,160,NULL,4499,10,'be quiet!','SHADOW ROCK SLIM',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (156,'DEEPCOOL AS500',NULL,7,NULL,NULL,220,NULL,5299,10,'DeepCool','AS500',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (157,'be quiet! DARK ROCK 4',NULL,7,NULL,NULL,200,NULL,5999,10,'be quiet!','DARK ROCK 4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (158,'DEEPCOOL AK620',NULL,7,NULL,NULL,200,NULL,6299,10,'DeepCool','AK620',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (159,'Noctua NH-U9DX i4',NULL,7,NULL,NULL,200,NULL,7409,10,'Noctua','NH-U9DX i4',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (160,'Cooler Master MasterLiquid Lite 120',NULL,7,NULL,NULL,180,NULL,3799,10,'Cooler Master','MasterLiquid Lite 120',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (161,'DEEPCOOL GAMMAXX L120 V2',NULL,7,NULL,NULL,150,NULL,4050,10,'DeepCool','GAMMAXX L120 V2',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (162,'DEEPCOOL GAMMAXX L240T WHITE',NULL,7,NULL,NULL,200,NULL,4699,10,'DeepCool','GAMMAXX L240T WHITE',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (163,'Cooler Master MasterLiquid ML360 RGB TR4 Edition',NULL,7,NULL,NULL,250,NULL,4999,10,'Cooler Master','MasterLiquid ML360 RGB TR4 Edition',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (164,'Xilence Performance A+ LiQuRizer LQ240.W.ARGB',NULL,7,NULL,NULL,300,NULL,7799,10,'Xilence','Performance A+ LiQuRizer LQ240.W.ARGB',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (165,'ID-Cooling AURAFLOW X 360 SNOW',NULL,7,NULL,NULL,300,NULL,7999,10,'ID-Cooling','AURAFLOW X 360 SNOW',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (166,'AeroCool P7-L240',NULL,7,NULL,NULL,380,NULL,9749,10,'AeroCool','P7-L240',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (167,'Corsair iCUE H150i RGB PRO XT',NULL,7,NULL,NULL,400,NULL,17999,10,'Corsair','iCUE H150i RGB PRO XT',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (168,'Western Digital Blue 500gb',NULL,8,NULL,NULL,NULL,NULL,3499,10,'Western Digital','Blue 500gb',NULL,NULL,500,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (169,'Western Digital Blue 1tb',NULL,8,NULL,NULL,NULL,NULL,2799,10,'Western Digital','Blue 1tb',NULL,NULL,1000,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (170,'Western Digital Blue 2tb',NULL,8,NULL,NULL,NULL,NULL,4999,10,'Western Digital','Blue 2tb',NULL,NULL,2000,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (171,'A-Data Ultimate SU650 M.2 120gb',NULL,9,NULL,NULL,NULL,NULL,1650,10,'A-Data','Ultimate SU650 M.2 120gb',NULL,NULL,120,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (172,'Kingston A400 M.2 120gb',NULL,9,NULL,NULL,NULL,NULL,1999,10,'Kingston','A400 M.2 120gb',NULL,NULL,120,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (173,'GIGABYTE NVMe SSD M.2 256gb',NULL,9,NULL,NULL,NULL,NULL,2399,10,'Gigabyte','NVMe SSD M.2 256gb',NULL,NULL,256,NULL,NULL,NULL,'M.2 NVMe','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (174,'Apacer AST280 M.2 240gb',NULL,9,NULL,NULL,NULL,NULL,2199,10,'Apacer','AST280 M.2 240gb',NULL,NULL,240,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (175,'A-Data XPG SX6000 Pro M.2 256gb',NULL,9,NULL,NULL,NULL,NULL,3599,10,'A-Data','XPG SX6000 Pro M.2 256gb',NULL,NULL,256,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (176,'ExeGate NextPro KC2000TP480 M.2 480gb',NULL,9,NULL,NULL,NULL,NULL,4699,10,'ExeGate','NextPro KC2000TP480 M.2 480gb',NULL,NULL,480,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (177,'ExeGate NextPro+ KC2000TP512 M.2 512gb',NULL,9,NULL,NULL,NULL,NULL,4799,10,'ExeGate','NextPro+ KC2000TP512 M.2 512gb',NULL,NULL,512,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (178,'Kingston NV1 M.2 500gb',NULL,9,NULL,NULL,NULL,NULL,4550,10,'Kingston','NV1 M.2 500gb',NULL,NULL,500,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (179,'Samsung 970 EVO Plus M.2 500gb',NULL,9,NULL,NULL,NULL,NULL,9999,10,'Samsung','970 EVO Plus M.2 500gb',NULL,NULL,500,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (180,'Samsung 980 M.2 500gb',NULL,9,NULL,NULL,NULL,NULL,8899,10,'Samsung','980 M.2 500gb',NULL,NULL,500,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (181,'Samsung 980 PRO M.2 1tb',NULL,9,NULL,NULL,NULL,NULL,24999,10,'Samsung','980 PRO M.2 1tb',NULL,NULL,1000,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (182,'Western Digital Blue M.2 2tb',NULL,9,NULL,NULL,NULL,NULL,23999,10,'Western Digital','Blue M.2 2tb',NULL,NULL,2000,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (183,'Western Digital Blue M.2 1tb',NULL,9,NULL,NULL,NULL,NULL,9999,10,'Western Digital','Blue M.2 1tb',NULL,NULL,1000,NULL,NULL,NULL,'M.2','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (184,'ExeGate UN450',NULL,5,NULL,NULL,NULL,NULL,1199,10,'ExeGate','UN450',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (185,'DVD-RW LG GH24NSD5',NULL,10,NULL,NULL,NULL,NULL,1099,10,'LG','GH24NSD5',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (186,'Patriot Burst Elite 480gb',NULL,9,NULL,NULL,NULL,NULL,3999,10,'Patriot','Burst Elite 480gb',NULL,NULL,480,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (187,'Patriot Burst Elite 960gb',NULL,9,NULL,NULL,NULL,NULL,8499,10,'Patriot','Burst Elite 960gb',NULL,NULL,960,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (193,'Intel Core i5-12400F 2.5GHz 18MB LGA1700','Шестиядерный процессор 12-го поколения без встроенной графики. Оптимален для игр и работы в связке с дискретной видеокартой.',1,2,0,65,NULL,11990,10,'Intel','i5-12400F','{\"lit\": false, \"cores\": 6, \"threads\": 12, \"base_ghz\": 2.5, \"cache_mb\": 18, \"boost_ghz\": 4.4}',NULL,NULL,2500,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (194,'Intel Core i5-13400 2.5GHz 20MB LGA1700','Процессор 13-го поколения со встроенной графикой UHD 730. Универсальный вариант для офисных задач и игр без дискретной видеокарты.',1,2,1,65,NULL,15990,10,'Intel','i5-13400','{\"lit\": false, \"cores\": 10, \"threads\": 16, \"base_ghz\": 2.5, \"cache_mb\": 20, \"boost_ghz\": 4.6}',NULL,NULL,2500,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (195,'AMD Ryzen 5 5600 3.5GHz 32MB AM4','Шестиядерный процессор архитектуры Zen 3 с высокой однопоточной производительностью. Один из самых популярных чипов для игровых сборок.',1,3,0,65,NULL,9490,10,'AMD','Ryzen 5 5600','{\"lit\": false, \"cores\": 6, \"threads\": 12, \"base_ghz\": 3.5, \"cache_mb\": 32, \"boost_ghz\": 4.4}',NULL,NULL,3500,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (196,'AMD Ryzen 7 5700X 3.6GHz 32MB AM4','Восьмиядерный процессор Zen 3 для игр и стриминга. Высокая многопоточная производительность в играх и монтаже видео.',1,3,0,65,NULL,14990,10,'AMD','Ryzen 7 5700X','{\"lit\": false, \"cores\": 8, \"threads\": 16, \"base_ghz\": 3.6, \"cache_mb\": 32, \"boost_ghz\": 4.6}',NULL,NULL,3600,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (197,'AMD Ryzen 5 7600 3.8GHz 38MB AM5','Процессор на сокете AM5 со встроенной графикой Radeon. Современная платформа с поддержкой DDR5.',1,6,1,65,NULL,18990,10,'AMD','Ryzen 5 7600','{\"lit\": true, \"cores\": 6, \"threads\": 12, \"base_ghz\": 3.8, \"cache_mb\": 38, \"boost_ghz\": 5.1}',NULL,NULL,3800,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (198,'Intel Core Ultra 5 245K 3.3GHz 20MB LGA1851','Процессор на новой платформе LGA1851 с интегрированной графикой Intel Arc Xe-LPG. Разблокированный множитель для разгона.',1,5,1,125,NULL,24990,10,'Intel','Core Ultra 5 245K','{\"cores\": 14, \"e_core\": 6, \"threads\": 14, \"base_ghz\": 3.3, \"cache_mb\": 20, \"boost_ghz\": 5.2}',NULL,NULL,3300,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (199,'MSI PRO B660M-A DDR4 LGA1700','Бюджетная материнская плата на чипсете B660 с двумя слотами M.2. Подходит для игровых сборок начального уровня.',2,2,NULL,NULL,NULL,9990,10,'MSI','PRO B660M-A','{\"wifi\": false, \"chipset\": \"B660\", \"m2_slots\": 2, \"ram_slots\": 4, \"sata_ports\": 4}','DDR4',NULL,NULL,NULL,NULL,NULL,'mATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (200,'Gigabyte B760M DS3H DDR4 LGA1700','Надёжная плата на чипсете B760 с усиленной подсистемой питания и разъёмом M.2 PCIe 4.0.',2,2,NULL,NULL,NULL,10990,10,'Gigabyte','B760M DS3H','{\"wifi\": false, \"chipset\": \"B760\", \"m2_slots\": 2, \"ram_slots\": 4, \"sata_ports\": 4}','DDR4',NULL,NULL,NULL,NULL,NULL,'mATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (201,'ASUS PRIME B550M-K AM4','Проверенная временем плата под процессоры Ryzen 3000 и 5000 серий. Крепкие VRM и полный набор портов.',2,3,NULL,NULL,NULL,9990,10,'ASUS','PRIME B550M-K','{\"wifi\": false, \"chipset\": \"B550\", \"m2_slots\": 2, \"ram_slots\": 4, \"sata_ports\": 4}','DDR4',NULL,NULL,NULL,NULL,NULL,'mATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (202,'MSI B550M PRO-VDH WIFI AM4','Материнская плата с модулем Wi-Fi 6E и Bluetooth из коробки. Хороший выбор для игровой сборки на AM4.',2,3,NULL,NULL,NULL,11990,10,'MSI','B550M PRO-VDH WIFI','{\"wifi\": true, \"chipset\": \"B550\", \"m2_slots\": 2, \"ram_slots\": 4, \"sata_ports\": 6}','DDR4',NULL,NULL,NULL,NULL,NULL,'mATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (203,'ASUS TUF B650-PLUS WIFI AM5','Средний сегмент на новом чипсете B650 с поддержкой DDR5 и Wi-Fi 6. Разъёмы USB 3.2 Gen2.',2,6,NULL,NULL,NULL,16990,10,'ASUS','TUF GAMING B650-PLUS WIFI','{\"wifi\": true, \"chipset\": \"B650\", \"m2_slots\": 3, \"ram_slots\": 4, \"sata_ports\": 4}','DDR5',NULL,NULL,NULL,NULL,NULL,'ATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (204,'Gigabyte Z890 AORUS ELITE WiFi7 LGA1851','Топовая плата на чипсете Z890 для процессоров Core Ultra. Wi-Fi 7, Thunderbolt 4 и мощная подсистема питания.',2,5,NULL,NULL,NULL,28990,10,'Gigabyte','Z890 AORUS ELITE WIFI7','{\"wifi\": true, \"chipset\": \"Z890\", \"m2_slots\": 5, \"ram_slots\": 4, \"sata_ports\": 4}','DDR5',NULL,NULL,NULL,NULL,NULL,'ATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (205,'MSI GeForce RTX 4060 Ventus 2X Black 8GB GDDR6','Компактная видеокарта начального игрового уровня с поддержкой DLSS 3 и рейтрейсинга. Не требует дополнительного питания.',3,NULL,NULL,115,NULL,28990,10,'MSI','RTX 4060 VENTUS 2X BLACK 8G OC','{\"chip\": \"AD107\", \"streams\": 24, \"connector\": \"1x 8-pin\", \"length_mm\": 199, \"psu_req_w\": 550}',NULL,8,NULL,'GDDR6',115,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (206,'Palit GeForce RTX 4060 Dual 8GB GDDR6','Двухвентиковая версия RTX 4060 с низким энергопотреблением. Подходит для компактных корпусов и игр в 1080p.',3,NULL,NULL,115,NULL,27990,10,'Palit','NE64060019P1-1070D','{\"chip\": \"AD107\", \"streams\": 24, \"connector\": \"1x 8-pin\", \"length_mm\": 172, \"psu_req_w\": 550}',NULL,8,NULL,'GDDR6',115,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (207,'Gigabyte GeForce RTX 3060 12GB GDDR3','Видеокарта с 12 ГБ видеопамяти — запас для текстур в современных играх и работы с 3D. Популярный вариант для 1440p.',3,NULL,NULL,170,NULL,23990,10,'Gigabyte','GV-N3060OC12GD','{\"chip\": \"GA106\", \"streams\": 28, \"connector\": \"1x 12-pin\", \"length_mm\": 265, \"psu_req_w\": 600}',NULL,12,NULL,'GDDR3',170,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (208,'ASUS Dual GeForce RTX 4070 12GB GDDR6X','Средний класс на архитектуре Ada Lovelace. Трассировка лучей и DLSS 3 Frame Generation в играх высокого разрешения.',3,NULL,NULL,200,NULL,46990,10,'ASUS','TUF-RTX4070-O12G-GAMING','{\"chip\": \"AD104\", \"streams\": 29, \"connector\": \"1x 8-pin\", \"length_mm\": 267, \"psu_req_w\": 650}',NULL,12,NULL,'GDDR6X',200,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (209,'PowerColor RX 7700 XT Hellhound 12GB GDDR6','Мощная видеокарта AMD с 12 ГБ памяти и большим запасом производительности для 1440p и 4K.',3,NULL,NULL,245,NULL,39990,10,'PowerColor','RX 7700 XT Hellhound OC','{\"chip\": \"Navi 33\", \"streams\": 20, \"connector\": \"2x 8-pin\", \"length_mm\": 301, \"psu_req_w\": 750}',NULL,12,NULL,'GDDR6',245,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (210,'Zotac GeForce GTX 1650 OC 4GB GDDR6','Бюджетная видеокарта для офисных задач, лёгких игр и игровых систем без отдельной видеокарты процессора.',3,NULL,NULL,75,NULL,12990,10,'Zotac','GTX 1650 OC 4G','{\"chip\": \"TU117\", \"streams\": 14, \"connector\": \"none\", \"length_mm\": 158, \"psu_req_w\": 400}',NULL,4,NULL,'GDDR6',75,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (211,'Corsair Vengeance LPX 16GB (2x8) DDR4-3200','Классический комплект из двух модулей с низким профилем. Не конфликтует с крупными башенными кулерами.',4,NULL,NULL,NULL,NULL,3990,10,'Corsair','CMK16GX2M2D3200C16','{\"ecc\": false, \"modules\": 2, \"timings\": \"CL16\", \"voltage\": 1.35}','DDR4',16,3200,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (212,'Kingston FURY Beast 32GB (2x16) DDR4-3600','Скоростной комплект DDR4 для игровых систем и монтажа видео. Профилировка AGP с теплораспределителем.',4,NULL,NULL,NULL,NULL,7990,10,'Kingston','KF4360C18BB/32','{\"ecc\": false, \"modules\": 2, \"timings\": \"CL18\", \"voltage\": 1.45}','DDR4',32,3600,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (213,'G.Skill Trident Z Neo RGB 32GB (2x16) DDR4-3600','Модули с подсветкой RGB и настройкой через программы производителя. Низкие тайминги для чувствительного отклика.',4,NULL,NULL,NULL,NULL,9990,10,'G.Skill','F4-3600J18ED32GTZR','{\"ecc\": false, \"rgb\": true, \"modules\": 2, \"timings\": \"CL18\", \"voltage\": 1.45}','DDR4',32,3600,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (214,'Corsair Vengeance 32GB (2x16) DDR5-5600','Стартовый комплект DDR5 для новых платформ. Работает на заявленной частоте без ручного разгона.',4,NULL,NULL,NULL,NULL,9990,10,'Corsair','CMK32GX2M2B5600C36','{\"ecc\": false, \"modules\": 2, \"timings\": \"CL36\", \"voltage\": 1.25}','DDR5',32,5600,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (215,'Kingston FURY Beast 64GB (2x32) DDR5-6000','Объём для тяжёлых многопоточных задач, виртуальных машин и работы с большими проектами.',4,NULL,NULL,NULL,NULL,17990,10,'Kingston','KF5600C36BB/64','{\"ecc\": false, \"modules\": 2, \"timings\": \"CL36\", \"voltage\": 1.35}','DDR5',64,6000,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (216,'G.Skill Trident Z RGB 64GB (2x32) DDR5-6400','Высокопроизводительный комплект DDR5 с агрессивными таймингами и RGB-подсветкой для топовых сборок.',4,NULL,NULL,NULL,NULL,22990,10,'G.Skill','F5-6400J3239G64GTZR','{\"ecc\": false, \"rgb\": true, \"modules\": 2, \"timings\": \"CL32\", \"voltage\": 1.4}','DDR5',64,6400,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (217,'Corsair CV650 650W 80+ Bronze','Базовый БП для офисных и бюджетных игровых сборок. Защита от КЗ, перегрузки и перегрева.',5,NULL,NULL,NULL,NULL,5490,10,'Corsair','CP-9020235-NA','{\"cert\": \"80+ Bronze\", \"fan_mm\": 120, \"modular\": \"non-modular\", \"connectors\": 4}',NULL,NULL,NULL,NULL,650,NULL,'ATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (218,'Cooler Master MWE Bronze 650 V2 650W','Обновлённая версия солидного БП начального уровня с кабелями для видеокарты и процессора.',5,NULL,NULL,NULL,NULL,6990,10,'Cooler Master','MWE-650BR-V2','{\"cert\": \"80+ Bronze\", \"fan_mm\": 120, \"modular\": \"non-modular\", \"connectors\": 4}',NULL,NULL,NULL,NULL,650,NULL,'ATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (219,'be quiet! System Power 10 850W 80+ Bronze','Тихий блок питания с вентилятором, который почти не слышно. Запас мощности для мощной видеокарты.',5,NULL,NULL,NULL,NULL,9490,10,'be quiet!','BN344','{\"cert\": \"80+ Bronze\", \"fan_mm\": 120, \"modular\": \"non-modular\", \"connectors\": 4}',NULL,NULL,NULL,NULL,850,NULL,'ATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (220,'Corsair RM750e 750W 80+ Gold','Модульный БП с сертификатом 80+ Gold и японскими конденсаторами. Надёжен для игровых систем среднего класса.',5,NULL,NULL,NULL,NULL,10990,10,'Corsair','CP-9020265-NA','{\"cert\": \"80+ Gold\", \"fan_mm\": 140, \"modular\": \"modular\", \"connectors\": 6}',NULL,NULL,NULL,NULL,750,NULL,'ATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (221,'MSI MAG A850GL PCIE5 850W 80+ Gold','Полностью модульный блок питания с нативным разъёмом 12VHPWR для видеокарт нового поколения.',5,NULL,NULL,NULL,NULL,13990,10,'MSI','MAG A850GL PCIE5','{\"cert\": \"80+ Gold\", \"fan_mm\": 135, \"modular\": \"full-modular\", \"connectors\": 6}',NULL,NULL,NULL,NULL,850,NULL,'ATX',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (222,'Zalman i3 Neo ATX Mid-Tower','Бюджетный корпус с прозрачной боковой панелью и посадочными местами для вентиляторов. Входит в комплект LED-подсветка.',6,NULL,NULL,NULL,NULL,3990,10,'Zalman','i3 NEO','{\"mobo\": [\"mATX\", \"ITX\"], \"psu_form\": \"ATX\", \"max_gpu_mm\": 320, \"max_cooler_mm\": 160}',NULL,NULL,NULL,NULL,NULL,NULL,'Mid-Tower',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (223,'DeepCool CH510 Mid-Tower ATX','Просторный корпус с хорошей продуваемостью и возможностью установки до трёх вентиляторов на фронтальной панели.',6,NULL,NULL,NULL,NULL,4990,10,'DeepCool','R-CH510-BKNSE1-G-1','{\"mobo\": [\"E-ATX\", \"ATX\", \"mATX\"], \"psu_form\": \"ATX\", \"max_gpu_mm\": 380, \"max_cooler_mm\": 175}',NULL,NULL,NULL,NULL,NULL,NULL,'Mid-Tower',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (224,'Cougar MX330 Aero ATX Mid-Tower','Корпус с акцентной RGB-подсветкой и вентиляторами в комплекте. Хорошо сочетается с игровыми видеокартами.',6,NULL,NULL,NULL,NULL,5990,10,'Cougar','CGR MX330-A','{\"mobo\": [\"mATX\", \"ITX\"], \"psu_form\": \"ATX\", \"max_gpu_mm\": 330, \"max_cooler_mm\": 160}',NULL,NULL,NULL,NULL,NULL,NULL,'Mid-Tower',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (225,'Thermaltake View 37 TG ARGB Mid-Tower','Две стеклянные панели и три ARGB-вентилятора в комплекте. Показывает сборку со всех сторон.',6,NULL,NULL,NULL,NULL,9990,10,'Thermaltake','CA-1D3-00NNAR','{\"mobo\": [\"E-ATX\", \"ATX\", \"mATX\"], \"psu_form\": \"ATX\", \"max_gpu_mm\": 400, \"max_cooler_mm\": 180}',NULL,NULL,NULL,NULL,NULL,NULL,'Mid-Tower',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (226,'Corsair 4000D Airflow ATX Mid-Tower','Продуваемый корпус с фронтальной сеткой и высоким потолком. Совместим с длинными видеокартами и башенными кулерами.',6,NULL,NULL,NULL,NULL,8990,10,'Corsair','CC-9011200-WW','{\"mobo\": [\"E-ATX\", \"ATX\", \"mATX\"], \"psu_form\": \"ATX\", \"max_gpu_mm\": 360, \"max_cooler_mm\": 170}',NULL,NULL,NULL,NULL,NULL,NULL,'Mid-Tower',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (227,'DeepCool AK400 155mm 1500rpm','Компактный башенный кулер с четырьмя теплотрубками и вентилятором 120 мм. Хватает для процессоров с TDP до 220 Вт.',7,2,NULL,220,NULL,2990,10,'DeepCool','R-AK400-BKNNM-G','{\"rpm_max\": 1500, \"sockets\": [\"LGA1700\", \"AM4\", \"AM5\", \"LGA1851\"], \"noise_db\": 27, \"heatpipes\": 4, \"height_mm\": 155}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'Air');
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (228,'DeepCool AK620 160mm 1850rpm','Двухбашенный кулер с шестью теплотрубками. Справляется с горячими процессорами, включая Core Ultra и Ryzen 7.',7,2,NULL,260,NULL,5990,10,'DeepCool','R-AK620-BKNNM-G','{\"rpm_max\": 1850, \"sockets\": [\"LGA1700\", \"AM4\", \"AM5\", \"LGA1851\"], \"noise_db\": 28, \"heatpipes\": 6, \"height_mm\": 160}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'Air');
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (229,'Arctic Freezer 34 eSports DUO 120mm','Однобайенетный кулер с вентилятором Pwm PST, который не останавливается на низких оборотах. Тихий в простое.',7,2,NULL,150,NULL,2990,10,'Arctic','ACFRE00137A','{\"rpm_max\": 1200, \"sockets\": [\"LGA1700\", \"AM4\", \"AM5\", \"LGA1851\"], \"noise_db\": 0.3, \"heatpipes\": 4, \"height_mm\": 157}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'Air');
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (230,'ID-Cooling SE-214-XT 120mm','Самый доступный кулер в подборке. Достаточный отвод тепла для процессоров среднего сегмента.',7,2,NULL,150,NULL,1990,10,'ID-Cooling','SE-214-XT ARGB','{\"rpm_max\": 1950, \"sockets\": [\"LGA1700\", \"AM4\", \"AM5\", \"LGA1851\"], \"noise_db\": 30, \"heatpipes\": 4, \"height_mm\": 150}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'Air');
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (231,'DeepCool LE520 140mm','Кулер с вентилятором 140 мм для тихой работы под нагрузкой. Пять теплотрубок, пылевой фильтр на основании.',7,2,NULL,250,NULL,5490,10,'DeepCool','R-LE520-BKAMNF-G-140','{\"rpm_max\": 1400, \"sockets\": [\"LGA1700\", \"AM4\", \"AM5\", \"LGA1851\"], \"noise_db\": 27, \"heatpipes\": 5, \"height_mm\": 157}',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'Air');
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (232,'Seagate Barracuda 2TB 7200rpm SATA III','Надёжный диск для хранения игр, медиа и резервных копий. Высокая скорость вращения обеспечивает быстрый отклик.',8,NULL,NULL,NULL,NULL,5490,10,'Seagate','ST2000DM008','{\"rpm\": 7200, \"cache_mb\": 256, \"capacity_tb\": 2, \"form_factor\": \"3.5\\\"\"}',NULL,2000,NULL,NULL,NULL,'SATA III','3.5\"',7200,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (233,'Toshiba P300 4TB 5400rpm SATA III','Тихоходный диск большой ёмкости для видеоархива и резервного хранения данных.',8,NULL,NULL,NULL,NULL,8490,10,'Toshiba','HDPE420','{\"rpm\": 5400, \"cache_mb\": 64, \"capacity_tb\": 4, \"form_factor\": \"3.5\\\"\"}',NULL,4000,NULL,NULL,NULL,'SATA III','3.5\"',5400,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (234,'WD Purple 4TB 5400rpm SATA III','Диск для систем видеонаблюдения с повышенной наработкой и ресурсом под постоянную запись.',8,NULL,NULL,NULL,NULL,9990,10,'Western Digital','WD40PURZ','{\"rpm\": 5400, \"cache_mb\": 256, \"form_factor\": \"3.5\\\"\", \"surveillance\": true}',NULL,4000,NULL,NULL,NULL,'SATA III','3.5\"',5400,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (235,'Samsung 980 Pro 1TB M.2 NVMe PCIe 4.0','Флагманский NVMe-накопитель с ресурсом 600 ТБ записи. Быстрый запуск игр и системы в целом.',9,NULL,NULL,NULL,NULL,8990,10,'Samsung','MZ-V8V1T0BW','{\"tbw\": 600, \"dram\": true, \"nand\": \"TLC\", \"read_mbs\": 7000, \"write_mbs\": 5000}',NULL,1000,NULL,NULL,NULL,'M.2 NVMe PCIe 4.0','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (236,'Kingston NV2 1TB M.2 NVMe PCIe 4.0','Бюджетный NVMe для сборок начального уровня. Достаточная скорость для повседневных задач и игр.',9,NULL,NULL,NULL,NULL,5990,10,'Kingston','SNV2S/1000G','{\"tbw\": 320, \"dram\": false, \"nand\": \"TLC\", \"read_mbs\": 3500, \"write_mbs\": 2100}',NULL,1000,NULL,NULL,NULL,'M.2 NVMe PCIe 4.0','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (237,'WD Blue SN580 1TB M.2 NVMe PCIe 4.0','Сбалансированный накопитель с хорошей скоростью записи. Популярный выбор для игровых систем.',9,NULL,NULL,NULL,NULL,7490,10,'Western Digital','WDS100T2B0E','{\"tbw\": 600, \"dram\": false, \"nand\": \"TLC\", \"read_mbs\": 4150, \"write_mbs\": 4150}',NULL,1000,NULL,NULL,NULL,'M.2 NVMe PCIe 4.0','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (238,'Samsung 870 EVO 1TB 2.5\" SATA III','Проверенный SATA-накопитель для систем без свободного слота M.2. Скорость до 560 МБ/с.',9,NULL,NULL,NULL,NULL,8490,10,'Samsung','MZ-77E1T0','{\"tbw\": 600, \"dram\": true, \"nand\": \"TLC\", \"read_mbs\": 560, \"write_mbs\": 530}',NULL,1000,NULL,NULL,NULL,'SATA III','2.5\"',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (239,'Crucial P3 Plus 2TB M.2 NVMe PCIe 4.0','Двухтерабайтный NVMe для больших библиотек игр и рабочих проектов. Оптимальный вариант по цене за гигабайт.',9,NULL,NULL,NULL,NULL,14990,10,'Crucial','CT2000P3PSSD8','{\"tbw\": 800, \"dram\": false, \"nand\": \"TLC\", \"read_mbs\": 5000, \"write_mbs\": 3600}',NULL,2000,NULL,NULL,NULL,'M.2 NVMe PCIe 4.0','M.2',NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (240,'ASUS DRW-24D5MT SATA','Внутренний DVD-привод для чтения и записи дисков формата DVD и CD. Подключается через SATA.',10,NULL,NULL,NULL,NULL,1990,10,'ASUS','DRW-24D5MT','{\"type\": \"DVD-RW\", \"silent\": true, \"cache_kb\": 2048}',NULL,NULL,NULL,NULL,NULL,'SATA',NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (241,'LG GH24NSD1 DVD-RW SATA','Надёжный привод для чтения и записи DVD/CD. Корпус M-ATX, полная совместимость с настольными ПК.',10,NULL,NULL,NULL,NULL,2190,10,'LG','GH24NSD1','{\"type\": \"DVD-RW\", \"silent\": false, \"cache_kb\": 2048}',NULL,NULL,NULL,NULL,NULL,'SATA',NULL,NULL,NULL);
+INSERT INTO `components` (`component_id`, `component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`, `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`, `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`, `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`) VALUES (242,'Lite-On DVD-RW DUO DVDRW-16S1L11 SATA','Двухскоростной привод с поддержкой M-DISC для долговечного хранения данных на специальных дисках.',10,NULL,NULL,NULL,NULL,2490,10,'Lite-On','DVDRW-16S1L11','{\"type\": \"DVD-RW\", \"mdisc\": true, \"cache_kb\": 2048}',NULL,NULL,NULL,NULL,NULL,'SATA',NULL,NULL,NULL);
+/*!40000 ALTER TABLE `components` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-10-02  8:19:19
+
+-- ---------------------------------------------------------------------------
+-- Базовые сборки 1-3 - справочные данные, а не пользовательские.
+--
+-- Именно на их существовании держится соглашение вывода: сборки с id > 3
+-- показываются с префиксом «Сборка » (см. admin/_order_row_data.php и
+-- admin/_tab_orders.php), а сборки 1-3 выводятся как есть. Без них первая
+-- же сборка конфигуратора получила бы id 1 и была бы неотличима от базовой,
+-- а тест AssemblyTest проверяет, что конфигуратор создаёт сборку с id > 3.
+--
+-- Ставится после components из-за внешних ключей на все 11 колонок и после
+-- UNLOCK TABLES: дамп собирал данные только для трёх таблиц и не блокировал
+-- assembly, поэтому вставка внутри секции LOCK TABLES падала бы с ошибкой
+-- «Table 'assembly' was not locked with LOCK TABLES».
+--
+-- В старом сиде было пять строк: эти три плюс #4 и #5, которые сгенерировал
+-- конфигуратор и которые вмёрзли в сид случайно. Пользовательских сборок
+-- в сиде быть не должно - их создаёт modules/configurator.php.
+-- ---------------------------------------------------------------------------
+INSERT INTO `assembly` (`assembly_id`, `assembly_name`, `cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `os`, `ssd_2_id`, `hdd_id`, `dvd_id`, `assembly_price`) VALUES (1, 'EinTech', 4, NULL, 44, 102, 133, 147, 117, 174, NULL, NULL, NULL, NULL, 30000);
+INSERT INTO `assembly` (`assembly_id`, `assembly_name`, `cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `os`, `ssd_2_id`, `hdd_id`, `dvd_id`, `assembly_price`) VALUES (2, 'Eternal', 38, 83, 66, 104, 135, 149, 122, 178, NULL, NULL, NULL, NULL, 105000);
+INSERT INTO `assembly` (`assembly_id`, `assembly_name`, `cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `os`, `ssd_2_id`, `hdd_id`, `dvd_id`, `assembly_price`) VALUES (3, 'Magic Workbench', 29, 96, 56, 103, 143, 162, 125, 180, NULL, NULL, 170, NULL, 340000);
+
