@@ -1,6 +1,10 @@
 .env
 .env.local
-vendor/
+# /vendor/ - только корневой каталог Composer. Без ведущего слэша правило
+# ловило бы любой каталог vendor на любом уровне и молча исключало
+# src/assets/vendor с локальными Leaflet и html2canvas: на свежем клоне
+# карта в админке не открылась бы. Проверено git check-ignore -v
+/vendor/
 node_modules/
 *.log
 backup_*.sql
