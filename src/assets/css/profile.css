@@ -747,38 +747,115 @@ h1{
     min-width: 0;
 }
 
-.profile-field {
+/* 3.7-i-6: поля личной информации — плитками в две колонки */
+.profile-fields {
     display: grid;
-    grid-template-columns: 120px 1fr auto;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px 24px;
+}
+
+/* 3.7-i-6: шапка профиля */
+.profile-header {
+    display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 16px 0;
+    gap: 20px;
+    padding-bottom: 24px;
+    margin-bottom: 24px;
     border-bottom: 1px solid var(--border);
 }
 
+.profile-header-avatar {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 64px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.profile-header-info h2 {
+    margin: 0 0 2px;
+    font-size: 22px;
+}
+
+.profile-header-login {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+/* 3.7-i-6: кнопка-иконка вместо текста «Изменить». Иконка инлайновая
+   через <use>, поэтому красится через currentColor и фильтр не нужен */
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 150ms, background 150ms;
+}
+
+.btn-icon:hover {
+    color: var(--accent);
+    background: var(--accent-light);
+}
+
+.btn-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.profile-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+}
+
 .profile-field:last-child {
-    border-bottom: none;
+    border-bottom: 1px solid var(--border);
 }
 
 .profile-field-label {
-    font-size: 13px;
+    flex: 0 0 100%;
+    font-size: 12px;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
 
 .profile-field-value {
+    flex: 1 1 auto;
     font-size: 15px;
+    font-weight: 500;
     color: var(--text);
+    word-break: break-word;
 }
 
 .profile-field-value[data-empty] {
     color: var(--text-muted);
     font-style: italic;
+    font-weight: 400;
 }
 
 .profile-field-edit {
-    grid-column: 2 / 4;
+    flex: 0 0 100%;
     display: flex;
     gap: 8px;
     align-items: center;
@@ -802,6 +879,24 @@ h1{
 
 .profile-field:not([data-editing]) .profile-field-edit {
     display: none;
+}
+
+@media (max-width: 600px) {
+    /* 3.7-i-6: на мобильном поля в одну колонку */
+    .profile-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-header {
+        gap: 14px;
+    }
+
+    .profile-header-avatar {
+        width: 52px;
+        height: 52px;
+        flex-basis: 52px;
+        font-size: 22px;
+    }
 }
 
 .admin-grid {

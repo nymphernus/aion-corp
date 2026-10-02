@@ -266,7 +266,30 @@ require __DIR__ . '/partials/header.php';
 <?php require __DIR__ . '/partials/profile-sidebar.php'; ?>
                             <div class="profile-content">
                             <section class="card" id="card-info" data-section<?= $sectionStyle('card-info') ?>>
-                                <h2>Личная информация</h2>
+<?php
+// 3.7-i-6: спрайт иконок для кнопок редактирования. Один символ на
+// страницу вместо пяти одинаковых <svg> внутри каждой кнопки
+$profileInitial = mb_strtoupper(mb_substr((string) ($userProfile['user_name'] ?? '?'), 0, 1, 'UTF-8'), 'UTF-8');
+$profileFullName = trim(($userProfile['user_name'] ?? '') . ' ' . ($userProfile['user_surname'] ?? ''));
+?>
+                                <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+                                    <symbol id="icon-edit" viewBox="0 0 512 512">
+                                        <rect x="150" y="96" width="216" height="88" rx="12" fill="none" stroke="currentColor" stroke-width="32" transform="rotate(-45 258 140)"></rect>
+                                        <path d="M120 400h272" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="32"></path>
+                                    </symbol>
+                                </svg>
+
+                                <!-- 3.7-i-6: шапка профиля вместо голого h2 -->
+                                <div class="profile-header">
+                                    <div class="profile-header-avatar"><?= escape($profileInitial) ?></div>
+                                    <div class="profile-header-info">
+                                        <h2><?= escape($profileFullName !== '' ? $profileFullName : (string) ($userProfile['user_login'] ?? '')) ?></h2>
+                                        <div class="profile-header-login">@<?= escape((string) ($userProfile['user_login'] ?? '')) ?></div>
+                                        <span class="badge <?= $isAdmin ? 'badge--success' : 'badge--warning' ?>">
+                                            <?= $isAdmin ? 'Администратор' : 'Пользователь' ?>
+                                        </span>
+                                    </div>
+                                </div>
 <?php
 // 3.7-i-3: раньше сообщения об ошибке показывались только на карточке
 // входа (там $_SESSION['error_access']), поэтому залогиненный пользователь
@@ -284,6 +307,8 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
 ?>
                                 <div class="alert alert--error"><?= escape($profileErrors[$_GET['error']]) ?></div>
 <?php endif; ?>
+                                <!-- 3.7-i-6: поля в две колонки, каждое своей плиткой -->
+                                <div class="profile-fields">
                                 <div class="profile-field" data-field="name">
                                     <div class="profile-field-label">Имя</div>
                                     <div class="profile-field-value"><?= htmlspecialchars($userProfile['user_name'] ?? '') ?></div>
@@ -293,7 +318,11 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <button class="btn btn--primary btn--sm" name="changeName" type="submit">Сохранить</button>
                                         <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
                                     </form>
-                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
+                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                         Спрайт один на страницу, символ берётся через <use> -->
+                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                                        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
+                                                    </button>
                                 </div>
                                 <div class="profile-field" data-field="surname">
                                     <div class="profile-field-label">Фамилия</div>
@@ -304,7 +333,11 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <button class="btn btn--primary btn--sm" name="changeSurname" type="submit">Сохранить</button>
                                         <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
                                     </form>
-                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
+                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                         Спрайт один на страницу, символ берётся через <use> -->
+                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                                        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
+                                                    </button>
                                 </div>
                                 <div class="profile-field" data-field="email">
                                     <div class="profile-field-label">Почта</div>
@@ -315,7 +348,11 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <button class="btn btn--primary btn--sm" name="changeEmail" type="submit">Сохранить</button>
                                         <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
                                     </form>
-                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
+                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                         Спрайт один на страницу, символ берётся через <use> -->
+                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                                        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
+                                                    </button>
                                 </div>
                                 <div class="profile-field" data-field="address">
 <?php
@@ -355,7 +392,11 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
                                         </div>
                                     </form>
-                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
+                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                         Спрайт один на страницу, символ берётся через <use> -->
+                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                                        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
+                                                    </button>
                                 </div>
                                 <div class="profile-field" data-field="number">
                                     <div class="profile-field-label">Телефон</div>
@@ -367,7 +408,12 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <button class="btn btn--primary btn--sm" name="changeNumber" type="submit">Сохранить</button>
                                         <button class="btn btn--ghost btn--sm" type="button" data-action="cancel-edit">Отмена</button>
                                     </form>
-                                    <button class="btn btn--ghost btn--sm" type="button" data-action="edit">Изменить</button>
+                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                         Спрайт один на страницу, символ берётся через <use> -->
+                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                                        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
+                                                    </button>
+                                </div>
                                 </div>
                             </section>
                             <!-- 3.7-f-4: промежуточная админ-карточка удалена —
