@@ -63,6 +63,8 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                         </details>
 <?php endif; ?>
 
-                        <a href="/validation/exit.php" class="profile-nav-item profile-nav-exit">Выйти</a>
+                        <!-- 3.7-g-4: был ссылкой, ушла сразу. Теперь кнопка: выход требует
+                             подтверждения через общую #confirmModal -->
+                        <button type="button" class="profile-nav-item profile-nav-exit" data-action="logout-confirm">Выйти</button>
                     </nav>
                 </aside>

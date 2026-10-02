@@ -77,6 +77,7 @@
                         </div>
 
                         <div class="modal-actions">
+                            <button type="button" class="btn btn--danger" data-action="delete-order">Удалить</button>
                             <div class="modal-actions-right">
                                 <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
                                 <button type="submit" name="editOrder" class="btn btn--primary">Сохранить</button>
@@ -84,3 +85,16 @@
                         </div>
                     </form>
                 </dialog>
+
+                <!--
+                    3.7-g-4: форма удаления заказа. Отправляет
+                    confirmAction после подтверждения в #confirmModal.
+                -->
+                <form id="deleteOrderForm" method="post" action="/admin.php?tab=orders" hidden>
+                    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="orderId" id="deleteOrderId" value="">
+                    <!-- 3.7-g-4: deleteOrder лежит скрытым input, а не
+                         кнопкой: form.submit() не включает имя нажатой
+                         кнопки, а обработчик проверяет $_POST['deleteOrder'] -->
+                    <input type="hidden" name="deleteOrder" value="1">
+                </form>

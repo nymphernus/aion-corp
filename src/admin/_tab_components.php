@@ -401,17 +401,16 @@ if ($result) {
                     components.component_id с NO ACTION) — при отказе
                     редирект с ?error=used&count=N.
                 -->
-                <dialog id="deleteComponentModal" class="modal">
-                    <form method="post" class="modal-form" action="/admin.php?tab=components">
-                        <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
-                        <input type="hidden" name="deleteComponentId" id="deleteComponentId" value="">
-
-                        <h2>Удалить комплектующий?</h2>
-                        <p id="deleteComponentName" style="color: var(--text-secondary); margin-bottom: 24px;"></p>
-
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
-                            <button type="submit" name="deleteComponent" class="btn btn--danger">Удалить</button>
-                        </div>
-                    </form>
-                </dialog>
+                <!--
+                    3.7-g-4: подтверждение удаления показывает общая
+                    #confirmModal из partials/header.php, поэтому
+                    отдельная модалка с теми же кнопками удалена.
+                    Осталась форма, которую отправляет confirmAction.
+                -->
+                <form id="deleteComponentForm" method="post" action="/admin.php?tab=components" hidden>
+                    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="deleteComponentId" id="deleteComponentId" value="">
+                    <!-- 3.7-g-4: скрытый input вместо submit-кнопки,
+                         потому что форму отправляет form.submit() -->
+                    <input type="hidden" name="deleteComponent" value="1">
+                </form>

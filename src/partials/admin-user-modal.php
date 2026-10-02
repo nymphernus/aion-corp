@@ -117,20 +117,14 @@
                     </form>
                 </dialog>
 
-                <!-- 3.7-h-2: подтверждение удаления пользователя -->
-                <dialog id="deleteUserModal" class="modal">
-                    <form method="post" class="modal-form" action="/admin.php?tab=users">
-                        <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
-                        <input type="hidden" name="userId" id="deleteUserId" value="">
-
-                        <h2>Удалить пользователя?</h2>
-                        <p id="deleteUserName" style="color: var(--text-secondary); margin-bottom: 24px;"></p>
-
-                        <div class="modal-actions">
-                            <div class="modal-actions-right">
-                                <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
-                                <button type="submit" name="deleteUser" class="btn btn--danger">Удалить</button>
-                            </div>
-                        </div>
-                    </form>
-                </dialog>
+                <!-- 3.7-g-4: подтверждение удаления показывает общая #confirmModal
+                     из partials/header.php, поэтому отдельная модалка
+                     удалена. Осталась форма, которую отправляет
+                     confirmAction. -->
+                <form id="deleteUserForm" method="post" action="/admin.php?tab=users" hidden>
+                    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="userId" id="deleteUserId" value="">
+                    <!-- 3.7-g-4: скрытый input вместо submit-кнопки,
+                         потому что форму отправляет form.submit() -->
+                    <input type="hidden" name="deleteUser" value="1">
+                </form>

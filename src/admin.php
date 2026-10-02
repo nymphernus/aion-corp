@@ -459,6 +459,32 @@ if ($isAdmin && isset($_POST['editUser'])) {
     exit();
 }
 
+// 3.7-g-4: удаление заказа. На orders ссылается только сам заказ,
+// других таблиц с FK на orders нет (проверено: единственный FK у orders -
+// assembly_id, то есть от заказа к сборке, а не наоборот), поэтому
+// удалять можно без проверок использования.
+if ($isAdmin && isset($_POST['deleteOrder'])) {
+    csrf_verify();
+    $orderId = (int) ($_POST['orderId'] ?? 0);
+
+    if ($orderId > 0) {
+        // проверка существования: UPDATE/DELETE молча затрагивают 0 строк
+        $check = db_prepare($mysql, "SELECT order_id FROM orders WHERE order_id = ?", "i", $orderId);
+        $check->execute();
+        if (!$check->get_result()->fetch_assoc()) {
+            header('Location: /admin.php?tab=orders&error=missing-order');
+            exit();
+        }
+
+        $stmt = db_prepare($mysql, "DELETE FROM orders WHERE order_id = ?", "i", $orderId);
+        $stmt->execute();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=orders');
+    exit();
+}
+
 if ($isAdmin && isset($_POST['deleteUser'])) {
     csrf_verify();
     $userId = $_POST['userId'] ?? 0;

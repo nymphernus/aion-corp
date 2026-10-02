@@ -494,39 +494,129 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
-// 3.7-h-2: «Удалить» из модалки пользователя — отдельное подтверждение
-document.addEventListener('click', function(e) {
-    var delBtn = e.target.closest('[data-action="open-delete-user-modal"]');
-    if (!delBtn) return;
-    e.preventDefault();
+// 3.7-g-4: единое подтверждение действия.
+//
+// Колбэк хранится в переменной, кнопки слушает делегированный
+// обработчик ниже. Планировалось клонировать кнопку «Подтвердить»
+// ради отвязки прошлых слушателей - не нужно: слушатель один, он на
+// документе, и подменять ему нечего.
+var confirmCallback = null;
 
-    var userModal = document.getElementById('editUserModal');
-    var modal = document.getElementById('deleteUserModal');
+window.confirmAction = function (title, message, onConfirm) {
+    var modal = document.getElementById('confirmModal');
     if (!modal) return;
 
-    modal.querySelector('#deleteUserId').value = delBtn.dataset.id;
-    modal.querySelector('#deleteUserName').textContent = delBtn.dataset.name;
+    var setText = function (id, value) {
+        var el = modal.querySelector(id);
+        if (el) el.textContent = value;
+    };
+    setText('#confirmTitle', title);
+    setText('#confirmMessage', message);
 
-    if (userModal && userModal.open) userModal.close();
+    confirmCallback = typeof onConfirm === 'function' ? onConfirm : null;
     modal.showModal();
+};
+
+document.addEventListener('click', function (e) {
+    var modal = document.getElementById('confirmModal');
+
+    if (e.target.closest('[data-action="confirm-ok"]')) {
+        var callback = confirmCallback;
+        confirmCallback = null;
+        if (modal && modal.open) modal.close();
+        if (callback) callback();
+        return;
+    }
+
+    if (e.target.closest('[data-action="confirm-cancel"]')) {
+        confirmCallback = null;
+        if (modal && modal.open) modal.close();
+        return;
+    }
+
+    // 3.7-g-4: выход из аккаунта требует подтверждения
+    if (e.target.closest('[data-action="logout-confirm"]')) {
+        e.preventDefault();
+        window.confirmAction('Выйти из аккаунта?', 'Придётся снова вводить логин и пароль.', function () {
+            window.location.href = '/validation/exit.php';
+        });
+        return;
+    }
+
+    // 3.7-g-4: удаление заказа из модалки заказа
+    var orderDel = e.target.closest('[data-action="delete-order"]');
+    if (orderDel) {
+        e.preventDefault();
+        var orderModal = document.getElementById('editOrderModal');
+        var form = document.getElementById('deleteOrderForm');
+        if (!form) return;
+        // id берём из скрытого поля модалки, а не из текста заголовка:
+        // в форме должен лежать именно order_id, иначе DELETE уйдёт с 0
+        var orderIdField = orderModal ? orderModal.querySelector('#editOrderId') : null;
+        form.querySelector('#deleteOrderId').value = orderIdField ? orderIdField.value : '';
+        var orderNumber = orderModal ? orderModal.querySelector('#editOrderNumber').textContent : '';
+        window.confirmAction(
+            'Удалить заказ?',
+            'Заказ №' + orderNumber + ' будет удалён безвозвратно.',
+            function () { form.submit(); }
+        );
+        return;
+    }
+
+    // 3.7-g-4: удаление из избранного, форма лежит в строке таблицы
+    var favDel = e.target.closest('[data-action="delete-favorite"]');
+    if (favDel) {
+        e.preventDefault();
+        var favForm = favDel.closest('form');
+        if (!favForm) return;
+        window.confirmAction(
+            'Убрать из избранного?',
+            'Сборка «' + (favDel.dataset.name || '') + '» исчезнет из избранного.',
+            function () { favForm.submit(); }
+        );
+        return;
+    }
+
+    // 3.7-g-4: удаление пользователя вместо отдельной модалки
+    var userDel = e.target.closest('[data-action="open-delete-user-modal"]');
+    if (userDel) {
+        e.preventDefault();
+        var userModal = document.getElementById('editUserModal');
+        var userForm = document.getElementById('deleteUserForm');
+        if (!userForm) return;
+        userForm.querySelector('#deleteUserId').value = userDel.dataset.id || '';
+        if (userModal && userModal.open) userModal.close();
+        window.confirmAction(
+            'Удалить пользователя?',
+            'Пользователь ' + (userDel.dataset.name || '') + ' будет удалён вместе с избранным.',
+            function () { userForm.submit(); }
+        );
+        return;
+    }
+
+    // 3.7-g-4: удаление комплектующего вместо отдельной модалки
+    var compDel = e.target.closest('[data-action="open-delete-modal"]');
+    if (compDel) {
+        e.preventDefault();
+        var editModal = document.getElementById('addComponentModal');
+        var compForm = document.getElementById('deleteComponentForm');
+        if (!compForm) return;
+        compForm.querySelector('#deleteComponentId').value = compDel.dataset.id || '';
+        if (editModal && editModal.open) editModal.close();
+        window.confirmAction(
+            'Удалить комплектующий?',
+            '«' + (compDel.dataset.name || '') + '» будет удалён. Если он используется в сборках, удаление не пройдёт.',
+            function () { compForm.submit(); }
+        );
+        return;
+    }
 });
 
-// 3.7-f-2: «Удалить» из edit-модалки — закрываем её и открываем подтверждение
-document.addEventListener('click', function(e) {
-    var delBtn = e.target.closest('[data-action="open-delete-modal"]');
-    if (!delBtn) return;
-    e.preventDefault();
-
-    var editModal = document.getElementById('addComponentModal');
-    var modal = document.getElementById('deleteComponentModal');
-    if (!modal) return;
-
-    modal.querySelector('#deleteComponentId').value = delBtn.dataset.id;
-    modal.querySelector('#deleteComponentName').textContent = delBtn.dataset.name;
-
-    if (editModal && editModal.open) editModal.close();
-    modal.showModal();
-});
+// 3.7-g-4: закрытие по Escape тоже сбрасывает колбэк, иначе он остался
+// бы висеть до следующего открытия модалки
+document.addEventListener('close', function (e) {
+    if (e.target && e.target.id === 'confirmModal') confirmCallback = null;
+}, true);
 
 // 3.7-d: «+ Добавить» после edit — выйти из режима редактирования
 document.addEventListener('click', function(e) {

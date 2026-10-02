@@ -412,7 +412,12 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                                         . "<td><form method=\"POST\">"
                                                         . "<input type=\"hidden\" name=\"csrf_token\" value=\"" . escape(csrf_token()) . "\">"
                                                         . "<input name=\"favoritId\" type=\"hidden\" value=\"{$row['favorit_id']}\">"
-                                                        . "<button class=\"btn btn--ghost btn--sm row-btn-danger\" name=\"deleteAssembly\" type=\"submit\" value=\"{$row['assembly_id']}\" title=\"Убрать из избранного\">"
+                                                        // 3.7-g-4: подтверждение перед удалением.
+                                                        // deleteAssembly дублируется скрытым input:
+                                                        // форму отправляет form.submit(), а он не
+                                                        // включает имя нажатой submit-кнопки.
+                                                        . "<input type=\"hidden\" name=\"deleteAssembly\" value=\"{$row['assembly_id']}\">"
+                                                        . "<button class=\"btn btn--ghost btn--sm row-btn-danger\" type=\"submit\" data-action=\"delete-favorite\" data-name=\"" . htmlspecialchars($favName, ENT_QUOTES) . "\" title=\"Убрать из избранного\">"
                                                         . "<img src=\"/assets/images/trash-outline.svg\" alt=\"Удалить\" width=\"18\" height=\"18\">"
                                                         . "</button>"
                                                         . "</form></td>"
