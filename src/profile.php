@@ -542,7 +542,10 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                                 if (empty($ordRows)) {
                                                     echo '<div class="profile-empty">Пока нет заказов</div>';
                                                 } else {
-                                                echo '<table class="table"><thead><tr><th>№</th><th>Сборка</th><th>Стоимость</th><th>Статус</th><th>Дата</th></tr></thead><tbody>';
+                                                // 3.7-g-5: колонка «№» убрана, пользователю номер заказа не нужен.
+// В модалке он по-прежнему показывается - там он помогает сослаться
+// на заказ при поддержке.
+                                                echo '<table class="table"><thead><tr><th>Сборка</th><th>Стоимость</th><th>Статус</th><th>Дата</th></tr></thead><tbody>';
 
                                                 foreach ($ordRows as $row) {
                                                     // 3.7-f-4b-3: явное поле вместо хрупкого $row[0]
@@ -564,7 +567,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                                         'created_at' => $ordCreated,
                                                     ], JSON_UNESCAPED_UNICODE);
                                                     echo "<tr class=\"row-link\" data-row='" . escape($ordData) . "'>"
-                                                        . "<td>" . htmlspecialchars((string) $row['order_id']) . "</td>"
+                                                        // 3.7-g-5: колонки с номером заказа больше нет
                                                         . "<td>" . htmlspecialchars($ordAsmName) . "</td>"
                                                         . "<td>" . htmlspecialchars((string) ($row['assembly_price'] ?? '')) . " руб.</td>"
                                                         . "<td><span class=\"badge " . $statusCls . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
