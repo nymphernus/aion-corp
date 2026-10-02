@@ -29,13 +29,9 @@ if ($userLogin) {
     // Сброс стоит до обработчиков POST: удалённый пользователь не должен
     // «обновлять» профиль и POST-запросом.
     if (!$userProfile) {
-        $_SESSION = [];
-        if (ini_get('session.use_cookies')) {
-            $p = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $p['path'], $p['domain'], $p['secure'], $p['httponly']);
-        }
-        session_destroy();
+        // 5-b: тот же сброс, что и в validation/exit.php, вынесен в
+        // общий logout_user()
+        logout_user();
         header('Location: /profile.php');
         exit();
     }

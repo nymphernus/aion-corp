@@ -7,6 +7,7 @@
  */
 
 require_once __DIR__ . '/csrf.php';
+require_once __DIR__ . '/auth.php';
 
 if (!function_exists('connect')) {
     function connect(): mysqli

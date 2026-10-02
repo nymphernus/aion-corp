@@ -1,13 +1,16 @@
 <?php
+/**
+ * Выход из аккаунта.
+ *
+ * Сессия запускается и сбрасывается через общий помощник logout_user()
+ * из modules/auth.php: тот же сброс нужен в profile.php, когда сессия
+ * пережила удаление пользователя из базы.
+ */
+require_once __DIR__ . '/../modules/connect.php';
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$_SESSION = [];
-if (ini_get('session.use_cookies')) {
-    $p = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $p['path'], $p['domain'], $p['secure'], $p['httponly']);
-}
-session_destroy();
+logout_user();
 header('Location: /');
 exit();
