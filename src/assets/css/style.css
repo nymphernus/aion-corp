@@ -397,10 +397,10 @@ body::-webkit-scrollbar-thumb {
 .container_select {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
-    max-width: 1200px;
+    gap: 28px;
+    max-width: 1440px;
     margin: 0 auto;
-    padding: 32px 24px;
+    padding: 40px 32px;
     align-items: stretch;
     height: auto;
 }
@@ -453,7 +453,7 @@ body::-webkit-scrollbar-thumb {
 /* === Фото === */
 .build__image {
     position: relative;
-    height: 240px;
+    height: 320px;
     background: linear-gradient(180deg, #F8FAFC 0%, #EEF2F7 100%);
     display: flex;
     align-items: center;
@@ -461,8 +461,8 @@ body::-webkit-scrollbar-thumb {
     overflow: hidden;
 }
 .build__image img {
-    max-width: 80%;
-    max-height: 80%;
+    max-width: 85%;
+    max-height: 85%;
     object-fit: contain;
     transition: transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -478,9 +478,9 @@ body::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(8px);
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    padding: 5px 12px;
+    padding: 6px 14px;
     border-radius: 999px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -492,14 +492,14 @@ body::-webkit-scrollbar-thumb {
     display: flex;
     flex-direction: column;
     flex: 1;
-    padding: 20px 22px 22px;
+    padding: 28px;
 }
 
 .build__title {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: var(--text);
-    margin: 0 0 16px;
+    margin: 0 0 20px;
     letter-spacing: -0.01em;
     line-height: 1.2;
 }
@@ -511,19 +511,19 @@ body::-webkit-scrollbar-thumb {
     margin: 0 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 .build__specs li {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 13.5px;
+    font-size: 14px;
     color: var(--text-secondary);
     line-height: 1.4;
 }
 .build__specs li svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
     opacity: 0.55;
     color: var(--text-secondary);
@@ -534,26 +534,26 @@ body::-webkit-scrollbar-thumb {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 20px;
-    padding-top: 16px;
+    margin-top: 24px;
+    padding-top: 20px;
     border-top: 1px solid var(--border);
 }
 .build__price {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: var(--accent);
     letter-spacing: -0.01em;
 }
 .build__cta {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     background: var(--accent-light);
     color: var(--accent);
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     transition: background 200ms, transform 200ms;
 }

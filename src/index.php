@@ -128,8 +128,7 @@ if (!function_exists('build_card_icon')) {
             </div>
             <div class="container_pc">
                 <a class="anch" name="assembly"></a>
-                <div class="cont_shell cont_shell_back">
-<div class="container_select">
+                <div class="container_select">
                         <?php foreach ($homeBuilds as $homeBuild): ?>
                             <?php
                             // Строка памяти собирается из колонок, а не из названия:
@@ -195,7 +194,6 @@ if (!function_exists('build_card_icon')) {
                             </a>
                         <?php endforeach; ?>
                     </div>
-                </div>
             </div>
 
             <div class="container_conf" style="background: url(assets/images/background_3.jpg) no-repeat; background-size: cover;">
