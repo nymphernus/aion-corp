@@ -20,7 +20,7 @@ require __DIR__ . '/partials/header.php';
                     <div class="hero__content">
                         <h1 class="hero__title">AION CORPORATION</h1>
                         <p class="hero__lead">Уникальные компьютеры для игр, стриминга, работы с графикой, видео и большими объёмами данных</p>
-                        <a class="btn btn--primary hero__cta" href="#configurator">Собрать ПК</a>
+                        <a class="btn hero__button" href="#configurator">Собрать ПК</a>
                     </div>
                 </div>
             </div>
