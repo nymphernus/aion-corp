@@ -16,7 +16,7 @@ if (!defined('ADMIN_CONTEXT')) {
 }
 ?>
                 <section class="card admin-panel">
-                    <h1 class="admin-title">Управление заказами</h1>
+                    <h1 class="page-title">Управление заказами</h1>
 
                     <!-- 3.7-f-4-3: фильтр по статусу и поиск по покупателю
                          (3.7-f-4b-4: сортировка убрана) -->

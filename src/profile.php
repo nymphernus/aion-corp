@@ -457,7 +457,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
      в сайдбаре ссылка на /admin.php, внутри админки свой сайдбар с вкладками -->
                             <?php if (!$isAdmin): ?>
                             <section class="card" id="card-fav" data-section<?= $sectionStyle('card-fav') ?>>
-                                <h2>Избранное</h2>
+                                <h2 class="page-title">Избранное</h2>
                                             <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
                                             <div class="table-wrap">
                                                 <?php
@@ -512,7 +512,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             </div>
                             </section>
                             <section class="card" id="card-builds" data-section<?= $sectionStyle('card-builds') ?>>
-                                            <h2>Мои заказы</h2>
+                                            <h2 class="page-title">Мои заказы</h2>
                                             <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
                                             <div class="table-wrap">
                                                 <?php

@@ -16,7 +16,7 @@ if (!defined('ADMIN_CONTEXT')) {
 }
 ?>
                 <section class="card admin-panel">
-                    <h1 class="admin-title">Управление пользователями</h1>
+                    <h1 class="page-title">Управление пользователями</h1>
 
                     <!-- 3.7-f-4-3: фильтр по группе и поиск по имени/логину
                          (3.7-f-4b-4: сортировка убрана) -->

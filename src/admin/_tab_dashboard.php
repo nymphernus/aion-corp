@@ -138,7 +138,7 @@ for ($i = $chartDays - 1; $i >= 0; $i--) {
 }
 $daysWithOrders = count($byDay);
 ?>
-                <h1 class="admin-title">Дашборд</h1>
+                <h1 class="page-title">Дашборд</h1>
 
                 <div class="dashboard-grid">
                     <div class="card dashboard-card">
