@@ -380,7 +380,11 @@ const CPU_CORES = [
     // AMD, APU и Athlon (AM4)
     'A8-9600' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 3.5, 'boost_ghz' => 4.0, 'cache_mb' => 2, 'lit' => true, 'igpu' => 'Radeon R7 Graphics'],
     'A6-9500E' => ['cores' => 2, 'threads' => 2, 'base_ghz' => 3.5, 'boost_ghz' => 4.0, 'cache_mb' => 2, 'lit' => true, 'igpu' => 'Radeon R5 Graphics'],
-    'Athlon X4 950' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 3.8, 'boost_ghz' => null, 'cache_mb' => 2, 'lit' => false, 'igpu' => null],
+    // Athlon X4 950 - единственный в таблице без суффикса G, но с
+    // встроенной графикой: у него Radeon R7 на 512 шейдеров. Раньше здесь
+    // стояло lit => false, из-за чего описание писало «Без встроенной
+    // графики» в противоречие с video_core = 1 в базе.
+    'Athlon X4 950' => ['cores' => 4, 'threads' => 4, 'base_ghz' => 3.8, 'boost_ghz' => null, 'cache_mb' => 2, 'lit' => true, 'igpu' => 'Radeon R7 Graphics'],
     'Athlon 3000G' => ['cores' => 2, 'threads' => 4, 'base_ghz' => 3.5, 'boost_ghz' => null, 'cache_mb' => 4, 'lit' => true, 'igpu' => 'Radeon Vega 2'],
 ];
 
