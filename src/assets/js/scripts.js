@@ -646,3 +646,33 @@ document.addEventListener('click', function(e) {
     // showModal вызывается в существующем обработчике open-modal
 });
 
+/* 3.6.3-c-1: пресеты конфигуратора.
+   Клик по пресету подставляет его бюджет в поле и подсвечивает кнопку.
+   Обратный случай - ручной ввод суммы: подсветка остаётся, только если
+   сумма совпала с пресетом. */
+document.addEventListener('click', function(e) {
+    const preset = e.target.closest('.cfg-preset');
+    if (!preset) return;
+
+    const budget = preset.dataset.budget;
+    if (!budget) return;
+
+    document.querySelectorAll('.cfg-preset')
+        .forEach(p => p.classList.remove('is-active'));
+    preset.classList.add('is-active');
+
+    const input = document.getElementById('cfgPrice');
+    if (input) {
+        input.value = budget;
+        input.focus();
+    }
+});
+
+document.addEventListener('input', function(e) {
+    if (e.target.id !== 'cfgPrice') return;
+    const value = e.target.value;
+    document.querySelectorAll('.cfg-preset').forEach(p => {
+        p.classList.toggle('is-active', p.dataset.budget === value);
+    });
+});
+

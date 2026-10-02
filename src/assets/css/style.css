@@ -873,3 +873,301 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
         font-size: 15px;
     }
 }
+
+/* === Конфигуратор ===
+   Блок собран по спецификации: четыре пресета, разделитель, поле бюджета с
+   кнопкой и дополнительные опции в раскрывающемся блоке. Имена полей
+   сохранены прежние, потому что их читает modules/configurator.php:
+   price, choice_os, choice_ssd, choice_hdd, choice_dvd. В спецификации
+   стояло choice_oc, но бэкенд проверяет именно choice_os, поэтому оставлено
+   рабочее имя - иначе опция «Предоставить ОС» перестала бы доходить.
+
+   scroll-margin-top добавлен сверх спецификации: без него переход по
+   якорю #configurator из hero приводит заголовок под липкую шапку. */
+.cfg {
+    padding: 60px 24px 80px;
+    background: linear-gradient(180deg, transparent 0%, rgba(37, 99, 235, 0.02) 100%);
+    scroll-margin-top: 90px;
+}
+
+.cfg__container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.cfg__header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+.cfg__title {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+}
+.cfg__subtitle {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* === Пресеты === */
+.cfg__presets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+}
+@media (max-width: 768px) {
+    .cfg__presets {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+}
+
+.cfg-preset {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 16px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+    text-align: center;
+}
+.cfg-preset:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.1);
+}
+.cfg-preset.is-active {
+    background: var(--accent-light);
+    border-color: var(--accent);
+}
+.cfg-preset svg {
+    width: 28px;
+    height: 28px;
+    color: var(--accent);
+    stroke-width: 1.5;
+}
+.cfg-preset__name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+.cfg-preset__price {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* === Разделитель === */
+.cfg__divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+.cfg__divider::before,
+.cfg__divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+/* === Бюджет + кнопка === */
+.cfg__budget {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+    .cfg__budget {
+        flex-direction: column;
+    }
+}
+
+.cfg-budget {
+    position: relative;
+    flex: 1;
+}
+.cfg-budget__input {
+    width: 100%;
+    height: 56px;
+    padding: 0 48px 0 20px;
+    font-size: 18px;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text);
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    transition: 200ms;
+    outline: none;
+}
+.cfg-budget__input::placeholder {
+    color: var(--text-muted);
+    font-weight: 400;
+}
+.cfg-budget__input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-light);
+}
+.cfg-budget__currency {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+
+.cfg__submit {
+    height: 56px;
+    padding: 0 32px;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: 200ms;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+.cfg__submit:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+}
+.cfg__submit:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+/* Подпись под кнопкой, когда пользователь не вошёл. На всю ширину строки,
+   иначе flex растянет её и кнопка уедет в угол. */
+.cfg__gate {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 13px;
+    color: var(--error);
+}
+
+/* === Доп. опции === */
+.cfg__options {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: white;
+    overflow: hidden;
+}
+.cfg-options__summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    list-style: none;
+    transition: 150ms;
+}
+.cfg-options__summary::-webkit-details-marker {
+    display: none;
+}
+.cfg-options__summary:hover {
+    background: var(--bg);
+}
+.cfg-options__summary svg {
+    width: 18px;
+    height: 18px;
+    color: var(--text-secondary);
+}
+.cfg-options__chev {
+    margin-left: auto;
+    transition: transform 200ms;
+}
+.cfg__options[open] .cfg-options__chev {
+    transform: rotate(180deg);
+}
+
+.cfg-options__body {
+    padding: 8px 20px 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+@media (max-width: 640px) {
+    .cfg-options__body {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* === Стилизованные чекбоксы === */
+.cfg-check {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 150ms;
+    user-select: none;
+}
+.cfg-check:hover {
+    background: var(--bg);
+}
+.cfg-check input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.cfg-check__box {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: white;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 150ms;
+    position: relative;
+}
+.cfg-check__box::after {
+    content: '';
+    width: 10px;
+    height: 6px;
+    border-left: 2px solid white;
+    border-bottom: 2px solid white;
+    transform: rotate(-45deg) translate(1px, -2px) scale(0);
+    transition: transform 150ms;
+}
+.cfg-check input:checked + .cfg-check__box {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+.cfg-check input:checked + .cfg-check__box::after {
+    transform: rotate(-45deg) translate(1px, -2px) scale(1);
+}
+.cfg-check__label {
+    font-size: 14px;
+    color: var(--text);
+}
+
