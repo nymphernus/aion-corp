@@ -1,316 +1,257 @@
 <?php
-function configure($budget) {
+/**
+ * Доли бюджета по категориям для трёх режимов.
+ *
+ * Сумма каждого набора ровно 100. Доли считаются от исходного бюджета, а не
+ * от остатка: в прежней версии проценты брались от того, что не потратил
+ * предыдущий компонент, из-за чего корпус получал до 56% остатка и итог
+ * сильно зависел от порядка выборки.
+ *
+ * 3.6.3-c-2: games - вклад в видеокарту, work - в процессор, universal -
+ * баланс.
+ */
+function cfg_percentages($preference)
+{
+    $sets = [
+        'games' => [
+            'cpu' => 15, 'gpu' => 45, 'mb' => 10, 'ram' => 8,
+            'ssd' => 6, 'psu' => 6, 'case' => 5, 'cooler' => 5,
+        ],
+        'work' => [
+            'cpu' => 30, 'gpu' => 25, 'mb' => 10, 'ram' => 10,
+            'ssd' => 8, 'psu' => 5, 'case' => 7, 'cooler' => 5,
+        ],
+        'universal' => [
+            'cpu' => 22, 'gpu' => 33, 'mb' => 10, 'ram' => 9,
+            'ssd' => 7, 'psu' => 6, 'case' => 8, 'cooler' => 5,
+        ],
+    ];
+
+    return isset($sets[$preference]) ? $sets[$preference] : $sets['universal'];
+}
+
+/** Выборка одной строки. Типы и параметры - как у bind_param. */
+function cfg_fetch($mysql, $sql, $types = '', $params = [])
+{
+    $stmt = $mysql->prepare($sql);
+    if ($types !== '' && !empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return $row ? $row : null;
+}
+
+/** Самый дешёвый компонент, удовлетворяющий условию. */
+function cfg_cheapest($mysql, $where, $types = '', $params = [])
+{
+    return cfg_fetch(
+        $mysql,
+        "SELECT * FROM components WHERE $where ORDER BY component_price ASC LIMIT 1",
+        $types,
+        $params
+    );
+}
+
+/**
+ * Имя сокета по его номеру.
+ *
+ * Карта продублирована из scripts/enrich_components.php (socketName),
+ * где она и заполняется в описаниях. Подключать скрипт из модуля нельзя:
+ * он рассчитан на запуск из командной строки.
+ *
+ * Номера 5 и 6 (LGA1851 и AM5) в карте enrich пока нет, для них возвращается
+ * пустая строка - тогда фильтр по сокету просто не применяется.
+ */
+function cfg_socket_name($socketId)
+{
+    return [1 => 'LGA1200', 2 => 'LGA1700', 3 => 'AM4'][(int)$socketId] ?? '';
+}
+
+/**
+ * Самый дорогой компонент, но не дороже лимита.
+ *
+ * Если таких нет - берётся самый дешёвый из доступных: отказ от категории
+ * оставил бы сборку без процессора или без платы, а лимит может оказаться
+ * ниже минимума категории при малом бюджете.
+ *
+ * Порядок параметров важен и не переставляется. В $where уже есть свои
+ * плейсхолдеры, они идут раньше, поэтому лимит цены дописывается в конец -
+ * и в строке типов, и в массиве значений. Иначе socket_id получил бы
+ * лимит, а component_price - номер сокета, запрос вернул бы пусто, и вместо
+ * платы по сокету молча подставилась бы самая дешёвая.
+ */
+function cfg_pick($mysql, $limit, $where, $types = '', $params = [])
+{
+    $row = cfg_fetch(
+        $mysql,
+        "SELECT * FROM components WHERE $where AND component_price <= ? ORDER BY component_price DESC LIMIT 1",
+        $types . 'd',
+        array_merge($params, [(float)$limit])
+    );
+
+    return $row ? $row : cfg_cheapest($mysql, $where, $types, $params);
+}
+
+/**
+ * Сборка компьютера по бюджету и приоритету.
+ *
+ * Бюджет тратится только на железо. ОС добавляется сверху: windows
+ * стоит 11000, linux бесплатна, none - пусто. Прежний код вычитал из
+ * бюджета 11000 за Windows, и эти деньги уходили в распределение по
+ * категориям вместо фиксированной надбавки.
+ *
+ * Порядок подбора: процессор задаёт сокет для материнской платы, кулер
+ * подбирается по его тепловой мощности.
+ */
+function configure($budget, $preference = 'universal', $osChoice = 'none')
+{
     require_once 'modules/connect.php';
     $mysql = connect();
     mysqli_set_charset($mysql, 'utf8');
-    
+
+    $budget = (int)$budget;
+    $pct = cfg_percentages((string)$preference);
+    $limit = [];
+    foreach ($pct as $part => $share) {
+        $limit[$part] = (int)round($budget * $share / 100);
+    }
+
+    // ОС - надбавка сверх бюджета, на распределение по железу не влияет
+    $os = null;
+    $osPrice = 0;
+    if ($osChoice === 'windows') {
+        $osPrice = 11000;
+        $os = 'Windows 10 Home';
+    } elseif ($osChoice === 'linux') {
+        $os = 'Ubuntu 24.04 LTS';
+    }
+
     $stmt = $mysql->prepare("SELECT MAX(assembly_id) FROM assembly");
     $stmt->execute();
     $checklast = $stmt->get_result()->fetch_array();
     $maxID = ($checklast[0] ?? 0) + 1;
     $name = "#$maxID";
-    $budget_whole = (int)$budget;
-    
-    $os = null;
-    $dvd = null;
-    $ssd2 = null;
-    $hdd = null;
-    
-    if(isset($_POST['choice_os']) && $_POST['choice_os'] == '1') {
-        $budget -= 11000;
-        $os = "Windows 10 Home";
-    }
-    
-    if(isset($_POST['choice_dvd']) && $_POST['choice_dvd'] == '1') {
-        $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 10 ORDER BY `components`.`component_price` ASC LIMIT 1");
-        $stmt->execute();
-        $dvd = $stmt->get_result()->fetch_assoc();
-        if ($dvd) {
-            $budget -= $dvd['component_price'];
+
+    // компоненты заполняются по ходу подбора; инициализация нужна, чтобы при
+    // отсутствии процессора не обращаться к необъявленным переменным
+    $cpu = null;
+    $motherboard = null;
+    $ram = null;
+    $power_supply = null;
+    $case = null;
+    $cooler = null;
+    $ssd = null;
+    $gpu = null;
+
+    if ($budget <= 22499) {
+        // Дешёвая сборка: самые доступные комплектующие, дискретной
+        // видеокарты нет. Поэтому процессор обязан быть со встроенным
+        // видео - иначе машина вообще ничего не выведет на монитор.
+        $cpu = cfg_cheapest($mysql, 'category_id = 1 AND video_core = 1');
+        if (!$cpu) {
+            $cpu = cfg_cheapest($mysql, 'category_id = 1');
         }
+    } else {
+        $cpu = cfg_pick($mysql, $limit['cpu'], 'category_id = 1');
+        $gpu = cfg_pick($mysql, $limit['gpu'], 'category_id = 3');
     }
-    
-    if(isset($_POST['choice_ssd']) && $_POST['choice_ssd'] == '1') {
-        $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 9 AND component_price = 3999 ORDER BY `components`.`component_price` ASC LIMIT 1");
-        $stmt->execute();
-        $ssd2 = $stmt->get_result()->fetch_assoc();
-        if ($ssd2) {
-            $budget -= $ssd2['component_price'];
-        }
-    }
-    
-    if(isset($_POST['choice_hdd']) && $_POST['choice_hdd'] == '1') {
-        $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 8 AND component_price = 3999 ORDER BY `components`.`component_price` ASC LIMIT 1");
-        $stmt->execute();
-        $hdd = $stmt->get_result()->fetch_assoc();
-        if ($hdd) {
-            $budget -= $hdd['component_price'];
-        }
-    }
-    
-    if($budget <= 22499) {
-        $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 1 AND video_core = 1 ORDER BY `components`.`component_price` ASC LIMIT 1");
-        $stmt->execute();
-        $cpu = $stmt->get_result()->fetch_assoc();
-        
-        if ($cpu) {
-            $budget_whole = $cpu['component_price'];
-            
-            $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 2 AND socket_id = ? ORDER BY `components`.`component_price` ASC LIMIT 1");
-            $stmt->bind_param("i", $cpu['socket_id']);
-            $stmt->execute();
-            $motherboard = $stmt->get_result()->fetch_assoc();
-            
-            if ($motherboard) {
-                $budget_whole += $motherboard['component_price'];
-                
-                $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 4 ORDER BY `components`.`component_price` ASC LIMIT 1");
-                $stmt->execute();
-                $ram = $stmt->get_result()->fetch_assoc();
-                
-                if ($ram) {
-                    $budget_whole += $ram['component_price'];
-                    
-                    $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 5 ORDER BY `components`.`component_price` ASC LIMIT 1");
-                    $stmt->execute();
-                    $power_supply = $stmt->get_result()->fetch_assoc();
-                    
-                    if ($power_supply) {
-                        $budget_whole += $power_supply['component_price'];
-                        
-                        $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 6 ORDER BY `components`.`component_price` ASC LIMIT 1");
-                        $stmt->execute();
-                        $case = $stmt->get_result()->fetch_assoc();
-                        
-                        if ($case) {
-                            $budget_whole += $case['component_price'];
-                            
-                            $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 7 AND tdp > ? AND tdp < ? ORDER BY `components`.`component_price` ASC LIMIT 1");
-                            $min_tdp = $cpu['tdp'];
-                            $max_tdp = $cpu['tdp'] + 40;
-                            $stmt->bind_param("ii", $min_tdp, $max_tdp);
-                            $stmt->execute();
-                            $cooler = $stmt->get_result()->fetch_assoc();
-                            
-                            if ($cooler) {
-                                $budget_whole += $cooler['component_price'];
-                                
-                                $stmt = $mysql->prepare("SELECT * FROM components WHERE category_id = 9 ORDER BY `components`.`component_price` ASC LIMIT 1");
-                                $stmt->execute();
-                                $ssd = $stmt->get_result()->fetch_assoc();
-                                
-                                if ($ssd) {
-                                    $budget_whole += $ssd['component_price'];
-                                }
-                            }
-                        }
-                    }
-                }
+
+    if ($cpu) {
+        $motherboard = cfg_pick(
+            $mysql,
+            $limit['mb'],
+            'category_id = 2 AND socket_id = ?',
+            'i',
+            [$cpu['socket_id']]
+        );
+
+        $ram = cfg_pick($mysql, $limit['ram'], 'category_id = 4');
+        $power_supply = cfg_pick($mysql, $limit['psu'], 'category_id = 5');
+        $case = cfg_pick($mysql, $limit['case'], 'category_id = 6');
+        $ssd = cfg_pick($mysql, $limit['ssd'], 'category_id = 9');
+
+        // кулер - по тепловой мощности процессора и по сокету.
+        // Сокет проверяется мягко: подходит кулер, у которого socket_id совпал
+        // с процессором или чей specs.sockets называет нужный сокет. Кулера
+        // без данных о сокете не отбрасываем - их 23 из 28, и отказ от них
+        // оставил бы часть сборок вовсе без кулера.
+        $tdpWhere = 'category_id = 7';
+        $tdpTypes = '';
+        $tdpParams = [];
+        if (!empty($cpu['tdp'])) {
+            if ($budget <= 22499) {
+                $tdpWhere .= ' AND tdp > ? AND tdp < ?';
+                $tdpTypes = 'ii';
+                $tdpParams = [(int)$cpu['tdp'], (int)$cpu['tdp'] + 40];
+            } else {
+                $tdpWhere .= ' AND tdp > ?';
+                $tdpTypes = 'i';
+                $tdpParams = [(int)$cpu['tdp']];
             }
         }
-    }
-    else if($budget <= 75000) {
-        $cpu_budget = ($budget/100)*35;
-        $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 1 AND video_core = 1 ORDER BY `components`.`component_price` DESC LIMIT 1");
-        $stmt->bind_param("d", $cpu_budget);
-        $stmt->execute();
-        $cpu = $stmt->get_result()->fetch_assoc();
-        
-        if ($cpu) {
-            $budget = $budget - $cpu['component_price'];
-            
-            $motherboard_budget = ($budget/100)*32;
-            $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 2 AND socket_id = ? ORDER BY `components`.`component_price` DESC LIMIT 1");
-            $stmt->bind_param("di", $motherboard_budget, $cpu['socket_id']);
-            $stmt->execute();
-            $motherboard = $stmt->get_result()->fetch_assoc();
-            
-            if ($motherboard) {
-                $budget = $budget - $motherboard['component_price'];
-                
-                $ram_budget = ($budget/100)*25;
-                $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 4 ORDER BY `components`.`component_price` DESC LIMIT 1");
-                $stmt->bind_param("d", $ram_budget);
-                $stmt->execute();
-                $ram = $stmt->get_result()->fetch_assoc();
-                
-                if ($ram) {
-                    $budget = $budget - $ram['component_price'];
-                    
-                    $psu_budget = ($budget/100)*30;
-                    $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 5 ORDER BY `components`.`component_price` DESC LIMIT 1");
-                    $stmt->bind_param("d", $psu_budget);
-                    $stmt->execute();
-                    $power_supply = $stmt->get_result()->fetch_assoc();
-                    
-                    if ($power_supply) {
-                        $budget = $budget - $power_supply['component_price'];
-                        
-                        $case_budget = ($budget/100)*48;
-                        $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 6 ORDER BY `components`.`component_price` DESC LIMIT 1");
-                        $stmt->bind_param("d", $case_budget);
-                        $stmt->execute();
-                        $case = $stmt->get_result()->fetch_assoc();
-                        
-                        if ($case) {
-                            $budget = $budget - $case['component_price'];
-                            
-                            $cooler_budget = ($budget/100)*35;
-                            $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 7 AND tdp > ? AND tdp < ? ORDER BY `components`.`component_price` DESC LIMIT 1");
-                            $min_tdp = $cpu['tdp'];
-                            $max_tdp = $cpu['tdp'] + 40;
-                            $stmt->bind_param("dii", $cooler_budget, $min_tdp, $max_tdp);
-                            $stmt->execute();
-                            $cooler = $stmt->get_result()->fetch_assoc();
-                            
-                            if ($cooler) {
-                                $budget = $budget - $cooler['component_price'];
-                                
-                                $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 9 ORDER BY `components`.`component_price` DESC LIMIT 1");
-                                $stmt->bind_param("d", $budget);
-                                $stmt->execute();
-                                $ssd = $stmt->get_result()->fetch_assoc();
-                                
-                                if ($ssd) {
-                                    $budget = $budget - $ssd['component_price'];
-                                    $budget_whole -= $budget;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+
+        $socketName = cfg_socket_name($cpu['socket_id']);
+        $cooler = null;
+        if ($socketName !== '') {
+            $socketWhere = $tdpWhere
+                . ' AND (socket_id = ? OR specs IS NULL'
+                . " OR NOT JSON_CONTAINS_PATH(specs, 'one', '\$.sockets')"
+                . " OR JSON_CONTAINS(specs->'\$.sockets', ?))";
+            $cooler = cfg_pick(
+                $mysql,
+                $limit['cooler'],
+                $socketWhere,
+                $tdpTypes . 'is',
+                array_merge($tdpParams, [(int)$cpu['socket_id'], '"' . $socketName . '"'])
+            );
+        }
+
+        if (!$cooler && $tdpWhere !== 'category_id = 7') {
+            // под этот сокет и мощность кулеров нет - берём по одной мощности,
+            // иначе сборка из-за одного кулера просто не сохранилась бы
+            $cooler = cfg_pick($mysql, $limit['cooler'], $tdpWhere, $tdpTypes, $tdpParams);
+        }
+        if (!$cooler) {
+            $cooler = cfg_cheapest($mysql, 'category_id = 7');
         }
     }
-    else {
-        $cpu_bud = ($budget/100)*30;
-        if($cpu_bud >= 40000) {
-            $cpu_bud = ($cpu_bud/100)*60;
-        }
-        
-        $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 1 ORDER BY `components`.`component_price` DESC LIMIT 1");
-        $stmt->bind_param("d", $cpu_bud);
-        $stmt->execute();
-        $cpu = $stmt->get_result()->fetch_assoc();
-        
-        if ($cpu) {
-            $budget = $budget - $cpu['component_price'];
-            
-            $gpu_budget = ($budget/100)*48;
-            $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 3 ORDER BY `components`.`component_price` DESC LIMIT 1");
-            $stmt->bind_param("d", $gpu_budget);
-            $stmt->execute();
-            $gpu = $stmt->get_result()->fetch_assoc();
-            
-            if ($gpu) {
-                $budget = $budget - $gpu['component_price'];
-                
-                $motherboard_budget = ($budget/100)*24;
-                $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 2 AND socket_id = ? ORDER BY `components`.`component_price` DESC LIMIT 1");
-                $stmt->bind_param("di", $motherboard_budget, $cpu['socket_id']);
-                $stmt->execute();
-                $motherboard = $stmt->get_result()->fetch_assoc();
-                
-                if ($motherboard) {
-                    $budget = $budget - $motherboard['component_price'];
-                    
-                    $ram_budget = ($budget/100)*34;
-                    $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 4 ORDER BY `components`.`component_price` DESC LIMIT 1");
-                    $stmt->bind_param("d", $ram_budget);
-                    $stmt->execute();
-                    $ram = $stmt->get_result()->fetch_assoc();
-                    
-                    if ($ram) {
-                        $budget = $budget - $ram['component_price'];
-                        
-                        $psu_budget = ($budget/100)*32;
-                        $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 5 ORDER BY `components`.`component_price` DESC LIMIT 1");
-                        $stmt->bind_param("d", $psu_budget);
-                        $stmt->execute();
-                        $power_supply = $stmt->get_result()->fetch_assoc();
-                        
-                        if ($power_supply) {
-                            $budget = $budget - $power_supply['component_price'];
-                            
-                            $case_budget = ($budget/100)*56;
-                            $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 6 ORDER BY `components`.`component_price` DESC LIMIT 1");
-                            $stmt->bind_param("d", $case_budget);
-                            $stmt->execute();
-                            $case = $stmt->get_result()->fetch_assoc();
-                            
-                            if ($case) {
-                                $budget = $budget - $case['component_price'];
-                                
-                                $cooler_budget = ($budget/100)*35;
-                                $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 7 AND tdp > ? ORDER BY `components`.`component_price` DESC LIMIT 1");
-                                $stmt->bind_param("di", $cooler_budget, $cpu['tdp']);
-                                $stmt->execute();
-                                $cooler = $stmt->get_result()->fetch_assoc();
-                                
-                                if ($cooler) {
-                                    $budget = $budget - $cooler['component_price'];
-                                    
-                                    $stmt = $mysql->prepare("SELECT * FROM components WHERE component_price <= ? AND category_id = 9 ORDER BY `components`.`component_price` DESC LIMIT 1");
-                                    $stmt->bind_param("d", $budget);
-                                    $stmt->execute();
-                                    $ssd = $stmt->get_result()->fetch_assoc();
-                                    
-                                    if ($ssd) {
-                                        $budget = $budget - $ssd['component_price'];
-                                        $budget_whole -= $budget;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+
+    // Итог: сумма железа плюс надбавка за ОС
+    $budget_whole = $osPrice;
+    foreach (array($cpu, $motherboard, $ram, $power_supply, $case, $cooler, $ssd, $gpu) as $part) {
+        if ($part) {
+            $budget_whole += (int)$part['component_price'];
         }
     }
-    
+
     if (isset($cpu, $motherboard, $ram, $power_supply, $case, $cooler, $ssd)) {
         $stmt = $mysql->prepare("INSERT INTO `assembly` (`assembly_id`,`assembly_name`, `cpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `assembly_price`) VALUES(?,?,?,?,?,?,?,?,?,?)");
-        $stmt->bind_param("isiiiiiiii", 
+        $stmt->bind_param("isiiiiiiii",
             $maxID, $name,
             $cpu['component_id'], $motherboard['component_id'], $ram['component_id'],
             $case['component_id'], $cooler['component_id'], $power_supply['component_id'],
             $ssd['component_id'], $budget_whole
         );
         $stmt->execute();
-        
-        if(isset($gpu)) {
+
+        if (isset($gpu)) {
             $stmt = $mysql->prepare("UPDATE `assembly` SET `gpu_id` = ? WHERE `assembly_id` = ?");
             $stmt->bind_param("ii", $gpu['component_id'], $maxID);
             $stmt->execute();
         }
-        
-        if(isset($os)) {
+
+        if (isset($os)) {
             $stmt = $mysql->prepare("UPDATE `assembly` SET `os` = ? WHERE `assembly_id` = ?");
             $stmt->bind_param("si", $os, $maxID);
             $stmt->execute();
         }
-        
-        if(isset($ssd2)) {
-            $stmt = $mysql->prepare("UPDATE `assembly` SET `ssd_2_id` = ? WHERE `assembly_id` = ?");
-            $stmt->bind_param("ii", $ssd2['component_id'], $maxID);
-            $stmt->execute();
-        }
-        
-        if(isset($hdd)) {
-            $stmt = $mysql->prepare("UPDATE `assembly` SET `hdd_id` = ? WHERE `assembly_id` = ?");
-            $stmt->bind_param("ii", $hdd['component_id'], $maxID);
-            $stmt->execute();
-        }
-        
-        if(isset($dvd)) {
-            $stmt = $mysql->prepare("UPDATE `assembly` SET `dvd_id` = ? WHERE `assembly_id` = ?");
-            $stmt->bind_param("ii", $dvd['component_id'], $maxID);
-            $stmt->execute();
-        }
-        
+
         setcookie('assemblyId', $maxID, time() + 3600 * 2, "/", "", true, true);
     }
-    
+
     $mysql->close();
     header('Location: /assembly.php');
     exit();

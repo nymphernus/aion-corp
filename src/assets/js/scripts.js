@@ -646,16 +646,22 @@ document.addEventListener('click', function(e) {
     // showModal вызывается в существующем обработчике open-modal
 });
 
-/* 3.6.3-c-1: пресеты конфигуратора.
-   Клик по пресету подставляет его бюджет в поле и подсвечивает кнопку.
-   Обратный случай - ручной ввод суммы: подсветка остаётся, только если
-   сумма совпала с пресетом. */
+/* 3.6.3-c-2: пресет задаёт и бюджет, и приоритет.
+   Раньше пресет и переключатель «Что важнее?» показывали одни и те же
+   слова - «Игры» и «Работа» были видны дважды, и выбор оставался
+   противоречивым. Теперь клик по пресету переключает и режим.
+
+   При ручном вводе суммы подсветка с пресетов снимается, если сумма не
+   совпала, но выбранный приоритет сохраняется: человек мог осознанно
+   изменить только бюджет. */
 document.addEventListener('click', function(e) {
     const preset = e.target.closest('.cfg-preset');
     if (!preset) return;
 
     const budget = preset.dataset.budget;
     if (!budget) return;
+
+    const pref = preset.dataset.pref;
 
     document.querySelectorAll('.cfg-preset')
         .forEach(p => p.classList.remove('is-active'));
@@ -665,6 +671,11 @@ document.addEventListener('click', function(e) {
     if (input) {
         input.value = budget;
         input.focus();
+    }
+
+    if (pref) {
+        const radio = document.querySelector('input[name="preference"][value="' + pref + '"]');
+        if (radio) radio.checked = true;
     }
 });
 

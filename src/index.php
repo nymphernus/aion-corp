@@ -207,7 +207,7 @@ if (!function_exists('build_card_icon')) {
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
                         <div class="cfg__presets">
-                            <button type="button" class="cfg-preset" data-budget="20000">
+                            <button type="button" class="cfg-preset" data-budget="20000" data-pref="universal">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <rect x="2" y="3" width="20" height="14" rx="2"></rect>
                                     <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -216,7 +216,7 @@ if (!function_exists('build_card_icon')) {
                                 <span class="cfg-preset__name">Офис</span>
                                 <span class="cfg-preset__price">от 20 000 ₽</span>
                             </button>
-                            <button type="button" class="cfg-preset" data-budget="100000">
+                            <button type="button" class="cfg-preset" data-budget="100000" data-pref="games">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <line x1="6" y1="12" x2="10" y2="12"></line>
                                     <line x1="8" y1="10" x2="8" y2="14"></line>
@@ -227,7 +227,7 @@ if (!function_exists('build_card_icon')) {
                                 <span class="cfg-preset__name">Игры</span>
                                 <span class="cfg-preset__price">от 100 000 ₽</span>
                             </button>
-                            <button type="button" class="cfg-preset" data-budget="250000">
+                            <button type="button" class="cfg-preset" data-budget="250000" data-pref="work">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <line x1="18" y1="20" x2="18" y2="10"></line>
                                     <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -236,7 +236,7 @@ if (!function_exists('build_card_icon')) {
                                 <span class="cfg-preset__name">Работа</span>
                                 <span class="cfg-preset__price">от 250 000 ₽</span>
                             </button>
-                            <button type="button" class="cfg-preset" data-budget="500000">
+                            <button type="button" class="cfg-preset" data-budget="500000" data-pref="universal">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                                 </svg>
