@@ -292,122 +292,143 @@ body::-webkit-scrollbar-thumb {
 
 
 /*СБОРКИ*/
-/* 3.6.3-b: раскладку карточек починили. Прежние правила прятали цену до
-   наведения, увеличивали карточку при наведении до scale(1.3) и добавляли
-   скруглённую серую рамку background.png на всю секцию. Три карточки при
-   этом не помещались в ряд: .element_select имел width 100%, а картинка
-   500x500 задавала min-content по ширине, из-за чего ряд шириной 578px
-   содержал 1500px пикселей и обрезался overflow: hidden. Теперь ширина
-   задаётся flex-basis, поэтому карточки делят строку поровну и сжимаются
-   вместе с ней.
+/* Оформление 2022 года, восстановленное по коммиту ba69807: серая
+   подложка с фоновой картинкой и радиусом 20px, крупные карточки, фото
+   на две трети высоты, скруглённая наклонённая рамка позади фото, которая
+   при наведении становится фиолетовой, и заголовок, который увеличивается
+   и уезжает вниз, открывая цену. Три попытки сделать из этого ровный
+   каталог с карточками одинаковой высоты убрали характер, поэтому
+   возвращаем исходную композицию.
 
-   3.6.3-b-2: карточки наполнили содержанием, данными из таблицы assembly.
+   Что поменяно:
+   - фотографии задавалась height: 100%, из-за чего картинка шириной 500px
+     определяла min-content и три карточки не влезали в ряд на узких
+     экранах. Теперь max-width и max-height: 100% с object-fit, поэтому
+     на широком мониторе карточки остаются крупными, а на узком сжимаются
+     вместе с рядом, вместо обрезки;
+   - доля фото 65% уменьшена до 55%: под фото теперь живут тег, строки
+     комплектующих и цена, на 65% они не помещались;
+   - цена видна всегда, а не по наведению;
+   - размеры и цвета взяты из общей типографики: 28px вместо 36px из
+     браузерных умолчаний h1, var(--text) вместо #000;
+   - увеличение заголовка на hover с 1.3 до 1.08 и сдвиг с 40px до 8px:
+     в блоке теперь не только заголовок с ценой, но ещё тег и строки
+     комплектующих, которые при прежних значениях разлетались;
+   - зум фото с 1.2 до 1.12, тень и переходы по eases.
 
-   3.6.3-b-3: оформление переделано в духе Apple и DJI. Что убрано и почему:
-   синяя полоса 3px сверху и badge «Готовая сборка» - кричали и превращали
-   карточку в шаблон; название синим - читалось как ссылка, а не как
-   название продукта; маркированный список с синими точками - на 13px это
-   выглядит как учебный список; линия над ценой - превращала цену в строку
-   сметы; фото в белом квадрате с полями - терялся эффект товара.
-   Осталось: фото во всю ширину карточки на спокойном градиенте, чёрное
-   название, короткий тег, строки комплектующих с иконками и цена синим
-   без всякой линии сверху.
+   Секция и ряд остались в исходных пропорциях, включая высоту: 75vh и по
+   85% дальше. Высоту трогать нельзя - от неё зависят процентные размеры
+   фотографии и подложки, и при height: auto фотография раскрывалась до
+   натурального размера, а карточки вырастали до 900px.
 
-   Секция .container_pc остаётся во всю ширину: рядом с ней два
-   полноэкранных блока .container_conf и .container_about с фоновыми
-   картинками, и узкая полоса на широком мониторе выглядела бы обрывом.
-   Размеры и отступы унесены в .container_select - это и есть ряд карточек. */
-.container_pc {
-    height: auto;
-    min-height: 75vh;
-    overflow: visible;
-    padding: 40px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+   В оригинале у .element_select стоял width: 100%, из-за чего три
+   карточки по 578px не влезали в ряд шириной 578px, а секция резала их
+   overflow: hidden - вторая карточка выглядывала снизу. Теперь у карточки
+   min-width: 0, flex-shrink работает, и карточки делят ряд поровну. */
 .container_pc .cont_shell_back {
-    top: auto;
-    width: 100%;
-    max-width: 1200px;
-    height: auto;
-    background: none;
-    border-radius: 0;
+    top: 7%;
+    height: 85%;
+    border-radius: 20px;
+    background: url(../images/background.png) no-repeat;
+    background-size: cover;
 }
 .container_pc .container_select {
-    width: 100%;
-    max-width: 1200px;
-    height: auto;
-    margin: 32px auto;
-    gap: 24px;
-    align-items: stretch;
+    width: 85%;
+    height: 85%;
+    border-radius: 20px;
 }
 .element_select {
     display: flex;
-    flex: 1 1 0;
+    width: 100%;
+    /* min-width: 0 снимает автоматический минимум flex-элемента, равный
+       min-content: без него фотография задавала ширину карточки в 578px,
+       и три карточки не влезали в ряд, который резала секция */
     min-width: 0;
-    max-width: 380px;
-    height: auto;
+    height: 100%;
     justify-content: center;
     align-items: center;
 }
-.build-card {
+.select_image {
     display: flex;
     flex-direction: column;
     width: 100%;
     height: 100%;
-    overflow: hidden;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    justify-content: center;
+    align-items: center;
     border-radius: 16px;
-    box-shadow: var(--shadow-sm);
     color: var(--text);
     text-decoration: none;
-    transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow .3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: box-shadow .3s cubic-bezier(.4, 0, .2, 1),
+                transform .3s cubic-bezier(.4, 0, .2, 1);
 }
-.build-card:hover {
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+.select_image:hover {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .08);
     transform: translateY(-4px);
     text-decoration: none;
 }
-/* Фото во всю ширину карточки. Раньше оно стояло внутри общей отбивки со
-   всеми блоками и не выглядело как снимок товара. */
-.build-card__image {
-    height: 220px;
+.cont_img {
+    height: 55%;
+    min-height: 220px;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    background: linear-gradient(180deg, #F8FAFC 0%, #EEF2F7 100%);
+    position: relative;
+    z-index: 2;
+    transition: transform .4s cubic-bezier(.4, 0, .2, 1);
 }
-.build-card__image img {
-    max-width: 85%;
-    max-height: 85%;
+.cont_img img {
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
-    transition: transform .4s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.build-card:hover .build-card__image img {
-    transform: scale(1.05);
+.select_image:hover .cont_img {
+    transform: scale(1.12);
 }
-.build-card__body {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    padding: 20px;
+/* Наклонённая рамка позади фотографии - самая узнаваемая деталь исходного
+   оформления. На hover заливается фиолетовым и увеличивается. */
+.figure_par {
+    position: absolute;
+    z-index: 1;
+    width: 20%;
+    height: 16%;
+    display: block;
+    border: 1px solid rgba(88, 88, 88, .5);
+    border-radius: 5px;
+    transform: skew(-20deg);
+    transition: transform .4s cubic-bezier(.4, 0, .2, 1), background .3s ease;
 }
-.build-card__title {
-    margin: 0 0 10px;
-    font-size: 22px;
+.select_image:hover .figure_par {
+    background: rgba(176, 87, 248, .5);
+    transform: scale(1.4) skew(-20deg);
+    border: none;
+}
+.cont_text {
+    display: block;
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    padding: 3% 20px 0;
+    text-align: center;
+    transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+}
+.select_image:hover .cont_text {
+    transform: translateY(-8px);
+}
+.cont_title {
+    margin: 0;
+    font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--text);
+    transition: transform .3s cubic-bezier(.4, 0, .2, 1), color .2s ease;
 }
-/* Короткая метка одним словом: подробности всё равно раскрывает список
-   комплектующих ниже, длинный текст под заголовком карточку перегружал. */
-.build-card__tag {
-    align-self: flex-start;
-    margin-bottom: 16px;
+.select_image:hover .cont_title {
+    transform: scale(1.08);
+    color: var(--accent-hover);
+}
+.cont_tag {
+    display: inline-block;
+    margin: 8px 0 14px;
     padding: 3px 10px;
     background: var(--bg);
     border: 1px solid var(--border);
@@ -418,21 +439,22 @@ body::-webkit-scrollbar-thumb {
     text-transform: uppercase;
     color: var(--text-secondary);
 }
-.build-card__specs {
+.cont_specs {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 20px;
+    gap: 7px;
+    margin-bottom: 16px;
 }
-.build-card__spec {
+.cont_spec {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     font-size: 13.5px;
     line-height: 1.4;
     color: var(--text-secondary);
 }
-.build-card__spec svg {
+.cont_spec svg {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
@@ -440,18 +462,14 @@ body::-webkit-scrollbar-thumb {
     opacity: .5;
 }
 /* Длинное название видеокарты переносится по словам, иначе строка
-   растягивает карточку и ломает высоты трёх карточек в ряд. */
-.build-card__spec-text {
+   растягивает карточку шириной всей секции. */
+.cont_spec-text {
     min-width: 0;
     overflow-wrap: break-word;
 }
-/* Цена без разделительной линии: линия превращала её в строку сметы.
-   margin-top: auto прижимает цену к низу, когда комплектующих больше или
-   меньше, чем у соседних карточек. */
-.build-card__price {
-    margin-top: auto;
-    padding-top: 16px;
-    font-size: 22px;
+.cont_price {
+    display: block;
+    font-size: 26px;
     font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--accent);
@@ -664,6 +682,27 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     }
     .container_select {
         flex-wrap: wrap;
+    }
+    /* 3.6.3-b-3: узкий экран. Карточки переносятся в несколько рядов, а
+       секция с фиксированной высотой 75vh режет второй и третий ряд. Секция
+       и подложка растут по содержимому, а фотография получает фиксированную
+       высоту: от процента от неё считать уже нечего, и без этого фото
+       раскрывается до натурального размера. На широком экране эти правила
+       не действуют, там исходные пропорции 75vh и 85%. */
+    .container_pc {
+        height: auto;
+        min-height: 75vh;
+        overflow: visible;
+    }
+    .container_pc .cont_shell_back {
+        top: 0;
+        height: auto;
+    }
+    .container_pc .container_select {
+        height: auto;
+    }
+    .container_pc .cont_img {
+        height: 240px;
     }
     .container_about {
         height: auto;

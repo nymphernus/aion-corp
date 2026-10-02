@@ -170,27 +170,28 @@ if (!function_exists('build_card_icon')) {
                             $homeId = (int) $homeBuild['assembly_id'];
                             ?>
                             <div class="element_select">
-                                <a class="build-card" href="/assembly.php?init=<?= $homeId ?>">
-                                    <span class="build-card__image">
+                                <a class="select_image" href="/assembly.php?init=<?= $homeId ?>">
+                                    <span class="cont_img">
+                                        <span class="figure_par"></span>
                                         <?php if (!empty($homeBuild['case_image'])): ?>
                                             <img src="<?= escape($homeBuild['case_image']) ?>"
                                                  alt="<?= escape($homeBuild['case_name'] ?? $homeBuild['assembly_name']) ?>">
                                         <?php endif; ?>
                                     </span>
-                                    <span class="build-card__body">
-                                        <h3 class="build-card__title"><?= escape($homeBuild['assembly_name']) ?></h3>
+                                    <span class="cont_text">
+                                        <h2 class="cont_title"><?= escape($homeBuild['assembly_name']) ?></h2>
                                         <?php if (!empty($homeSubtitles[$homeId])): ?>
-                                            <span class="build-card__tag"><?= escape($homeSubtitles[$homeId]) ?></span>
+                                            <span class="cont_tag"><?= escape($homeSubtitles[$homeId]) ?></span>
                                         <?php endif; ?>
-                                        <span class="build-card__specs">
+                                        <span class="cont_specs">
                                             <?php foreach ($homeSpecLines as [$homeSpecKind, $homeSpecText]): ?>
-                                                <span class="build-card__spec">
+                                                <span class="cont_spec">
                                                     <?= build_card_icon($homeSpecKind) ?>
-                                                    <span class="build-card__spec-text"><?= escape($homeSpecText) ?></span>
+                                                    <span class="cont_spec-text"><?= escape($homeSpecText) ?></span>
                                                 </span>
                                             <?php endforeach; ?>
                                         </span>
-                                        <span class="build-card__price"><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</span>
+                                        <span class="cont_price"><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</span>
                                     </span>
                                 </a>
                             </div>
