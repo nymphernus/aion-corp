@@ -292,20 +292,25 @@ body::-webkit-scrollbar-thumb {
 
 
 /*СБОРКИ*/
-/* 3.6.3-b: карточки сборок переведены в общий стиль интерфейса.
-   Прежние правила прятали цену до наведения, увеличивали карточку
-   при наведении до scale(1.3) и добавляли скруглённую серую рамку
-   background.png на всю секцию. Три карточки при этом не помещались в
-   ряд: .element_select имел width 100%, а картинка 500x500 задавала
-   min-content по ширине, из-за чего ряд шириной 578px содержал 1500px
-   пикселей и обрезался overflow: hidden. Теперь ширина задаётся
-   flex-basis, картинка ограничена по высоте и object-fit, поэтому
-   карточки делят строку поровну и сжимаются вместе с ней.
+/* 3.6.3-b: раскладку карточек починили. Прежние правила прятали цену до
+   наведения, увеличивали карточку при наведении до scale(1.3) и добавляли
+   скруглённую серую рамку background.png на всю секцию. Три карточки при
+   этом не помещались в ряд: .element_select имел width 100%, а картинка
+   500x500 задавала min-content по ширине, из-за чего ряд шириной 578px
+   содержал 1500px пикселей и обрезался overflow: hidden. Теперь ширина
+   задаётся flex-basis, поэтому карточки делят строку поровну и сжимаются
+   вместе с ней.
 
-   Секция .container_pc остаётся во всю ширину: рядом с ней полноэкранные
-   блоки .container_conf и .container_about с фоновыми картинками, и
-   узкая полоса на широком мониторе выглядела бы обрывом. Размеры и
-   отступы унесены в .container_select - это и есть ряд карточек. */
+   3.6.3-b-2: оформление переписано под класс .build-card. Старые
+   .select_image, .cont_img, .figure_par и .cont_text вычищены вместе с
+   разметкой в index.php. Карточка стала содержательной: фотография
+   корпуса, название, подпись, три строки комплектующих и цена, которая
+   видна всегда, а не по наведению.
+
+   Секция .container_pc остаётся во всю ширину: рядом с ней два
+   полноэкранных блока .container_conf и .container_about с фоновыми
+   картинками, и узкая полоса на широком мониторе выглядела бы обрывом.
+   Размеры и отступы унесены в .container_select - это и есть ряд карточек. */
 .container_pc {
     height: auto;
     min-height: 75vh;
@@ -340,85 +345,111 @@ body::-webkit-scrollbar-thumb {
     justify-content: center;
     align-items: center;
 }
-.element_select a {
-    width: 100%;
-    text-decoration: none;
-    color: inherit;
-    display: block;
-}
-.select_image {
+.build-card {
     display: flex;
     flex-direction: column;
     width: 100%;
     height: 100%;
-    padding: 20px;
-    justify-content: center;
-    align-items: center;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
     background: var(--bg-card);
     border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
     border-radius: 12px;
     box-shadow: var(--shadow-sm);
+    color: var(--text);
+    text-decoration: none;
     transition: box-shadow .2s ease, transform .2s ease;
 }
-.select_image:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
+.build-card:hover {
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
+    transform: translateY(-4px);
+    text-decoration: none;
 }
-.select_image img {
-    max-width: 100%;
-    height: 200px;
-    object-fit: contain;
+.build-card__badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 4px 10px;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    border-radius: 999px;
 }
-.cont_img {
+.build-card__image {
     height: 200px;
-    width: 100%;
+    /* отступ сверху: иначе абсолютный badge в углу наезжает на фотографию
+       корпуса, измеренное перекрытие - 14px */
+    margin: 24px 0 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
-    z-index: 2;
-    transition: transform .2s ease;
 }
-/* Прежняя скруглённая наклонённая рамка была частью оформления 2022
-   года и в карточке с рамкой выглядит как чужое пятно. */
-.figure_par {
-    display: none;
+.build-card__image img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
 }
-.cont_text {
-    display: block;
-    position: relative;
-    color: var(--text);
-    text-align: center;
-    padding-top: 16px;
+.build-card__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
-.cont_text h1 {
-    margin: 0;
-    font-size: 20px;
+.build-card__title {
+    margin: 0 0 4px;
+    font-size: 22px;
     font-weight: 700;
     color: var(--accent);
+    text-align: center;
     transition: color .2s ease;
 }
-.select_image:hover .cont_text h1 {
+.build-card:hover .build-card__title {
     color: var(--accent-hover);
 }
-.cont_text p {
-    margin: 6px 0 0;
-    opacity: 0;
-    text-align: center;
+.build-card__subtitle {
+    display: block;
+    margin-bottom: 16px;
+    font-size: 13px;
     color: var(--text-secondary);
+    text-align: center;
 }
-.cont_text:visited {
-    text-decoration: none;
+.build-card__specs {
+    display: block;
+    margin: 0 0 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
 }
-.select_image:hover .cont_text p {
-    opacity: 1;
-    transition: opacity .2s ease;
+.build-card__spec {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--text);
 }
-.select_image:hover .cont_img {
-    transform: scale(1.03);
+.build-card__spec::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    margin-top: 7px;
+    background: var(--accent);
+    border-radius: 50%;
+    flex-shrink: 0;
 }
-
-
+.build-card__price {
+    display: block;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+}
 /*КОНФИГУРАТОР*/
 #cfg{
 	width: 100%;

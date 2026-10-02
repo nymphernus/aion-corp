@@ -3,6 +3,63 @@ $pageTitle = 'Интернет-магазин персональных комп�
 $extraCss = [];
 $extraJs = ['/assets/js/slider.js', '/assets/js/scripts.js'];
 require __DIR__ . '/partials/header.php';
+
+// 3.6.3-b-2: карточки сборок наполняются из таблицы assembly.
+// До этого три карточки были вписаны в разметку руками, вместе с ценой,
+// фотографией корпуса и заголовком, и стоили в базе 30000, 105000 и
+// 340000 - расхождение с базой было возможно в любую сторону и ничем не
+// проверялось.
+//
+// Только базовые сборки 1-3: у них в базе есть осмысленные имена, а
+// пользовательские сборки конфигуратора появляются позже и на главной не
+// выводятся (см. соглашение о префиксе «Сборка » в assembly.php).
+//
+// Соединение берётся отдельно от header.php: там подключается сам
+// connect.php, но соединение там не заводится.
+$mysqlHome = connect();
+mysqli_set_charset($mysqlHome, 'utf8');
+$homeBuilds = [];
+try {
+    $stmtHome = db_prepare($mysqlHome, "
+        SELECT a.assembly_id, a.assembly_name, a.assembly_price,
+               cpu.component_name AS cpu_name,
+               gpu.component_name AS gpu_name,
+               ram.component_name  AS ram_name,
+               ram.capacity_gb     AS ram_gb,
+               ram.frequency_mhz   AS ram_mhz,
+               ram.ram_type        AS ram_type,
+               cs.component_name   AS case_name,
+               cs.image            AS case_image
+        FROM assembly a
+        LEFT JOIN components cpu ON cpu.component_id = a.cpu_id
+        LEFT JOIN components gpu ON gpu.component_id = a.gpu_id
+        LEFT JOIN components ram ON ram.component_id = a.ram_id
+        LEFT JOIN components cs  ON cs.component_id  = a.case_id
+        WHERE a.assembly_id IN (1, 2, 3)
+        ORDER BY a.assembly_id
+    ");
+    $stmtHome->execute();
+    $resHome = $stmtHome->get_result();
+    while ($rowHome = $resHome->fetch_assoc()) {
+        $homeBuilds[] = $rowHome;
+    }
+    $stmtHome->close();
+} catch (RuntimeException $e) {
+    // главная не должна падать из-за карточек: логируем и показываем пустоту
+    error_log('Home builds query failed: ' . $e->getMessage());
+    $homeBuilds = [];
+}
+
+// Подписи к сборкам. В базе их нет, и придумывать их по названию нельзя,
+// поэтому здесь то, что сборки действительно собой представляют:
+// 1 - i3-10100F без видеокарты, бюджетная офисная машина;
+// 2 - Ryzen 5 5600G с Radeon RX 6500 XT, бюджетный игровой комплект;
+// 3 - i7-12700F с RTX 3080 и 32 ГБ, рабочая станция.
+$homeSubtitles = [
+    1 => 'Бюджетная сборка для офиса',
+    2 => 'Игровая сборка',
+    3 => 'Рабочая станция',
+];
 ?>
             <div id="main__container">
                 <div class="slider">
@@ -27,34 +84,66 @@ require __DIR__ . '/partials/header.php';
             <div class="container_pc">
                 <a class="anch" name="assembly"></a>
                 <div class="cont_shell cont_shell_back">
-                    <div class="container_select">
-                        <div class="element_select">
-                            <a href="assembly.php?init=1">
-                                <span class="select_image">
-                                    <div class="cont_img"><img src="assets/images/img_select_1.png"></div>
-                                    <div class="figure_par"></div>
-                                    <div class="cont_text"><h1>EinTech</h1><p>30 000 руб.</p></div>
-                                </span>
-                            </a>
-                        </div>
-                        <div class="element_select">
-                            <a href="assembly.php?init=2">
-                                    <span class="select_image">
-                                        <div class="cont_img"><img src="assets/images/img_select_2.png"></div>
-                                        <div class="figure_par"></div>
-                                        <div class="cont_text"><h1>Eternal</h1><p>105 000 руб.</p></div>
+<div class="container_select">
+                        <?php foreach ($homeBuilds as $homeBuild): ?>
+                            <?php
+                            // Строка памяти собирается из колонок, а не из названия:
+                            // в названиях лежит «4gbx2», из которого объём и тип
+                            // не прочитать. Если колонки пусты, показываем название
+                            // как есть.
+                            $homeRamLine = '';
+                            if (!empty($homeBuild['ram_gb'])) {
+                                $homeRamLine = (int) $homeBuild['ram_gb'] . ' ГБ';
+                                if (!empty($homeBuild['ram_type'])) {
+                                    $homeRamLine .= ' ' . $homeBuild['ram_type'];
+                                    if (!empty($homeBuild['ram_mhz'])) {
+                                        $homeRamLine .= '-' . (int) $homeBuild['ram_mhz'];
+                                    }
+                                }
+                            } elseif (!empty($homeBuild['ram_name'])) {
+                                $homeRamLine = $homeBuild['ram_name'];
+                            }
+
+                            // Строки выводятся только для реально установленных
+                            // комплектующих: у сборки 1 дискретной видеокарты нет,
+                            // и пустую строку выводить незачем.
+                            $homeSpecLines = [];
+                            if (!empty($homeBuild['cpu_name'])) {
+                                $homeSpecLines[] = $homeBuild['cpu_name'];
+                            }
+                            if (!empty($homeBuild['gpu_name'])) {
+                                $homeSpecLines[] = $homeBuild['gpu_name'];
+                            }
+                            if ($homeRamLine !== '') {
+                                $homeSpecLines[] = $homeRamLine;
+                            }
+
+                            $homeId = (int) $homeBuild['assembly_id'];
+                            ?>
+                            <div class="element_select">
+                                <a class="build-card" href="/assembly.php?init=<?= $homeId ?>">
+                                    <span class="build-card__badge">Готовая сборка</span>
+                                    <span class="build-card__image">
+                                        <?php if (!empty($homeBuild['case_image'])): ?>
+                                            <img src="<?= escape($homeBuild['case_image']) ?>"
+                                                 alt="<?= escape($homeBuild['case_name'] ?? $homeBuild['assembly_name']) ?>">
+                                        <?php endif; ?>
                                     </span>
-                            </a>
-                        </div>
-                        <div class="element_select">
-                            <a href="assembly.php?init=3">
-                                    <span class="select_image">
-                                        <div class="cont_img"><img src="assets/images/img_select_3.png"></div>
-                                        <div class="figure_par"></div>
-                                        <div class="cont_text"><h1>Magic Workbench</h1><p>340 000 руб.</p></div>
+                                    <span class="build-card__body">
+                                        <h3 class="build-card__title"><?= escape($homeBuild['assembly_name']) ?></h3>
+                                        <?php if (!empty($homeSubtitles[$homeId])): ?>
+                                            <span class="build-card__subtitle"><?= escape($homeSubtitles[$homeId]) ?></span>
+                                        <?php endif; ?>
+                                        <span class="build-card__specs">
+                                            <?php foreach ($homeSpecLines as $homeSpecLine): ?>
+                                                <span class="build-card__spec"><?= escape($homeSpecLine) ?></span>
+                                            <?php endforeach; ?>
+                                        </span>
+                                        <span class="build-card__price"><?= number_format((int) $homeBuild['assembly_price'], 0, ',', ' ') ?>&nbsp;руб.</span>
                                     </span>
-                            </a>
-                        </div>
+                                </a>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
