@@ -302,7 +302,7 @@ if ($result) {
                                     5 => ['ATX', 'SFX', 'TFX'],
                                     6 => ['ATX Mid-Tower', 'ATX Full-Tower', 'mATX Mid-Tower', 'Mini-ITX', 'Mid-Tower'],
                                     8 => ['2.5"', '3.5"'],
-                                    9 => ['2.5"', 'M.2', 'M.2 2280', 'M.2 2242', 'M.2 2260'],
+                                    9 => ['2.5"', 'M.2'],
                                 ];
 ?>
                                 <select class="input" name="form_factor" id="formFactorSelect"
