@@ -6,3 +6,6 @@ node_modules/
 backup_*.sql
 tests/phpunit.phar
 src/tests/.phpunit.result.cache
+
+# 3.7-g-5: рабочий документ, в репозитории не нужен
+AGENT.md
