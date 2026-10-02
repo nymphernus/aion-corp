@@ -35,7 +35,7 @@ class AionTestCase extends PhpUnitTestCase
     }
 
     /**
-     * @return array{code: int, body: string}
+     * @return array{code: int, body: string, location: string}
      */
     protected function httpGet(string $path): array
     {
@@ -48,13 +48,17 @@ class AionTestCase extends PhpUnitTestCase
         ]);
         $body = (string) curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        // адрес из Location нужен, чтобы отличить редирект на форму входа от
+        // любого другого: CURLOPT_FOLLOWLOCATION не включён, поэтому при 302
+        // тело ответа пустое
+        $location = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
         curl_close($ch);
-        return ['code' => $code, 'body' => $body];
+        return ['code' => $code, 'body' => $body, 'location' => $location];
     }
 
     /**
      * @param array<string, string> $data
-     * @return array{code: int, body: string}
+     * @return array{code: int, body: string, location: string}
      */
     protected function httpPost(string $path, array $data): array
     {
@@ -69,8 +73,9 @@ class AionTestCase extends PhpUnitTestCase
         ]);
         $body = (string) curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $location = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
         curl_close($ch);
-        return ['code' => $code, 'body' => $body];
+        return ['code' => $code, 'body' => $body, 'location' => $location];
     }
 
     protected function extractCsrf(string $html): string

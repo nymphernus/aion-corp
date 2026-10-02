@@ -12,13 +12,33 @@ if (!$mysql) {
 }
 
 $userProfile = null;
-if (isset($_SESSION['user_login'])) {
-    $userLogin = $_SESSION['user_login'];
+$userLogin = $_SESSION['user_login'] ?? null;
+if ($userLogin) {
     $stmt = $mysql->prepare("SELECT * FROM `users` WHERE `user_login` = ?");
     $stmt->bind_param("s", $userLogin);
     $stmt->execute();
     $validResult = $stmt->get_result();
     $userProfile = $validResult->fetch_assoc();
+
+    // 5-a: сессия переживает удаление пользователя из базы. Раньше страница
+    // решала, показывать профиль или форму входа, по $_SESSION['user_id'],
+    // а не по наличию строки в users. Из-за этого удалённый пользователь
+    // видел пустой профиль: все поля «Не указано», логин без имени, и любое
+    // сохранение уходило в ноль строк, ничем не выдавая себя. Теперь такой
+    // сессии просто не существует - чистим её и отправляем на форму входа.
+    // Сброс стоит до обработчиков POST: удалённый пользователь не должен
+    // «обновлять» профиль и POST-запросом.
+    if (!$userProfile) {
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $p = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+        }
+        session_destroy();
+        header('Location: /profile.php');
+        exit();
+    }
 }
 
 $isAdmin = ($userProfile['user_group'] ?? '') === 'admin';
@@ -177,7 +197,9 @@ require __DIR__ . '/partials/header.php';
 ?>
         <div class="container_profile container_profile--fluid">
             <div class="cont_profile cont_profile--plain">
-                <?php if (empty($_SESSION['user_id'])): ?>
+                <?php // 5-a: решение по строке из users, а не по флагу сессии.
+                      // Флаг живёт дольше пользователя, строка - нет. ?>
+                <?php if (!$userProfile): ?>
                     <?php
                     // значения предыдущей попытки (после редиректа $_POST пуст)
                     $oldLogin = $_SESSION['old_login'] ?? '';
