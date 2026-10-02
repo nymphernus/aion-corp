@@ -987,10 +987,11 @@ h1{
     text-align: left;
 }
 
-.profile-content {
-    min-height: 50vh;
-}
-
+/* 3.7-g-5: min-height: 50vh у .profile-content убран. Он растягивал
+   колонку, и у коротких секций («Мои заказы», «Избранное») под
+   карточкой оставалось до 124px пустого места. Карточка и так
+   высчитывается по контенту, а .profile-layout уже имеет
+   align-items: start, поэтому растягиваться больше нечему. */
 .profile-content .card {
     padding: 32px;
 }
