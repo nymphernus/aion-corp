@@ -289,6 +289,7 @@ const STAGE_FIELDS = [
     '2c' => ['specs' => 's', 'frequency_mhz' => 'i'],
     '2d' => ['capacity_gb' => 'i', 'memory_type' => 's'],
     '3a' => ['specs' => 's', 'description' => 's', 'ram_type' => 's', 'form_factor' => 's'],
+    '3b' => ['specs' => 's', 'description' => 's', 'frequency_mhz' => 'i'],
 ];
 
 /**
@@ -298,6 +299,7 @@ const STAGE_FIELDS = [
  */
 const STAGE_MERGE_FIELDS = [
     '3a' => ['specs'],
+    '3b' => ['specs'],
 ];
 
 /**
@@ -636,6 +638,67 @@ function extractStage2d(string $name): array
     return $out;
 }
 
+/**
+ * Эшелон 3b: видеокарты.
+ *
+ * Ключ - серия в том написании, которое встречается в названиях базы,
+ * совпадение ищется по самому длинному ключу, поэтому «RTX 3060 Ti»
+ * выигрывает у «RTX 3060». Значения: кодовое имя кристалла и
+ * рекомендуемая мощность блока питания из рекомендаций производителя.
+ *
+ * length_mm сюда не попадает осознанно: длина корпуса зависит от
+ * конкретной модели партнёра (Palit Dual OC, Zotac AMP, KFA2 SG), а не
+ * от серии, и по названию её не восстановить.
+ *
+ * У Radeon 550 LP кодовое имя не указано: это переименованная карта
+ * предыдущего поколения, и какая именно - по названию не читается.
+ */
+const GPU_TABLE = [
+    'GeForce 210' => ['chip' => 'GT218', 'psu' => 300],
+    'GTX 210' => ['chip' => 'GT218', 'psu' => 300],
+    'GT 1030' => ['chip' => 'GP108', 'psu' => 300],
+    'GT 730' => ['chip' => 'GK208', 'psu' => 300],
+    'GTX 750' => ['chip' => 'GK104', 'psu' => 400],
+    'Radeon R7 240' => ['chip' => 'Turks', 'psu' => 400],
+    'Radeon 550' => ['chip' => null, 'psu' => 400],
+    'RX 550' => ['chip' => 'Lexa', 'psu' => 400],
+    'RX 6500 XT' => ['chip' => 'Navi 23', 'psu' => 400],
+    'RX 6600' => ['chip' => 'Navi 23', 'psu' => 500],
+    'RX 6700 XT' => ['chip' => 'Navi 22', 'psu' => 650],
+    'RX 6800 XT' => ['chip' => 'Navi 21', 'psu' => 700],
+    'GTX 1050 Ti' => ['chip' => 'GP107', 'psu' => 400],
+    'GTX 1050' => ['chip' => 'GP107', 'psu' => 400],
+    'GTX 1650' => ['chip' => 'TU117', 'psu' => 400],
+    'GTX 1660' => ['chip' => 'TU116', 'psu' => 450],
+    'RTX 2060' => ['chip' => 'TU106', 'psu' => 500],
+    'RTX 3050' => ['chip' => 'GA106', 'psu' => 450],
+    'RTX 3060 Ti' => ['chip' => 'GA104', 'psu' => 600],
+    'RTX 3060' => ['chip' => 'GA106', 'psu' => 550],
+    'RTX 3070' => ['chip' => 'GA104', 'psu' => 650],
+    'RTX 3080 Ti' => ['chip' => 'GA102', 'psu' => 750],
+    'RTX 3080' => ['chip' => 'GA102', 'psu' => 750],
+    'RTX 3090 Ti' => ['chip' => 'GA102', 'psu' => 850],
+    'RTX 3090' => ['chip' => 'GA102', 'psu' => 800],
+];
+
+/**
+ * Эшелон 3b: частота модулей памяти.
+ *
+ * В 15 старых комплектах в названии нет ни «MHz», ни «DDR4-3200» -
+ * проверено запросом, ноль совпадений. Частота по линейке не
+ * восстанавливается однозначно: те же Vengeance LPX и FURY Beast
+ * выпускались на 2400, 3200, 3600 и 4000.
+ *
+ * Проставлена догадка 3200 МГц с разрешения пользователя: комплекты
+ * на 2019-2021 год, а 3200 - самая массовая частота того времени.
+ * Догадка помечается в отчёте отдельным списком, как ram_type в
+ * эшелоне 2a. Тайминги CL16 и напряжение 1,35 В - штатный профиль
+ * для DDR4-3200, то есть тоже следуют из этой догадки.
+ */
+const RAM_FREQUENCY_ASSUMED = 3200;
+const RAM_TIMINGS_ASSUMED = 'CL16';
+const RAM_VOLTAGE_ASSUMED = 1.35;
+
 /** Категории, которые заполняет этап. Для эшелона 1 - все. */
 function stageCategories(string $stage): array
 {
@@ -650,6 +713,8 @@ function stageCategories(string $stage): array
             return [CAT_VIDEO];
         case '3a':
             return [CAT_CPU, 2]; // процессоры и материнские платы
+        case '3b':
+            return [CAT_VIDEO, CAT_MEMORY]; // видеокарты и оперативная память
         default:
             return [];
     }
@@ -864,6 +929,122 @@ function extractStage3a(array $row): array
     return [];
 }
 
+/** Серия видеокарты по самому длинному совпавшему ключу. */
+function matchGpuTable(string $name): ?array
+{
+    static $keys = null;
+    if ($keys === null) {
+        $keys = array_keys(GPU_TABLE);
+        usort($keys, static function ($a, $b) {
+            return mb_strlen($b) <=> mb_strlen($a);
+        });
+    }
+    $lower = mb_strtolower($name);
+    foreach ($keys as $key) {
+        if (str_contains($lower, mb_strtolower($key))) {
+            return [$key, GPU_TABLE[$key]];
+        }
+    }
+    return null;
+}
+
+/**
+ * Эшелон 3b: видеокарты.
+ *
+ * Дополняет specs из эшелона 2d (уже заполнены capacity_gb и
+ * memory_type, они остаются в JSON) кодовым именем кристалла и
+ * рекомендуемой мощностью блока питания, плюс описание.
+ */
+function extractStage3bGpu(array $row): array
+{
+    $name = (string) $row['component_name'];
+    $hit = matchGpuTable($name);
+    if ($hit === null) {
+        return ['_warning' => 'серия видеокарты не найдена'];
+    }
+
+    $specs = ['psu_req_w' => $hit[1]['psu']];
+    if ($hit[1]['chip'] !== null) {
+        $specs['chip'] = $hit[1]['chip'];
+    }
+
+    $capacity = $row['capacity_gb'] ?? null;
+    $memory = $row['memory_type'] ?? null;
+    $title = trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name));
+
+    $text = $title . ' — видеокарта';
+    if ($capacity !== null && $capacity !== '') {
+        $text .= ' с ' . $capacity . ' ГБ' . ($memory ? ' ' . $memory : '');
+    }
+    if ($hit[1]['chip'] !== null) {
+        $text .= ', кристалл ' . $hit[1]['chip'];
+    }
+    $text .= '. Рекомендуемый блок питания от ' . $hit[1]['psu'] . ' Вт.';
+
+    return ['specs' => $specs, 'description' => $text];
+}
+
+/**
+ * Эшелон 3b: комплекты оперативной памяти.
+ *
+ * Число модулей берётся из названия («4gbx4» - четыре планки по 4 ГБ),
+ * частота - догадка RAM_FREQUENCY_ASSUMED, тайминги и напряжение -
+ * штатный профиль для этой частоты. Всё догадочное попадает в отчёт
+ * разделом «Проставлено по догадке».
+ */
+function extractStage3bRam(array $row): array
+{
+    $name = (string) $row['component_name'];
+
+    if (!preg_match('/(\d+)\s*gb\s*x\s*(\d+)/i', $name, $m)) {
+        return ['_warning' => 'число модулей не читается из названия'];
+    }
+    $modules = (int) $m[2];
+
+    $specs = [
+        'modules' => $modules,
+        'timings' => RAM_TIMINGS_ASSUMED,
+        'voltage' => RAM_VOLTAGE_ASSUMED,
+    ];
+
+    $capacity = $row['capacity_gb'] ?? null;
+    $ramType = $row['ram_type'] ?? null;
+    $title = trim(($row['manufacturer'] ?? '') . ' ' . ($row['model'] ?? $name));
+
+    $text = $title . ' — комплект оперативной памяти';
+    if ($capacity !== null && $capacity !== '') {
+        $text .= ' ' . $capacity . ' ГБ из ' . $modules . ' '
+            . plural($modules, 'модуля', 'модулей', 'модулей');
+    }
+    if ($ramType) {
+        $text .= ', ' . $ramType;
+    }
+    $text .= ' на ' . RAM_FREQUENCY_ASSUMED . ' МГц с таймингами '
+        . RAM_TIMINGS_ASSUMED . '.';
+
+    return [
+        'specs' => $specs,
+        'description' => $text,
+        'frequency_mhz' => RAM_FREQUENCY_ASSUMED,
+        '_assumed' => ['frequency_mhz=' . RAM_FREQUENCY_ASSUMED
+            . ' (в названии нет MHz, частота догадана по линейке комплекта);'
+            . ' тайминги и напряжение взяты как профиль для этой частоты'],
+    ];
+}
+
+/** Эшелон 3b: обе категории сразу. */
+function extractStage3b(array $row): array
+{
+    $cat = (int) $row['category_id'];
+    if ($cat === CAT_VIDEO) {
+        return extractStage3bGpu($row);
+    }
+    if ($cat === CAT_MEMORY) {
+        return extractStage3bRam($row);
+    }
+    return [];
+}
+
 /**
  * Собирает поля к записи для одного компонента.
  *
@@ -906,6 +1087,9 @@ function collectUpdates(string $stage, array $row): array
             break;
         case '3a':
             $candidates = extractStage3a($row);
+            break;
+        case '3b':
+            $candidates = extractStage3b($row);
             break;
         default:
             return ['set' => [], 'notes' => [], 'warning' => null];
@@ -1176,6 +1360,52 @@ function runSelftest(): int
         echo '       ' . json_encode($shown, JSON_UNESCAPED_UNICODE) . "\n";
     }
 
+    echo "\n--- Эшелон 3b: видеокарты и память ---\n";
+    // У видеокарт и памяти specs до эшелона 3b были пустыми: объём и тип
+    // памяти лежат в отдельных колонках, а не в JSON. Поэтому в
+    // фикстурах specs = null, а отдельный кейс проверяет слияние.
+    $stage3bCases = [
+        // RTX 3060 Ti не должен проиграть RTX 3060
+        ['Palit GeForce RTX 3060 Ti DUAL OC V1 (LHR)', ['component_name' => 'Palit GeForce RTX 3060 Ti DUAL OC V1 (LHR)', 'category_id' => 3, 'manufacturer' => 'Palit', 'model' => 'GeForce RTX 3060 Ti DUAL OC V1 (LHR)', 'capacity_gb' => 8, 'memory_type' => 'GDDR6', 'specs' => null]],
+        ['GIGABYTE GeForce RTX 3060 EAGLE OC (LHR)', ['component_name' => 'GIGABYTE GeForce RTX 3060 EAGLE OC (LHR)', 'category_id' => 3, 'manufacturer' => 'Gigabyte', 'model' => 'GeForce RTX 3060 EAGLE OC (LHR)', 'capacity_gb' => 12, 'memory_type' => 'GDDR6', 'specs' => null]],
+        ['MSI GeForce 210', ['component_name' => 'MSI GeForce 210', 'category_id' => 3, 'manufacturer' => 'MSI', 'model' => 'GeForce 210', 'capacity_gb' => 1, 'memory_type' => 'GDDR3', 'specs' => null]],
+        // у Radeon 550 LP кода кристалла нет - в JSON только рекомендация
+        ['PowerColor AMD Radeon 550 LP', ['component_name' => 'PowerColor AMD Radeon 550 LP', 'category_id' => 3, 'manufacturer' => 'PowerColor', 'model' => 'AMD Radeon 550 LP', 'capacity_gb' => 2, 'memory_type' => 'GDDR5', 'specs' => null]],
+        ['Kingston FURY Beast Black 4gbx4', ['component_name' => 'Kingston FURY Beast Black 4gbx4', 'category_id' => 4, 'manufacturer' => 'Kingston', 'model' => 'FURY Beast Black 4gbx4', 'capacity_gb' => 16, 'ram_type' => 'DDR4', 'specs' => null]],
+        // слияние: чужой ключ в specs должен уцелеть
+        ['A-Data XPG GAMMIX D20 8gbx2 + чужой ключ', ['component_name' => 'A-Data XPG GAMMIX D20 8gbx2', 'category_id' => 4, 'manufacturer' => 'A-Data', 'model' => 'XPG GAMMIX D20 8gbx2', 'capacity_gb' => 16, 'ram_type' => 'DDR4', 'specs' => '{"rgb":true}']],
+    ];
+    foreach ($stage3bCases as [$name, $row]) {
+        $row += ['description' => null, 'frequency_mhz' => null, 'form_factor' => null];
+        $got = extractStage3b($row);
+        $totalSpec++;
+        $merged = collectUpdates('3b', $row);
+        if (isset($merged['set']) && $merged['set'] !== []) {
+            // для кейса на слияние проверяем, что чужой ключ уцелел
+            $ok = true;
+            if (($row['specs'] ?? null) !== null) {
+                $after = json_decode((string) $merged['set']['specs'], true);
+                $before = json_decode((string) $row['specs'], true);
+                foreach ($before as $k => $v) {
+                    if (!array_key_exists($k, $after) || $after[$k] !== $v) {
+                        $ok = false;
+                    }
+                }
+            }
+            if ($ok) {
+                echo "  ok   " . pad($name, 42) . ' ' . mb_substr(json_encode(array_diff_key($merged['set'], ['description' => 1]), JSON_UNESCAPED_UNICODE), 0, 110) . "\n";
+                continue;
+            }
+            $failed++;
+            echo "  FAIL " . pad($name, 42) . " слияние потеряло ключи\n";
+            echo '       ' . json_encode($merged['set'], JSON_UNESCAPED_UNICODE) . "\n";
+            continue;
+        }
+        $failed++;
+        echo "  FAIL " . pad($name, 42) . " пустое обновление\n";
+        echo '       ' . json_encode($got, JSON_UNESCAPED_UNICODE) . "\n";
+    }
+
     $total = count($cases) + $totalSpec;
     echo "\n=== Итог selftest: " . ($total - $failed) . "/" . $total . " ===\n";
     if ($failed > 0) {
@@ -1206,6 +1436,7 @@ $stageTitles = [
     '2c' => 'CPU: specs, frequency_mhz',
     '2d' => 'GPU: capacity_gb, memory_type',
     '3a' => 'CPU и материнские платы: specs, description, ram_type, form_factor',
+    '3b' => 'GPU и RAM: specs, description, frequency_mhz',
 ];
 
 $catNames = [
