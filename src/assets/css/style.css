@@ -292,70 +292,130 @@ body::-webkit-scrollbar-thumb {
 
 
 /*СБОРКИ*/
-.element_select{
-	display: flex;
-	width: 100%;
-	height: 100%;
-	justify-content: center;
+/* 3.6.3-b: карточки сборок переведены в общий стиль интерфейса.
+   Прежние правила прятали цену до наведения, увеличивали карточку
+   при наведении до scale(1.3) и добавляли скруглённую серую рамку
+   background.png на всю секцию. Три карточки при этом не помещались в
+   ряд: .element_select имел width 100%, а картинка 500x500 задавала
+   min-content по ширине, из-за чего ряд шириной 578px содержал 1500px
+   пикселей и обрезался overflow: hidden. Теперь ширина задаётся
+   flex-basis, картинка ограничена по высоте и object-fit, поэтому
+   карточки делят строку поровну и сжимаются вместе с ней.
+
+   Секция .container_pc остаётся во всю ширину: рядом с ней полноэкранные
+   блоки .container_conf и .container_about с фоновыми картинками, и
+   узкая полоса на широком мониторе выглядела бы обрывом. Размеры и
+   отступы унесены в .container_select - это и есть ряд карточек. */
+.container_pc {
+    height: auto;
+    min-height: 75vh;
+    overflow: visible;
+    padding: 40px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.container_pc .cont_shell_back {
+    top: auto;
+    width: 100%;
+    max-width: 1200px;
+    height: auto;
+    background: none;
+    border-radius: 0;
+}
+.container_pc .container_select {
+    width: 100%;
+    max-width: 1200px;
+    height: auto;
+    margin: 32px auto;
+    gap: 24px;
+    align-items: stretch;
+}
+.element_select {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 380px;
+    height: auto;
+    justify-content: center;
     align-items: center;
 }
-.select_image{
-	display: flex;
-	width: 100%;
-	height: 100%;
-	justify-content: center;
+.element_select a {
+    width: 100%;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+.select_image {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    justify-content: center;
     align-items: center;
-	flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .2s ease, transform .2s ease;
 }
-.select_image img{
-	height: 100%;
+.select_image:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
 }
-.cont_img{
-	height: 65%;
-	display: block;
-	position: relative;
-	z-index: 2;
-	transition: transform .4s;
+.select_image img {
+    max-width: 100%;
+    height: 200px;
+    object-fit: contain;
 }
-.figure_par{
-	width: 20%;
-    height: 16%;
-	display: block;
-	position: absolute;
-	border: 1px solid rgba(88, 88, 88, 0.5);
-	border-radius: 5px;
-	transform: skew(-20deg);
-	transition: transform .4s;
-	z-index: 1;
+.cont_img {
+    height: 200px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+    transition: transform .2s ease;
 }
-.cont_text{
-	display: block;
-	position: relative;
-	color: #000;
-	transition: transform .4s;
-	padding-top: 3%;
+/* Прежняя скруглённая наклонённая рамка была частью оформления 2022
+   года и в карточке с рамкой выглядит как чужое пятно. */
+.figure_par {
+    display: none;
 }
-.cont_text p{
-	opacity: 0;
-	text-align: center;
+.cont_text {
+    display: block;
+    position: relative;
+    color: var(--text);
+    text-align: center;
+    padding-top: 16px;
 }
-.cont_text:visited{
-	text-decoration: none;
+.cont_text h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    transition: color .2s ease;
 }
-.element_select:hover .cont_text{
-	transform: scale(1.3) translateY(40px);
+.select_image:hover .cont_text h1 {
+    color: var(--accent-hover);
 }
-.element_select:hover .cont_text p{
-	opacity: 1;
-	transition: .4s;
+.cont_text p {
+    margin: 6px 0 0;
+    opacity: 0;
+    text-align: center;
+    color: var(--text-secondary);
 }
-.element_select:hover .cont_img{
-	transform: scale(1.2);
+.cont_text:visited {
+    text-decoration: none;
 }
-.element_select:hover .figure_par{
-	background: rgba(176, 87, 248, 0.5);
-	transform: scale(1.4) skew(-20deg);
-	border: none;
+.select_image:hover .cont_text p {
+    opacity: 1;
+    transition: opacity .2s ease;
+}
+.select_image:hover .cont_img {
+    transform: scale(1.03);
 }
 
 
@@ -638,6 +698,15 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     }
     .container_pc .cont_shell_back {
         height: auto;
+    }
+    /* 3.6.3-b: в колонке flex-basis у карточки отвечает за высоту, а
+       max-width ограничил бы ширину, и карточки встали бы в угол. */
+    .container_pc .element_select {
+        max-width: none;
+    }
+    .container_pc .container_select {
+        gap: 16px;
+        margin: 24px auto;
     }
     .price_input {
         width: 100%;
