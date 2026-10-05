@@ -246,36 +246,73 @@ $uploadedBad = isset($_GET['bad']) ? trim((string) $_GET['bad']) : '';
     БЛОК 4: модалка привязки файла к корпусу. Список корпусов без
     картинки собирается ниже; пустой список -> подсказка вместо кнопок.
 -->
-<dialog id="attachCaseModal" class="modal">
+<dialog id="attachCaseModal" class="modal modal--wide">
     <div class="modal-form">
         <h2>Привязать к корпусу</h2>
-        <p class="form-hint">Выберите корпус, к которому привязать файл</p>
+        <p class="form-hint">Выберите корпус. У корпуса с картинкой она будет заменена.</p>
 
 <?php
-// Список корпусов без картинки
+// Полный список корпусов, а не только тех, у кого картинки нет:
+// привязать файл нужно и для замены существующей картинки, а список
+// без картинок такой возможности не давал вовсе.
+// Совпадения по имени файла, а не по полному пути: путь в базе может
+// лежать и со слешем, и без.
 $astmt = db_prepare($mysql,
-    "SELECT component_id, component_name
-     FROM components
-     WHERE category_id = 6 AND (image IS NULL OR image = '')
-     ORDER BY component_name", "");
+    "SELECT c.component_id, c.component_name, c.image
+     FROM components c
+     WHERE c.category_id = 6
+     ORDER BY c.component_name", "");
 $astmt->execute();
-$casesWithoutImageList = $astmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$allCasesList = $astmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+$casesWithImage = 0;
+foreach ($allCasesList as $c) {
+    if (!empty($c['image'])) {
+        $casesWithImage++;
+    }
+}
 ?>
-<?php if (empty($casesWithoutImageList)): ?>
-            <div class="alert">
-                Все корпуса уже имеют изображения
-              </div>
+        <div class="attach-search">
+            <input type="search" id="attachCaseSearch"
+                   class="input" placeholder="Поиск по названию корпуса">
+        </div>
+
+<?php if (empty($allCasesList)): ?>
+            <div class="alert">Корпусов в каталоге нет</div>
 <?php else: ?>
-            <div class="case-picker-list">
-                <?php foreach ($casesWithoutImageList as $c): ?>
-                    <button type="button"
-                            class="case-picker-item"
-                            data-action="attach-file-confirm"
-                            data-case-id="<?= (int) $c['component_id'] ?>">
-                        <?= escape($c['component_name']) ?>
-                    </button>
+            <div class="attach-cases-list" id="attachCasesList">
+                <?php foreach ($allCasesList as $c): ?>
+                    <div class="attach-case-row"
+                         data-search="<?= escape(mb_strtolower((string) $c['component_name'])) ?>">
+                        <div class="attach-case-row__img">
+<?php if (!empty($c['image'])): ?>
+                            <img src="<?= escape('/' . $c['image']) ?>" alt="" loading="lazy">
+<?php else: ?>
+                            <span class="attach-case-row__noimg">нет</span>
+<?php endif; ?>
+                        </div>
+                        <div class="attach-case-row__name">
+                            <?= escape((string) $c['component_name']) ?>
+<?php if (!empty($c['image'])): ?>
+                            <span class="attach-case-row__current">
+                                сейчас: <?= escape(basename((string) $c['image'])) ?>
+                            </span>
+<?php endif; ?>
+                        </div>
+                        <button type="button"
+                                class="btn <?= !empty($c['image']) ? 'btn--secondary' : 'btn--primary' ?> btn--sm"
+                                data-action="attach-file-confirm"
+                                data-case-id="<?= (int) $c['component_id'] ?>">
+                            <?= !empty($c['image']) ? 'Заменить' : 'Привязать' ?>
+                        </button>
+                    </div>
                 <?php endforeach; ?>
             </div>
+            <p class="form-hint attach-cases-hint">
+                Корпусов всего: <?= count($allCasesList) ?>,
+                с картинкой: <?= $casesWithImage ?>,
+                без картинки: <?= count($allCasesList) - $casesWithImage ?>.
+            </p>
 <?php endif; ?>
 
         <div class="modal-actions">

@@ -1057,8 +1057,12 @@ document.addEventListener('click', function(e) {
         attachContext.url = btn.dataset.fileUrl;
         const modal = document.getElementById('attachCaseModal');
         if (modal) {
-            // Обновить список корпусов без картинки можно простым показом:
-            // список рендерится на сервере при последней загрузке страницы
+            // Список корпусов отрендерен сервером при загрузке страницы,
+            // остаётся только сбросить поиск - иначе он останется от
+            // прошлого открытия и покажет не всё.
+            const search = document.getElementById('attachCaseSearch');
+            if (search) search.value = '';
+            filterAttachCases('');
             modal.showModal();
         }
         return;
@@ -1072,6 +1076,44 @@ document.addEventListener('click', function(e) {
         form.querySelector('[name="caseId"]').value = caseBtn.dataset.caseId;
         form.submit();
     }
+});
+
+// Поиск по названию корпуса в модалке привязки.
+// Совпадение по подстроке без учёта регистра: data-search уже приведён
+// к нижнему регистру на сервере. Отдельная строка «ничего не найдено»
+// нужна, потому что пустой список сам по себе выглядит как «корпусов
+// нет».
+function filterAttachCases(query) {
+    const list = document.getElementById('attachCasesList');
+    if (!list) return;
+
+    const q = (query || '').trim().toLowerCase();
+    const rows = Array.prototype.slice.call(list.querySelectorAll('.attach-case-row'));
+    let visible = 0;
+
+    rows.forEach(function(row) {
+        const name = row.dataset.search || '';
+        const match = q === '' || name.indexOf(q) !== -1;
+        row.hidden = !match;
+        if (match) visible++;
+    });
+
+    let empty = document.querySelector('#attachCaseModal .attach-cases-empty');
+    if (visible === 0) {
+        if (!empty) {
+            empty = document.createElement('div');
+            empty.className = 'attach-cases-empty';
+            empty.textContent = 'Ничего не найдено';
+            list.parentNode.insertBefore(empty, list.nextSibling);
+        }
+    } else if (empty) {
+        empty.remove();
+    }
+}
+
+document.addEventListener('input', function(e) {
+    if (!e.target || e.target.id !== 'attachCaseSearch') return;
+    filterAttachCases(e.target.value);
 });
 
 // --- FIX-7: открытие модалки выбора картинкой-кнопкой ---

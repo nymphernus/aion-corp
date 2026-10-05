@@ -1261,6 +1261,77 @@ final class AdminTest extends AionTestCase
     }
 
     /**
+     * 4: модалка привязки показывает ВСЕ корпуса, а не только те, у
+     * которых картинки нет.
+     *
+     * Список без картинок не давал возможности ЗАМЕНИть картинку: корпус
+     * с картинкой в него не попадал вовсе. Поэтому в списке все корпуса,
+     * а у уже привязанного кнопка «Заменить» и подпись с текущим файлом.
+     */
+    public function testAttachModalListsAllCases(): void
+    {
+        $this->loginAsAdmin();
+
+        $mysql = connect();
+        $countStmt = db_prepare($mysql, "SELECT COUNT(*) FROM components WHERE category_id = 6", "");
+        $countStmt->execute();
+        $totalCases = (int) $countStmt->get_result()->fetch_row()[0];
+        $mysql->close();
+
+        $page = $this->httpGet('/admin.php?tab=files');
+        $this->assertSame(200, $page['code']);
+
+        $this->assertSame(
+            $totalCases,
+            preg_match_all('/class="attach-case-row"/u', $page['body']),
+            'в модалке должны быть все корпуса, а не только без картинки'
+        );
+        $this->assertMatchesRegularExpression(
+            '/id="attachCaseSearch"/u',
+            $page['body'],
+            'в модалке должен быть поиск по названию'
+        );
+
+        // у корпуса с картинкой - «Заменить», у корпуса без - «Привязать».
+        // Проверяется фикстурой: свой корпус с картинкой и свой без.
+        $casesDir = dirname(__DIR__) . '/assets/images/cases/';
+        $filename = 'test-attach-' . uniqid() . '.png';
+        file_put_contents($casesDir . $filename, 'X');
+        $ins = db_prepare($mysql = connect(),
+            "INSERT INTO components (component_name, category_id, component_price, amount, image) VALUES (?, 6, 1000, 1, ?)",
+            "ss", 'Test Attach With', 'assets/images/cases/' . $filename);
+        $ins->execute();
+        $withId = (int) $ins->insert_id;
+        $mysql->close();
+
+        $ins2 = db_prepare($mysql = connect(),
+            "INSERT INTO components (component_name, category_id, component_price, amount) VALUES (?, 6, 1000, 1)",
+            "s", 'Test Attach Without');
+        $ins2->execute();
+        $withoutId = (int) $ins2->insert_id;
+        $mysql->close();
+
+        try {
+            $page2 = $this->httpGet('/admin.php?tab=files');
+            $this->assertMatchesRegularExpression(
+                '/Test Attach With.*?Заменить/su',
+                $page2['body'],
+                'у корпуса с картинкой должна быть кнопка «Заменить»'
+            );
+            $this->assertMatchesRegularExpression(
+                '/Test Attach Without.*?Привязать/su',
+                $page2['body'],
+                'у корпуса без картинки должна быть кнопка «Привязать»'
+            );
+        } finally {
+            $mysql = connect();
+            db_prepare($mysql, "DELETE FROM components WHERE component_id IN (?, ?)", "ii", $withId, $withoutId)->execute();
+            $mysql->close();
+            @unlink($casesDir . $filename);
+        }
+    }
+
+    /**
      * 7: return_params не может подсунуть в Location что угодно.
      *
      * Строка приходит от клиента, поэтому собирать из неё адрес как есть
