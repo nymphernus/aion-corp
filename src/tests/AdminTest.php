@@ -902,41 +902,59 @@ final class AdminTest extends AionTestCase
      *
      * Модель Stage 8-финал: удаление доступно только из архива, поэтому
      * живой (привязанный) файл получает отказ need_archive ещё до проверки
-     * привязки, а архивировать привязанный нельзя (used). Обе защиты
-     * проверяются.
+     * привязки, а архивировать привязанный нельзя (used).
+     *
+     * Фикстура своя: тест создаёт файл и корпус с привязкой, потому что
+     * демо-данные могут отсутствовать (SEED_DATA=0), а боевые файлы
+     * трогать нельзя - прошлый вариант теста архивировал реальный
+     * baa-16.jpg, когда привязок ещё не было.
      */
     public function testDeleteFileRejectsUsed(): void
     {
         $this->loginAsAdmin();
 
-        // Находим используемый файл
+        $casesDir = dirname(__DIR__) . '/assets/images/cases/';
+        $filename = 'test-used-' . uniqid() . '.jpg';
+        $path = $casesDir . $filename;
+        file_put_contents($path, 'X');
+
+        // корпус с привязкой к этому файлу
         $mysql = connect();
-        $stmt = db_prepare($mysql, "SELECT image FROM components WHERE image IS NOT NULL AND category_id = 6 LIMIT 1");
+        $stmt = db_prepare($mysql, "INSERT INTO components (component_name, category_id, component_price, amount, image) VALUES (?, 6, 1000, 1, ?)", "ss", 'Test Used Case', 'assets/images/cases/' . $filename);
         $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
+        $componentId = (int) $stmt->insert_id;
         $mysql->close();
-        $this->assertNotNull($row, 'в базе должен быть корпус с изображением');
-        $filename = basename($row['image']);
 
-        // удаление живого файла - need_archive (привязка тут не доигрывается)
-        $page = $this->httpGet('/admin.php?tab=files');
-        $response = $this->httpPost('/admin.php?tab=files', [
-            'csrf_token' => $this->extractCsrf($page['body']),
-            'deleteFile' => '1',
-            'filename' => $filename,
-        ]);
-        $this->assertSame(302, $response['code']);
-        $this->assertStringContainsString('error=need_archive', $response['location']);
+        try {
+            // удаление живого файла - need_archive
+            $page = $this->httpGet('/admin.php?tab=files');
+            $response = $this->httpPost('/admin.php?tab=files', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'deleteFile' => '1',
+                'filename' => $filename,
+            ]);
+            $this->assertSame(302, $response['code']);
+            $this->assertStringContainsString('error=need_archive', $response['location']);
+            $this->assertFileExists($path);
 
-        // архивировать привязанный - used
-        $page2 = $this->httpGet('/admin.php?tab=files');
-        $response2 = $this->httpPost('/admin.php?tab=files', [
-            'csrf_token' => $this->extractCsrf($page2['body']),
-            'archiveFile' => '1',
-            'filename' => $filename,
-        ]);
-        $this->assertSame(302, $response2['code']);
-        $this->assertStringContainsString('error=used', $response2['location']);
+            // архивировать привязанный - used
+            $page2 = $this->httpGet('/admin.php?tab=files');
+            $response2 = $this->httpPost('/admin.php?tab=files', [
+                'csrf_token' => $this->extractCsrf($page2['body']),
+                'archiveFile' => '1',
+                'filename' => $filename,
+            ]);
+            $this->assertSame(302, $response2['code']);
+            $this->assertStringContainsString('error=used', $response2['location']);
+            $this->assertFileExists($path);
+        } finally {
+            // уборка фикстуры в любом исходе
+            $mysql = connect();
+            $del = db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $componentId);
+            $del->execute();
+            $mysql->close();
+            @unlink($path);
+        }
     }
 
     /**
@@ -1027,11 +1045,28 @@ final class AdminTest extends AionTestCase
         $this->assertFileExists($casesDir . $name);
         $this->assertFileDoesNotExist($archiveDir . $name);
 
-        // 5) архивировать привязанный файл нельзя - used
-        $r = $act('archiveFile', 'baa-16.jpg');
-        $this->assertSame(302, $r['code']);
-        $this->assertStringContainsString('error=used', $r['location']);
-        $this->assertFileExists($casesDir . 'baa-16.jpg');
+        // 5) архивировать привязанный файл нельзя - used.
+        // Фикстура своя: боевые картинки тест не трогает.
+        $bound = 'test-bound-' . uniqid() . '.jpg';
+        file_put_contents($casesDir . $bound, 'X');
+        $mysql = connect();
+        $ins = db_prepare($mysql, "INSERT INTO components (component_name, category_id, component_price, amount, image) VALUES (?, 6, 1000, 1, ?)", "ss", 'Test Bound Case', 'assets/images/cases/' . $bound);
+        $ins->execute();
+        $boundId = (int) $ins->insert_id;
+        $mysql->close();
+
+        try {
+            $r = $act('archiveFile', $bound);
+            $this->assertSame(302, $r['code']);
+            $this->assertStringContainsString('error=used', $r['location']);
+            $this->assertFileExists($casesDir . $bound);
+        } finally {
+            $mysql = connect();
+            $del = db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $boundId);
+            $del->execute();
+            $mysql->close();
+            @unlink($casesDir . $bound);
+        }
 
         // уборка
         @unlink($casesDir . $name);
