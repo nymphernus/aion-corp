@@ -323,10 +323,6 @@ $settings = [
     'site_logo_url' => '/assets/images/logo.png',
     'site_favicon_url' => '/assets/images/favicon.svg',
     'site_favicon_png_url' => '/assets/images/favicon.png',
-    // Копирайт по умолчанию пустой: пустое значение означает «© год
-    // основания + название», и при смене бренда подвал меняется сам.
-    // Иначе в нём навсегда осталось бы имя прежнего владельца.
-    'site_footer_copyright' => '',
 ];
 foreach ($settings as $key => $value) {
     $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = ?", "s", $key);
@@ -373,6 +369,43 @@ if ($legacyFullName !== '') {
 
 mig_exec($mysql, $dryRun, "DELETE FROM site_settings WHERE setting_key = 'site_name_full'", []);
 mig_log("  [migrate] удалён ключ site_name_full");
+
+// Одноразовая миграция: копирайт целиком -> год и название.
+//
+// Настройка site_footer_copyright позволяла написать подвал строкой. Но
+// год и название задаются рядом, отдельными полями, и строка целиком
+// требовала дублировать их значения в тексте - после смены названия в
+// копирайте осталось бы имя прежнего владельца. Подвал теперь всегда
+// «© {site_founded_year} {site_name}».
+//
+// Значение перед удалением разбирается, чтобы год основания не
+// потерялся: если site_founded_year пуст или отсутствует, год берётся
+// из копирайта. Символ © и год распознаются регулярным выражением -
+// иначе «1999» из текста вида «(c) 1999 ООО» превратился бы в год
+// основания.
+$stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = 'site_footer_copyright'", "");
+$stmt->execute();
+$legacyCopyright = trim((string) ($stmt->get_result()->fetch_row()[0] ?? ''));
+
+if ($legacyCopyright !== '') {
+    $stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = 'site_founded_year'", "");
+    $stmt->execute();
+    $currentYear = trim((string) ($stmt->get_result()->fetch_row()[0] ?? ''));
+
+    if (preg_match('/(\d{4})/u', $legacyCopyright, $m) === 1 && $currentYear === '') {
+        mig_exec(
+            $mysql,
+            $dryRun,
+            "UPDATE site_settings SET setting_value = ? WHERE setting_key = 'site_founded_year'",
+            [$m[1]],
+            "s"
+        );
+        mig_log("  [migrate] site_founded_year <- «$legacyCopyright» ({$m[1]})");
+    }
+}
+
+mig_exec($mysql, $dryRun, "DELETE FROM site_settings WHERE setting_key = 'site_footer_copyright'", []);
+mig_log("  [migrate] удалён ключ site_footer_copyright");
 
 $mysql->close();
 mig_log('=== migrate завершён ===');

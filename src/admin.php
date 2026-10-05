@@ -43,8 +43,15 @@ $isAdmin = true;
 // Роутинг вкладки
 $tab = $_GET['tab'] ?? '';
 if ($tab === '') {
-    // 3.7-f-3: вход из профиля ведёт сразу на список пользователей
-    header('Location: ' . admin_list_url('users'));
+    // ПРАВКА 5: /admin.php без раздела уводит на страницу пользователя.
+    //
+    // Раньше здесь стоял редирект на ?tab=users (3.7-f-3). Он был удобен
+    // только до появления выбора раздела: при входе из шапки или из
+    // закладки человек попадал в список пользователей без всякого
+    // основания, и это выглядело как «меня куда-то перебросило».
+    // Логичнее вернуть его туда, откуда он пришёл, - на /profile.php,
+    // где есть и вход, и его сборки.
+    header('Location: /profile.php');
     exit();
 }
 
@@ -681,14 +688,16 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     // Здесь только значения, ключ берётся из этого списка.
     // Stage 9: добавились ключи брендинга - по тому же правилу, что и
     // контакты: правится только то, что перечислено здесь.
-    // site_name_full больше нет: два названия были лишними, теперь одно.
+    // site_name_full и site_footer_copyright больше нет: два названия
+    // были лишними, а копирайт целиком требовал дублировать в тексте
+    // год и название, которые задаются рядом. Подвал собирается как
+    // «© {site_founded_year} {site_name}».
     $allowed = [
         'contact_phone', 'contact_email',
         'contact_vk', 'contact_telegram', 'contact_whatsapp',
         'map_address_text',
         'site_name', 'site_description', 'site_founded_year',
         'site_logo_url', 'site_favicon_url', 'site_favicon_png_url',
-        'site_footer_copyright',
     ];
 
     $values = [];

@@ -118,18 +118,6 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
                                 <p class="form-hint">Отображается в подвале как «© 2022 Название». Проект основан один раз — год не должен уезжать вперёд сам.</p>
                             </div>
 
-                            <div class="form-group">
-                                <label class="form-label" for="setFooterCopyright">Копирайт в подвале</label>
-                                <input class="input" name="site_footer_copyright" id="setFooterCopyright"
-                                       maxlength="120"
-                                       value="<?= escape(site_setting($settings, 'site_footer_copyright')) ?>"
-                                       placeholder="© 2022 Aion Corporation">
-                                <p class="form-hint">
-                                    Пусто — подвал соберётся как «© год основания»
-                                    плюс название сайта.
-                                </p>
-                            </div>
-
                             <div class="modal-row">
                                 <div class="form-group">
                                     <label class="form-label">Логотип</label>

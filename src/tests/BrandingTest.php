@@ -24,7 +24,6 @@ final class BrandingTest extends AionTestCase
         'site_logo_url',
         'site_favicon_url',
         'site_favicon_png_url',
-        'site_footer_copyright',
     ];
 
     /**
@@ -157,8 +156,7 @@ final class BrandingTest extends AionTestCase
                     $label . ': alt логотипа должен содержать название'
                 );
 
-                // Подвал: пустой site_footer_copyright собирается как
-                // «© {год} {название}».
+                // Подвал собирается как «© {год основания} {название}».
                 $this->assertStringContainsString(
                     '© ' . $before['site_founded_year'] . ' MyShop',
                     $r['body'],
@@ -289,22 +287,46 @@ final class BrandingTest extends AionTestCase
     }
 
     /**
-     * Явный site_footer_copyright выигрывает у собранного.
+     * Подвал всегда «© год основания название», ключа-копирайта нет.
+     *
+     * Раньше site_footer_copyright позволял написать подвал строкой, и
+     * побеждала именно она. Поля было лишнего: год и название задаются
+     * рядом, а строка целиком требовала дублировать их значения в
+     * тексте — после смены названия в копирайте осталось бы имя прежнего
+     * владельца.
+     *
+     * Проверяется и то, что подвал собирается из site_founded_year, а не
+     * из текущего года: смена года основания обязана его менять, иначе
+     * «© 2022» уезжало бы само в «© 2026» в январе.
      */
-    public function testExplicitFooterCopyrightWins(): void
+    public function testFooterIsFoundedYearPlusName(): void
     {
         $this->loginAsAdmin();
         $before = $this->snapshot();
 
         try {
-            $this->saveSettings(['site_footer_copyright' => '© 1999 Ручной копирайт']);
+            require_once dirname(__DIR__) . '/modules/site.php';
+            $mysql = connect();
+
+            $st = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = 'site_footer_copyright'", "");
+            $st->execute();
+            $leftovers = (int) $st->get_result()->fetch_row()[0];
+            $mysql->close();
+
+            $this->assertSame(
+                0,
+                $leftovers,
+                'ключ site_footer_copyright должен быть удалён из site_settings'
+            );
+
+            $this->saveSettings(['site_founded_year' => '2020', 'site_name' => 'Проверка']);
 
             $r = $this->httpGet('/');
             $this->assertSame(200, $r['code']);
             $this->assertStringContainsString(
-                '© 1999 Ручной копирайт',
+                '<span>© 2020 Проверка</span>',
                 $r['body'],
-                'явный копирайт должен показываться как есть, без подстановки года'
+                'подвал должен собираться как «© год основания название»'
             );
         } finally {
             $this->restore($before);
@@ -511,6 +533,10 @@ final class BrandingTest extends AionTestCase
      * брендинга и контактов, форма одна, и раньше любая частичная
      * отправка обнуляла остальные настройки. Отсутствие поля должно
      * значить «не менялось», а не «очистить».
+     *
+     * site_name входит и в снимок, и в восстановление: его тест тоже
+     * меняет через saveSettings. Раньше он был вне finally, и после
+     * прогона подвал оставался с названием «Брендинг без контактов».
      */
     public function testBrandingSaveDoesNotTouchContacts(): void
     {
@@ -519,7 +545,7 @@ final class BrandingTest extends AionTestCase
         require_once dirname(__DIR__) . '/modules/site.php';
         $mysql = connect();
         $before = [];
-        foreach (['contact_phone', 'contact_email', 'map_address_text'] as $key) {
+        foreach (['contact_phone', 'contact_email', 'map_address_text', 'site_name'] as $key) {
             $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $key);
             $st->execute();
             $before[$key] = (string) ($st->get_result()->fetch_row()[0] ?? '');

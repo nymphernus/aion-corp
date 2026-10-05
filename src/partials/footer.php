@@ -7,6 +7,7 @@
  *   $settings  — site_settings; если не задан, читается здесь
  *
  * Stage 9: копирайт собирается из site_settings, а не из разметки.
+ * Это «© {site_founded_year} {site_name}».
  * $settings к этому моменту уже есть - его читает header.php, который
  * подключается раньше. Собственная попытка чтения здесь нужна только
  * для случая, когда подвал подключат без шапки.
@@ -20,17 +21,17 @@ if (!isset($settings) || !is_array($settings)) {
     $settings = ($footerMysql instanceof mysqli) ? site_settings($footerMysql) : [];
 }
 
-$footerCopyright = site_setting($settings, 'site_footer_copyright', '');
+// Подвал собирается из двух настроек: год основания и название сайта.
+// Раньше здесь была ещё и site_footer_copyright - поле, где копирайт
+// можно было написать целиком. Оно было лишним: год и название всё
+// равно задаются рядом, а строка целиком требовала дублирования их
+// значений в тексте. Теперь копирайт всегда «© {год} {название}», и
+// подвинуть его можно только этими двумя полями.
+//
+// © жёстко в шаблоне, а не в настройке: это символ, а не данные.
 $siteName = site_setting($settings, 'site_name', 'Aion Corporation');
 $foundedYear = site_setting($settings, 'site_founded_year', '2022');
-
-// Пустая настройка копирайта - не повод показывать «©» без названия.
-// Год подставляется из site_founded_year, а не из date('Y'): проект
-// основан один раз, и «© 2026» вместо «© 2022» уезжало бы само
-// собой каждый январь.
-if (trim($footerCopyright) === '') {
-    $footerCopyright = '© ' . $foundedYear . ' ' . $siteName;
-}
+$footerCopyright = '© ' . $foundedYear . ' ' . $siteName;
 
 $extraJs = $extraJs ?? [];
 ?>
