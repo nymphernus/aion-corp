@@ -15,21 +15,16 @@ if (!defined('ADMIN_CONTEXT')) {
 if (isset($_GET['error']) && $_GET['error'] === 'used') {
     echo '<div class="alert alert--error">Файл используется компонентом. Сначала отвяжите его.</div>';
 }
-if (isset($_GET['error']) && $_GET['error'] === 'need_archive') {
-    echo '<div class="alert alert--error">Удаление доступно только из архива. Сначала отправьте файл в архив.</div>';
-}
 
 // --- Логика сбора файлов ---
 // Файл лежит в /admin/, каталог картинок - на уровень выше.
 $dir = __DIR__ . '/../assets/images/cases/';
-$archiveDir = $dir . '_archive/';
 $files = [];
 $totalSize = 0;
 
 foreach (scandir($dir) as $name) {
     if ($name === '.' || $name === '..') continue;
     if (strpos($name, '.') === 0) continue;  // hidden
-    if ($name === '_archive') continue;      // архив собирается отдельно
     
     $path = $dir . $name;
     if (!is_file($path)) continue;
@@ -43,36 +38,15 @@ foreach (scandir($dir) as $name) {
         'url' => $url,
         'size' => $size,
         'size_human' => human_size($size),
-        'archived' => false,
         'used_by' => false,
         'components' => [],
     ];
 }
 
-// Архив: перечисляем отдельно, они не участвуют в привязках
-$archivedFiles = [];
-if (is_dir($archiveDir)) {
-    foreach (scandir($archiveDir) as $name) {
-        if ($name === '.' || $name === '..' || $name[0] === '.') continue;
-        $apath = $archiveDir . $name;
-        if (!is_file($apath)) continue;
-        $archivedFiles[] = [
-            'basename' => $name,
-            'url' => 'assets/images/cases/_archive/' . $name,
-            'size' => filesize($apath),
-            'size_human' => human_size(filesize($apath)),
-            'archived' => true,
-            'used_by' => false,
-            'components' => [],
-        ];
-    }
-}
-
 // Привязки из БД. В components.image лежат пути без ведущего слеша
-// (assets/images/cases/x.jpg), а new-загрузки пишутся так же, поэтому
+// (assets/images/cases/x.png), а new-загрузки пишутся так же, поэтому
 // LIKE проверяет подстроку каталога. basename отрезает каталог,
-// значит формат хранения на матчинг не влияет. Файлы из _archive/
-// не участвуют: компонент физически не может ссылаться на архив.
+// значит формат хранения на матчинг не влияет.
 $stmt = db_prepare($mysql, 
     "SELECT component_id, component_name, image 
      FROM components WHERE image IS NOT NULL AND image LIKE '%assets/images/cases/%'", "");
@@ -94,12 +68,11 @@ while ($row = $result->fetch_assoc()) {
     unset($f);
 }
 
-// Фильтрация. Архивные файлы показываются только явным фильтром archive
+// Фильтрация
 $filter = $_GET['filter'] ?? '';
 $query = trim($_GET['q'] ?? '');
 $filteredFiles = [];
-$pool = $filter === 'archive' ? $archivedFiles : $files;
-foreach ($pool as $f) {
+foreach ($files as $f) {
     if ($filter === 'used' && !$f['used_by']) continue;
     if ($filter === 'orphan' && $f['used_by']) continue;
     if ($query !== '' && stripos($f['basename'], $query) === false) continue;
@@ -109,7 +82,6 @@ foreach ($pool as $f) {
 // Сводка
 $totalFiles = count($files);
 $orphanFiles = $totalFiles - $usedFiles;
-$archivedCount = count($archivedFiles);
 $totalSizeHuman = human_size($totalSize);
 
 // FIX-3: сколько корпусов осталось без картинки. Пустая строка и NULL
@@ -146,10 +118,6 @@ function human_size(int $bytes): string {
         <span class="files-stat__label">не используется</span>
     </div>
     <div class="files-stat">
-        <span class="files-stat__value"><?= $archivedCount ?></span>
-        <span class="files-stat__label">в архиве</span>
-    </div>
-    <div class="files-stat">
         <span class="files-stat__value"><?= $totalSizeHuman ?></span>
         <span class="files-stat__label">общий размер</span>
     </div>
@@ -170,7 +138,6 @@ function human_size(int $bytes): string {
                 <option value="">Все файлы</option>
                 <option value="used" <?= $filter === 'used' ? 'selected' : '' ?>>Привязанные</option>
                 <option value="orphan" <?= $filter === 'orphan' ? 'selected' : '' ?>>Не используется</option>
-                <option value="archive" <?= $filter === 'archive' ? 'selected' : '' ?>>Архив</option>
             </select>
             <input type="search" name="q" class="input"
                    placeholder="Поиск по имени"
@@ -243,48 +210,16 @@ function human_size(int $bytes): string {
                         </svg>
                         Привязать к корпусу
                     </button>
+                    <?php // Привязанный файл удалить нельзя: ссылка из
+                          // components.image осталась бы битой. Кнопка
+                          // остаётся активной, но помечена data-used - JS
+                          // покажет alert до отправки формы, сервер
+                          // откажет повторно даже при обходе JS. ?>
                     <button type="button"
-                            class="dropdown-item"
-                            data-action="copy-file-url"
-                            data-url="<?= escape($f['url']) ?>">
-                        <svg width="16" height="16" viewBox="0 0 24 24"
-                             fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        <span>Скопировать URL</span>
-                    </button>
-<?php if (!$f['archived']): ?>
-                    <button type="button"
-                            class="dropdown-item"
-                            data-action="archive-file"
-                            data-file="<?= escape($f['basename']) ?>">
-                        <svg width="16" height="16" viewBox="0 0 24 24"
-                             fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="21 8 21 21 3 21 3 8"></polyline>
-                            <rect x="1" y="3" width="22" height="5"></rect>
-                            <line x1="10" y1="12" x2="14" y2="12"></line>
-                        </svg>
-                        В архив
-                    </button>
-<?php else: ?>
-                    <button type="button"
-                            class="dropdown-item"
-                            data-action="restore-file"
-                            data-file="<?= escape($f['basename']) ?>">
-                        <svg width="16" height="16" viewBox="0 0 24 24"
-                             fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="1 4 1 10 7 10"></polyline>
-                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                        </svg>
-                        Вернуть из архива
-                    </button>
-<?php endif; ?>
-                    <button type="button"
-                            class="dropdown-item dropdown-item--danger <?= $f['archived'] ? '' : 'disabled-item' ?>"
+                            class="dropdown-item dropdown-item--danger"
                             data-action="delete-file"
                             data-file="<?= escape($f['basename']) ?>"
-                            <?= $f['archived'] ? '' : 'data-disabled="1" title="Сначала отправьте файл в архив"' ?>>
+                            <?= $f['used_by'] ? 'data-used="1" title="Файл используется компонентом"' : '' ?>>
                         <svg width="16" height="16" viewBox="0 0 24 24"
                              fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6"></polyline>

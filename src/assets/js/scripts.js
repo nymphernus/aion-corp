@@ -977,49 +977,32 @@ document.addEventListener('click', function(e) {
     document.getElementById('filePickerModal').close();
 });
 
-// --- Файловые действия карточки: удаление, архив, восстановление ---
-function submitFileAction(action, filename) {
+// --- Файловые действия карточки: только удаление ---
+// Архивации больше нет, поэтому скрытая форма несёт одно действие:
+// deleteFile=1 и имя файла. submitFileDelete только подставляет имя.
+function submitFileDelete(filename) {
     const form = document.getElementById('deleteFileForm');
     if (!form) return;
-    // один input со значением 1 определяет действие - остальные пустые
-    form.querySelector('[name="archiveFile"]').value = action === 'archive-file' ? '1' : '';
-    form.querySelector('[name="restoreFile"]').value = action === 'restore-file' ? '1' : '';
-    form.querySelector('[name="deleteFile"]').value = action === 'delete-file' ? '1' : '';
     form.querySelector('[name="filename"]').value = filename;
     form.submit();
 }
 
 document.addEventListener('click', function(e) {
     const del = e.target.closest('[data-action="delete-file"]');
-    if (del) {
-        e.preventDefault();
-        // удаление живого файла запрещено кнопкой разметки: сервер тоже
-        // откажет, но пользователь получит понятный alert раньше
-        if (del.dataset.disabled) {
-            alert('Сначала отправьте файл в архив: удаление только оттуда.');
-            return;
-        }
+    if (!del) return;
+    e.preventDefault();
 
-        const filename = del.dataset.file;
-        confirmAction('Удалить файл?',
-            'Файл ' + filename + ' будет удалён с диска безвозвратно.',
-            () => submitFileAction('delete-file', filename));
+    // Привязанный файл удалить нельзя. Пользователь получает alert до
+    // отправки формы, сервер отказывает повторно - даже если JS обойден.
+    if (del.dataset.used) {
+        alert('Файл используется компонентом. Сначала отвяжите его.');
         return;
     }
 
-    const arch = e.target.closest('[data-action="archive-file"]');
-    if (arch) {
-        e.preventDefault();
-        submitFileAction('archive-file', arch.dataset.file);
-        return;
-    }
-
-    const rest = e.target.closest('[data-action="restore-file"]');
-    if (rest) {
-        e.preventDefault();
-        submitFileAction('restore-file', rest.dataset.file);
-        return;
-    }
+    const filename = del.dataset.file;
+    confirmAction('Удалить файл?',
+        'Файл ' + filename + ' будет удалён с диска безвозвратно.',
+        () => submitFileDelete(filename));
 });
 
 // --- ДОП-2: kebab-меню карточки файла ---
@@ -1043,21 +1026,6 @@ document.addEventListener('click', function(e) {
     if (!e.target.closest('.file-card__menu')) {
         document.querySelectorAll('.file-card__dropdown')
             .forEach(d => d.hidden = true);
-    }
-
-    // Скопировать URL: полный адрес с origin + обратная связь
-    const copyBtn = e.target.closest('[data-action="copy-file-url"]');
-    if (copyBtn) {
-        e.preventDefault();
-        const url = window.location.origin + copyBtn.dataset.url;
-        navigator.clipboard.writeText(url).then(() => {
-            const label = copyBtn.querySelector('span');
-            if (label) {
-                const old = label.textContent;
-                label.textContent = 'Скопировано!';
-                setTimeout(() => { label.textContent = old; }, 1500);
-            }
-        });
     }
 });
 

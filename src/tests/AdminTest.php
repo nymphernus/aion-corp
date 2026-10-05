@@ -898,11 +898,11 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 8: удаление привязанного файла — двойная защита.
+     * 8: привязанный файл удалить нельзя.
      *
-     * Модель Stage 8-финал: удаление доступно только из архива, поэтому
-     * живой (привязанный) файл получает отказ need_archive ещё до проверки
-     * привязки, а архивировать привязанный нельзя (used).
+     * Удаление идёт напрямую с диска, поэтому единственная защита -
+     * проверка привязок: файл, на который ссылается components.image,
+     * остаётся на месте, а пользователь получает error=used.
      *
      * Фикстура своя: тест создаёт файл и корпус с привязкой, потому что
      * демо-данные могут отсутствовать (SEED_DATA=0), а боевые файлы
@@ -926,7 +926,6 @@ final class AdminTest extends AionTestCase
         $mysql->close();
 
         try {
-            // удаление живого файла - need_archive
             $page = $this->httpGet('/admin.php?tab=files');
             $response = $this->httpPost('/admin.php?tab=files', [
                 'csrf_token' => $this->extractCsrf($page['body']),
@@ -934,19 +933,14 @@ final class AdminTest extends AionTestCase
                 'filename' => $filename,
             ]);
             $this->assertSame(302, $response['code']);
-            $this->assertStringContainsString('error=need_archive', $response['location']);
-            $this->assertFileExists($path);
+            $this->assertStringContainsString('error=used', $response['location']);
+            $this->assertFileExists($path, 'привязанный файл обязан уцелеть');
 
-            // архивировать привязанный - used
+            // кнопка удаления привязанного файла помечена, а текст ошибки
+            // на странице объясняет причину
             $page2 = $this->httpGet('/admin.php?tab=files');
-            $response2 = $this->httpPost('/admin.php?tab=files', [
-                'csrf_token' => $this->extractCsrf($page2['body']),
-                'archiveFile' => '1',
-                'filename' => $filename,
-            ]);
-            $this->assertSame(302, $response2['code']);
-            $this->assertStringContainsString('error=used', $response2['location']);
-            $this->assertFileExists($path);
+            $this->assertStringContainsString('data-used="1"', $page2['body']);
+            $this->assertStringContainsString('Файл используется компонентом', $page2['body']);
         } finally {
             // уборка фикстуры в любом исходе
             $mysql = connect();
@@ -958,94 +952,68 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 8: удаление неиспользуемого файла - тоже через архив (модель финала).
+     * 8: неиспользуемый файл удаляется напрямую, одним POST.
      */
     public function testDeleteFileWorks(): void
     {
         $this->loginAsAdmin();
 
         $dir = dirname(__DIR__) . '/assets/images/cases/';
-        $archiveDir = $dir . '_archive/';
         $filename = 'test-delete-' . uniqid() . '.jpg';
         $path = $dir . $filename;
         file_put_contents($path, 'dummy');
 
-        // шаг 1: архивировать (orphan - пройдёт)
-        $page = $this->httpGet('/admin.php?tab=files');
-        $r1 = $this->httpPost('/admin.php?tab=files', [
-            'csrf_token' => $this->extractCsrf($page['body']),
-            'archiveFile' => '1',
-            'filename' => $filename,
-        ]);
-        $this->assertSame(302, $r1['code']);
-        $this->assertFileDoesNotExist($path);
-
-        // шаг 2: удалить из архива
-        $page2 = $this->httpGet('/admin.php?tab=files');
-        $r2 = $this->httpPost('/admin.php?tab=files', [
-            'csrf_token' => $this->extractCsrf($page2['body']),
-            'deleteFile' => '1',
-            'filename' => $filename,
-        ]);
-        $this->assertSame(302, $r2['code']);
-        $this->assertStringNotContainsString('error=', $r2['location']);
-        $this->assertFileDoesNotExist($archiveDir . $filename);
+        try {
+            $page = $this->httpGet('/admin.php?tab=files');
+            $r = $this->httpPost('/admin.php?tab=files', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'deleteFile' => '1',
+                'filename' => $filename,
+            ]);
+            $this->assertSame(302, $r['code']);
+            $this->assertStringNotContainsString('error=', $r['location']);
+            $this->assertFileDoesNotExist($path);
+        } finally {
+            @unlink($path);
+        }
     }
 
     /**
-     * 8-финал: полный цикл файловых действий через живой HTTP.
+     * 8-финал: полный цикл удаления через живой HTTP.
      *
-     * Файл кладётся в cases/ через общий том, действие - POSTом с одним
-     * включённым флагом (как это делает форма). CSRF берётся заново перед
-     * каждым POST, потому что каждый обработчик его ротирует.
+     * Файл кладётся в cases/ через общий том, удаляется POSTом с
+     * deleteFile=1 (как это делает скрытая форма). CSRF берётся заново
+     * перед POST: обработчик его ротирует.
      */
-    public function testFileArchiveCycle(): void
+    public function testDeleteFileCycle(): void
     {
         $this->loginAsAdmin();
 
         $casesDir = dirname(__DIR__) . '/assets/images/cases/';
-        $archiveDir = $casesDir . '_archive/';
 
-        // действие = имя флага-кнопки в скрытой форме
-        $act = function (string $action, string $file): array {
+        $act = function (string $file): array {
             $page = $this->httpGet('/admin.php?tab=files');
             return $this->httpPost('/admin.php?tab=files', [
                 'csrf_token' => $this->extractCsrf($page['body']),
-                $action => '1',
+                'deleteFile' => '1',
                 'filename' => $file,
             ]);
         };
 
-        // 1) orphan уезжает в _archive/
-        $name = 'test-arch-' . uniqid() . '.jpg';
+        // 1) orphan удаляется одним действием
+        $name = 'test-del-' . uniqid() . '.jpg';
         file_put_contents($casesDir . $name, str_repeat('X', 100));
-        $r = $act('archiveFile', $name);
+        $r = $act($name);
         $this->assertSame(302, $r['code']);
         $this->assertStringNotContainsString('error=', $r['location']);
         $this->assertFileDoesNotExist($casesDir . $name);
-        $this->assertFileExists($archiveDir . $name);
 
-        // 2) живой файл удалить нельзя - сначала архив
-        $live = 'test-live-' . uniqid() . '.jpg';
-        file_put_contents($casesDir . $live, 'X');
-        $r = $act('deleteFile', $live);
+        // 2) несуществующий файл - тихий редирект, без ошибки
+        $r = $act($name);
         $this->assertSame(302, $r['code']);
-        $this->assertStringContainsString('error=need_archive', $r['location']);
-        $this->assertFileExists($casesDir . $live);
+        $this->assertStringNotContainsString('error=', $r['location']);
 
-        // 3) удаление из архива работает
-        $r = $act('deleteFile', $name);
-        $this->assertSame(302, $r['code']);
-        $this->assertFileDoesNotExist($archiveDir . $name);
-
-        // 4) восстановление возвращает файл в cases/
-        file_put_contents($archiveDir . $name, 'X');
-        $r = $act('restoreFile', $name);
-        $this->assertSame(302, $r['code']);
-        $this->assertFileExists($casesDir . $name);
-        $this->assertFileDoesNotExist($archiveDir . $name);
-
-        // 5) архивировать привязанный файл нельзя - used.
+        // 3) привязанный файл удалить нельзя - used.
         // Фикстура своя: боевые картинки тест не трогает.
         $bound = 'test-bound-' . uniqid() . '.jpg';
         file_put_contents($casesDir . $bound, 'X');
@@ -1055,22 +1023,59 @@ final class AdminTest extends AionTestCase
         $boundId = (int) $ins->insert_id;
         $mysql->close();
 
+        // 4) traversal: basename() должен срезать путь и не дать удалить
+        //    файл за пределами cases/
+        $outside = dirname($casesDir) . 'test-outside-' . uniqid() . '.jpg';
+        file_put_contents($outside, 'X');
+
         try {
-            $r = $act('archiveFile', $bound);
+            $r = $act($bound);
             $this->assertSame(302, $r['code']);
             $this->assertStringContainsString('error=used', $r['location']);
             $this->assertFileExists($casesDir . $bound);
+
+            $r = $act('../' . basename($outside));
+            $this->assertSame(302, $r['code']);
+            $this->assertFileExists($outside, 'файл вне cases/ удалять нельзя');
         } finally {
             $mysql = connect();
             $del = db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $boundId);
             $del->execute();
             $mysql->close();
             @unlink($casesDir . $bound);
+            @unlink($outside);
         }
+    }
 
-        // уборка
-        @unlink($casesDir . $name);
-        @unlink($casesDir . $live);
-        @unlink($archiveDir . $name);
+    /**
+     * 8: в меню карточки файла ровно два пункта - «Привязать к корпусу»
+     * и «Удалить». Архивации и копирования URL больше нет.
+     */
+    public function testFileMenuHasOnlyAttachAndDelete(): void
+    {
+        $this->loginAsAdmin();
+
+        $page = $this->httpGet('/admin.php?tab=files');
+        $this->assertSame(200, $page['code']);
+
+        $this->assertMatchesRegularExpression(
+            '/data-action="attach-file"/u',
+            $page['body'],
+            'в меню карточки должен остаться пункт привязки'
+        );
+        $this->assertMatchesRegularExpression(
+            '/data-action="delete-file"/u',
+            $page['body'],
+            'в меню карточки должен остаться пункт удаления'
+        );
+
+        // удалённая функциональность не должна просочиться в разметку
+        $this->assertStringNotContainsString('data-action="copy-file-url"', $page['body']);
+        $this->assertStringNotContainsString('data-action="archive-file"', $page['body']);
+        $this->assertStringNotContainsString('data-action="restore-file"', $page['body']);
+        $this->assertStringNotContainsString('Скопировать URL', $page['body']);
+        $this->assertStringNotContainsString('>Архив<', $page['body']);
+        $this->assertStringNotContainsString('в архиве', $page['body']);
+        $this->assertStringNotContainsString('need_archive', $page['body']);
     }
 }

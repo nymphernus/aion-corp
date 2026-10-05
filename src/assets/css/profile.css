@@ -1712,13 +1712,10 @@ a.files-stat:hover {
 }
 .dropdown-item--danger { color: var(--error); }
 .dropdown-item--danger:hover { background: rgba(239,68,68,0.08); }
-/* удаление живого файла: сначала архив */
-.dropdown-item.disabled-item {
-    opacity: 0.45;
-    cursor: not-allowed;
-}
-.dropdown-item.disabled-item:hover {
-    background: none;
+/* привязанный файл удалить нельзя: пункт приглушён, но остаётся
+   кликабельным - по клику JS показывает alert с объяснением */
+.dropdown-item[data-used] {
+    opacity: 0.55;
 }
 .dropdown-item svg {
     width: 16px;
