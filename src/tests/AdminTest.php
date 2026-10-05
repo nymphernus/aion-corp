@@ -572,4 +572,80 @@ final class AdminTest extends AionTestCase
         $this->assertIsArray($row, 'пользователь должен существовать');
         return (int) $row['user_id'];
     }
+
+    /**
+     * 7: модалка разложена в две колонки, по смыслу секций.
+     *
+     * Слева личные данные (Основные данные, Адрес), справа аккаунт и
+     * верификация (Права, Контакты, Верификация). Проверяется порядок и
+     * состав, а не только наличие обёртки: раскладку легко сломать,
+     * переставив колонки местами, и по числу блоков это не видно.
+     *
+     * Заголовок и кнопки формы лежат вне сетки, иначе раскладка на две
+     * колонки растянула бы и их.
+     */
+    public function testUserModalIsTwoColumnsByMeaning(): void
+    {
+        $this->loginAsAdmin();
+
+        $page = $this->httpGet('/admin.php?tab=users');
+        $this->assertSame(200, $page['code']);
+        $html = $page['body'];
+
+        $this->assertSame(1, $this->xpathCount($html, '//div[@class="user-modal-grid"]'));
+        $this->assertSame(2, $this->xpathCount($html, '//div[@class="user-modal-col"]'));
+
+        $left = $this->xpathCount(
+            $html,
+            '//div[@class="user-modal-col"][1]//h3[normalize-space()="Основные данные"]'
+        );
+        $right = $this->xpathCount(
+            $html,
+            '//div[@class="user-modal-col"][2]//h3[normalize-space()="Верификация"]'
+        );
+        $this->assertSame(1, $left, 'Основные данные должны быть в левой колонке');
+        $this->assertSame(1, $right, 'Верификация должна быть в правой колонке');
+
+        // в правой колонке порядок Права -> Контакты -> Верификация
+        $this->assertSame(
+            ['Права', 'Контакты', 'Верификация'],
+            $this->modalColumnHeadings($html, 2),
+            'состав правой колонки'
+        );
+        $this->assertSame(
+            ['Основные данные', 'Адрес'],
+            $this->modalColumnHeadings($html, 1),
+            'состав левой колонки'
+        );
+
+        // заголовок и действия вне сетки
+        $this->assertSame(0, $this->xpathCount($html, '//div[@class="user-modal-grid"]//h2'));
+        $this->assertSame(0, $this->xpathCount($html, '//div[@class="user-modal-grid"]//div[@class="modal-actions"]'));
+        $this->assertSame(
+            1,
+            $this->xpathCount($html, '//form[contains(@class, "modal-form--user")]/div[@class="modal-actions"]')
+        );
+
+        // старой раскладки на самой форме больше нет
+        $this->assertSame(0, $this->xpathCount($html, '//dialog[@id="editUserModal"]//form[@class="modal-form"]'), 'старой раскладки на форме быть не должно');
+    }
+
+    /**
+     * 7: заголовки секций колонки по порядку.
+     *
+     * @return string[]
+     */
+    private function modalColumnHeadings(string $html, int $index): array
+    {
+        $dom = $this->loadDom($html);
+        $xp = new DOMXPath($dom);
+        $nodes = $xp->query('//div[@class="user-modal-col"][' . $index . ']//h3');
+        $this->assertInstanceOf(DOMNodeList::class, $nodes);
+
+        $headings = [];
+        foreach ($nodes as $node) {
+            $headings[] = trim((string) preg_replace('/\s+/u', ' ', $node->textContent));
+        }
+        return $headings;
+    }
 }

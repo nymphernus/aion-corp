@@ -363,47 +363,150 @@ h1{
 }
 
 /* Секции раскладываются по две в ряд, короткие секции встают рядом, а не
-   растягиваются на всю ширину. Скопировано в #editUserModal, чтобы
-   остальные модалки не изменились. */
-#editUserModal .modal-form {
+/* 7: раскладка модалки пользователя в две колонки.
+
+   Заменяет сетку на самой форме (#editUserModal .modal-form была
+   display: grid на две колонки, и секции стояли по две в ряд). Три ряда
+   секций давали высоту формы 1127px при высоте диалога 675px на
+   экране 800x713: блок «Верификация» и кнопки формы оказывались ниже
+   сгиба и требовали прокрутки.
+
+   Теперь сетка живёт на обёртке .user-modal-grid, а форма снова
+   обычный блок. Так колонки независимы от сетки полей внутри секций,
+   и специфичность правил ниже, чем у #editUserModal .modal-form.
+
+   align-items: start обязателен: без него колонки растянутся до
+   высоты самой длинной, и в короткой осталась бы пустота под
+   секциями. */
+
+#editUserModal {
+    max-width: 900px;
+}
+
+.user-modal-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px 24px;
+    gap: 16px;
     align-items: start;
 }
 
-#editUserModal .modal-form > h2,
-#editUserModal .modal-actions {
-    grid-column: 1 / -1;
+.user-modal-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
-#editUserModal .modal-section {
-    margin-bottom: 0;
-}
-
-/* секция с несколькими полями: поля внутри неё тоже в 2 колонки */
-#editUserModal .modal-section--cols {
+/* Поля внутри секции «Адрес» - две колонки. Это сетка уровня поля, а
+   не секции, поэтому с раскладкой выше не конфликтует и убирает из
+   левой колонки четыре строки высоты. Применяется через
+   .modal-form--user, а не через #editUserModal, чтобы правило не
+   цепляло другие модалки. */
+.modal-form--user .modal-section--cols {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0 16px;
 }
 
-#editUserModal .modal-section--cols h3 {
+.modal-form--user .modal-section--cols h3 {
     grid-column: 1 / -1;
 }
 
-/* 3.7-g-6: блок на всю ширину секции - вернулся вместе с полем
-   «Дата регистрации», в двух колонках ему места нет */
-#editUserModal .span-all {
-    grid-column: 1 / -1;
+/* Плотнее обычного: модалка живёт в двух колонках, и при прежних
+   отступах правая колонка, где три секции, не помещалась в экран.
+   max-height и overflow - страховка для узких экранов и для
+   длинных значений в полях: без них содержимое обрезалось бы. */
+.modal-form--user {
+    padding: 24px 28px;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
-@media (max-width: 700px) {
-    #editUserModal .modal-form,
-    #editUserModal .modal-section--cols {
+.modal-form--user h2 {
+    font-size: 18px;
+    margin: 0 0 16px;
+}
+
+.modal-form--user .modal-section {
+    padding: 14px 16px;
+    margin: 0;
+}
+
+.modal-form--user .modal-section h3 {
+    font-size: 13px;
+    margin: 0 0 10px;
+}
+
+.modal-form--user .form-group {
+    margin-bottom: 12px;
+}
+
+.modal-form--user .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.modal-form--user .form-label {
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.modal-form--user .input {
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+.modal-form--user .modal-actions {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+/* Строки верификации в модалке: сетка вместо flex. При flex-wrap
+   длинный контакт выталкивал бейдж с кнопкой на вторую строку, и
+   секция вырастала на 61px - проверено на dethtaker с адресом
+   dethtaker@test.local. Правой колонке не хватало высоты, и скролл
+   возвращался именно у пользователей с заполненными контактами, то
+   есть чем реже заполнены контакты, тем заметнее баг.
+
+   В сетке статус не переносится: колонка контакта сжимается
+   (minmax(0, 1fr) плюс word-break у значения) и переносит текст
+   внутри себя, а бейдж с кнопкой остаются на одной линии с первой
+   строкой контакта.
+
+   Отступ 8px против 12px в карточке безопасности: здесь строки идут
+/* Строки верификации в модалке: сетка вместо flex.
+
+   При flex-wrap длинный контакт выталкивал бейдж с кнопкой на вторую
+   строку, и секция вырастала примерно на 60px - проверено на dethtaker
+   с адресом dethtaker@test.local, из-за чего скролл возвращался именно
+   у пользователей с заполненными контактами.
+
+   В сетке статус не переносится: колонка контакта сжимается
+   (minmax(0, 1fr) плюс word-break у значения) и переносит текст
+   внутри себя, а бейдж с кнопкой остаются рядом с первой строкой
+   контакта.
+
+   Отступ 8px против 12px в карточке безопасности: здесь строки идут
+   вместе с полями формы, и та же высота съедала бы часть колонки. */
+.modal-form--user .verify-admin-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 8px 0;
+    gap: 12px;
+}
+
+/* Ниже 768px колонки складываются в одну, и страница становится
+   длиннее - там прокрутка ожидаема и не является дефектом. */
+@media (max-width: 768px) {
+    .user-modal-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-form--user .modal-section--cols {
         grid-template-columns: 1fr;
     }
 }
+
 
 /* 5-f-2c: смена пароля. Сетка названа password-form, а не использует
    общий .form-row: в админке .form-row занят другой раскладкой, и правая

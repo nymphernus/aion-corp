@@ -279,7 +279,7 @@ class AionTestCase extends PhpUnitTestCase
      * ASCII-атрибутам продолжает работать - то есть поломка проскочила бы
      * молча.
      */
-    private function loadDom(string $html): DOMDocument
+    protected function loadDom(string $html): DOMDocument
     {
         $dom = new DOMDocument();
         $prev = libxml_use_internal_errors(true);
