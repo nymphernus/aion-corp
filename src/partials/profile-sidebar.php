@@ -22,7 +22,9 @@ $userInitial = mb_strtoupper(mb_substr((string) $userName, 0, 1, 'UTF-8'), 'UTF-
 // 3.7-g-2: дашборд убран из $adminTabs, он лежит рядом с аккордеоном
 // отдельным пунктом. Иначе на дашборде подсвечивалось бы и «Панель
 // управления» в summary, и «Дашборд» в подпунктах.
-$adminTabs = ['users', 'orders', 'components'];
+// FIX-5: files в списке, иначе на вкладке «Изображения» аккордеон
+// рендерится закрытым и подпункт «Изображения» скрывается.
+$adminTabs = ['users', 'orders', 'components', 'files'];
 $isAdminSection = in_array($activeTab, $adminTabs, true);
 ?>
                 <aside class="profile-sidebar">
