@@ -1753,20 +1753,34 @@ a.files-stat:hover {
     background: var(--accent-light);
 }
 
-/* FIX-6: фильтр файлового менеджера - все элементы в одном ряду */
+/* FIX-6: фильтр файлового менеджера - все элементы в одном ряду.
+   Первая версия задавала инпутам жёсткий max-width: 260px. В колонке
+   админки шириной 463px элементам требовалось 749px, flex-wrap их
+   раскладывал по строкам - "Применить" и счётчик уезжали вниз.
+   Теперь инпуты делят свободное место (flex: 1 1 120px + min-width: 0,
+   иначе flex не даёт сжать их ниже ширины содержимого), а кнопка и
+   счётчик не сжимаются. На широком экране инпуты упираются в
+   max-width: 240px и ряд не растягивается. */
 .admin-filters__row {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
     align-items: center;
 }
 .admin-filters__row .input {
-    max-width: 260px;
+    flex: 1 1 120px;
+    min-width: 0;
+    max-width: 240px;
+}
+.admin-filters__row .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 .admin-filters__found {
     color: var(--text-secondary);
     font-size: 13px;
-    margin-left: 8px;
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 /* БЛОК 3: пикер существующих изображений в модалке корпуса */
