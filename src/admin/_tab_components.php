@@ -208,11 +208,22 @@ if ($result) {
                                         ]);
                                         // 3.7-f-1: клик по строке открывает edit-модалку,
                                         // колонки «Действия» больше нет
+                                        // Нулевой остаток помечается явно:
+                                        // конфигуратор такой товар не
+                                        // подбирает, и без отметки это
+                                        // выглядит как обычное число.
+                                        $amountCell = htmlspecialchars($row['amount'] ?? '');
+                                        if ((int) ($row['amount'] ?? 0) === 0) {
+                                            $amountCell .= ' <span class="badge badge--error">нет в наличии</span>';
+                                        } elseif ((int) ($row['amount'] ?? 0) < 5) {
+                                            $amountCell .= ' <span class="badge badge--warning">мало</span>';
+                                        }
+
                                         echo "<tr data-component='" . escape($editData) . "'>"
                                             . "<td>" . htmlspecialchars($row['component_id'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['category_name'] ?? '') . "</td>"
                                             . "<td>" . htmlspecialchars($row['component_name'] ?? '') . "</td>"
-                                            . "<td>" . htmlspecialchars($row['amount'] ?? '') . "</td>"
+                                            . "<td>" . $amountCell . "</td>"
                                             . "<td>" . htmlspecialchars($row['component_price'] ?? '') . "</td>"
                                             . "</tr>";
                                     }

@@ -44,11 +44,39 @@ function cfg_fetch($mysql, $sql, $types = '', $params = [])
     return $row ? $row : null;
 }
 
+/**
+ * Условие наличия: товар с amount = 0 покупать нельзя.
+ *
+ * Раньше подбор шёл по всем компонентам категории, поэтому компонент с
+ * нулевым остатком попадал в сборку: пользователь видел готовую
+ * конфигурацию, а купить её не мог. Фильтр добавляется в оба запроса
+ * подбора - cfg_cheapest() и cfg_pick().
+ *
+ * Порядок условий в $where не меняется: плейсхолдеры из $where должны
+ * идти раньше добавленных параметров.
+ */
+define('CFG_IN_STOCK', 'amount > 0');
+
+/**
+ * Подбор с учётом наличия, а если в наличии ничего нет - любой.
+ *
+ * Отказ без отката означал бы пустую сборку: у категории может не оказаться
+ * ни одного товара в наличии (например, каталог заполнен, но всё
+ * распродано). Тогда лучше показать сборку с отсутствующим товаром и
+ * пометкой, чем не собрать ничего: клиент увидит, чего не хватает.
+ */
+function cfg_in_stock_or_any($mysql, $sqlWithStock, $sqlAny, $types, $params)
+{
+    $row = cfg_fetch($mysql, $sqlWithStock, $types, $params);
+    return $row ? $row : cfg_fetch($mysql, $sqlAny, $types, $params);
+}
+
 /** Самый дешёвый компонент, удовлетворяющий условию. */
 function cfg_cheapest($mysql, $where, $types = '', $params = [])
 {
-    return cfg_fetch(
+    return cfg_in_stock_or_any(
         $mysql,
+        "SELECT * FROM components WHERE $where AND " . CFG_IN_STOCK . " ORDER BY component_price ASC LIMIT 1",
         "SELECT * FROM components WHERE $where ORDER BY component_price ASC LIMIT 1",
         $types,
         $params
@@ -72,7 +100,8 @@ function cfg_pick($mysql, $limit, $where, $types = '', $params = [])
 {
     $row = cfg_fetch(
         $mysql,
-        "SELECT * FROM components WHERE $where AND component_price <= ? ORDER BY component_price DESC LIMIT 1",
+        "SELECT * FROM components WHERE $where AND component_price <= ? AND " . CFG_IN_STOCK
+            . " ORDER BY component_price DESC LIMIT 1",
         $types . 'd',
         array_merge($params, [(float)$limit])
     );
