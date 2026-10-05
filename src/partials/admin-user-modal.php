@@ -167,9 +167,15 @@
                                         </div>
                                         <div class="verify-admin-actions">
                                             <span id="adminUserEmailStatus" class="badge"></span>
-                                            <button type="button" class="btn btn--primary btn--sm"
-                                                    data-action="approve-email" id="adminApproveEmailBtn" disabled>
-                                                Подтвердить
+                                            <button type="button" class="btn-icon btn-icon--success"
+                                                    data-action="approve-email" id="adminApproveEmailBtn"
+                                                    title="Подтвердить email" aria-label="Подтвердить email" disabled>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                     stroke="currentColor" stroke-width="2.5"
+                                                     stroke-linecap="round" stroke-linejoin="round"
+                                                     aria-hidden="true" focusable="false">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
                                             </button>
                                         </div>
                                     </div>
@@ -180,9 +186,15 @@
                                         </div>
                                         <div class="verify-admin-actions">
                                             <span id="adminUserPhoneStatus" class="badge"></span>
-                                            <button type="button" class="btn btn--primary btn--sm"
-                                                    data-action="approve-phone" id="adminApprovePhoneBtn" disabled>
-                                                Подтвердить
+                                            <button type="button" class="btn-icon btn-icon--success"
+                                                    data-action="approve-phone" id="adminApprovePhoneBtn"
+                                                    title="Подтвердить телефон" aria-label="Подтвердить телефон" disabled>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                     stroke="currentColor" stroke-width="2.5"
+                                                     stroke-linecap="round" stroke-linejoin="round"
+                                                     aria-hidden="true" focusable="false">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
                                             </button>
                                         </div>
                                     </div>

@@ -559,6 +559,68 @@ final class AdminTest extends AionTestCase
     }
 
     /**
+     * 7: кнопки подтверждения - иконки, а не текстовые кнопки.
+     *
+     * Текстовая «Подтвердить» вместе с бейджем «Заявка от пользователя»
+     * не влезала в колонку строки верификации и выходила за рамку
+     * модалки: измерялось 829px правого края кнопки при 760px правого
+     * края диалога, то есть на 69px наружу.
+     *
+     * Иконка даёт 32x32 вместо 103x44 и укладывается. Проверяются все
+     * свойства, по которым видно, что это именно иконка: класс,
+     * подпись, aria-подпись, наличие глифа и отсутствие текста внутри.
+     */
+    public function testApproveButtonsAreIcons(): void
+    {
+        $this->loginAsAdmin();
+
+        $page = $this->httpGet('/admin.php?tab=users');
+        $this->assertSame(200, $page['code']);
+
+        $dom = $this->loadDom($page['body']);
+        $xpath = new DOMXPath($dom);
+
+        foreach ([
+            'adminApproveEmailBtn' => 'Подтвердить email',
+            'adminApprovePhoneBtn' => 'Подтвердить телефон',
+        ] as $id => $label) {
+            $nodes = $xpath->query("//button[@id='{$id}']");
+            $this->assertSame(1, $nodes->length, "кнопка {$id} должна быть одна");
+
+            /** @var DOMElement $button */
+            $button = $nodes->item(0);
+
+            $this->assertStringContainsString(
+                'btn-icon',
+                $button->getAttribute('class'),
+                "кнопка {$id} должна быть иконкой .btn-icon"
+            );
+            $this->assertStringContainsString(
+                'btn-icon--success',
+                $button->getAttribute('class'),
+                "кнопка {$id} должна быть зелёной"
+            );
+            $this->assertSame($label, $button->getAttribute('title'), "у кнопки {$id} должен быть title");
+            $this->assertSame($label, $button->getAttribute('aria-label'), "у кнопки {$id} должен быть aria-label");
+
+            // глиф-галочка внутри
+            $this->assertSame(
+                1,
+                $xpath->query("//button[@id='{$id}']//polyline")->length,
+                "в кнопке {$id} должен быть глиф"
+            );
+
+            // текста внутри быть не должно: иконка без подписи, только
+            // title и aria-label. Пока был текст, он и выдавливал строку.
+            $this->assertSame(
+                '',
+                trim(preg_replace('/\s+/u', ' ', $button->textContent)),
+                "в кнопке {$id} не должно быть текста"
+            );
+        }
+    }
+
+    /**
      * 7: user_id пользователя - нужно для POST в тестах выше.
      */
     private function userId(string $login): int
