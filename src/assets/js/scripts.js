@@ -854,3 +854,56 @@ document.addEventListener('click', function(e) {
     if (approve('approve-email', 'approveEmailForm')) return;
     approve('approve-phone', 'approvePhoneForm');
 });
+
+// 8: плавный скролл по якорям без изменения адресной строки.
+//
+// Раньше ссылки шапки вели как обычные: браузер дописывал #assembly в
+// адрес и переходил на якорь. Два неприятных следствия: адресная строка
+// меняется (и ссылку можно скопировать, но она открывает страницу с
+// позицией, а не секцию), и переход мгновенный, мимо блока.
+//
+// Здесь перехватываем клик и скроллим сами. Адрес не трогаем.
+//
+// Что важно в реализации:
+//
+// Слушатель на document, а не на ссылках. Ссылки шапки есть на каждой
+// странице, и навешивать обработчик в разметке - значит дублировать его
+// в каждом include. Делегирование работает и для ссылок, добавленных
+// позже.
+//
+// Только на главной. С неглавной ссылка должна увести на / - там якоря
+// ещё нет, перехват обошёл бы переход и скролл был бы никуда.
+//
+// preventDefault только если цель найдена. Если блока с таким id на
+// странице нет, ссылка остаётся обычной: лучше переход с битым якорем,
+// чем молчаливое ничего.
+//
+// behavior: 'smooth' не мешает prefers-reduced-motion: браузеры с этим
+// включённым режимом решают сами, и отдельная проверка тут была бы
+// дублированием их логики.
+document.addEventListener('click', function(e) {
+    // Ctrl/Cmd/Shift-клик и средняя кнопка - это «открыть в новой
+    // вкладке», перехватывать нельзя: пользователь явно попросил
+    // именно об этом.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+    var link = e.target.closest('a[href^="#"], a[href^="/#"]');
+    if (!link) return;
+
+    var href = link.getAttribute('href');
+    // /#assembly -> #assembly. На главной это тот же якорь, но со
+    // слешем, и getElementById('#assembly') вернул бы null.
+    var hash = href.charAt(0) === '/' ? href.slice(1) : href;
+    if (hash.charAt(0) !== '#') return;
+
+    var isHome = window.location.pathname === '/'
+              || window.location.pathname === '/index.php';
+    if (!isHome) return;
+
+    var target = document.getElementById(hash.slice(1));
+    if (!target) return;
+
+    e.preventDefault();
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});

@@ -155,8 +155,14 @@ $socials = array_filter([
                     </div>
                 </div>
             </div>
-            <div class="container_pc">
-                <a class="anch" name="assembly"></a>
+            <!-- 8: якорь блока сборок. Раньше здесь был <a class="anch" name="assembly">.
+                 name - устаревший атрибут, его находят только браузер при
+                 переходе по адресу, и ни getElementById, ни
+                 scrollIntoView. Из-за этого ссылка «Сборки ПК» работала
+                 лишь как обычный переход, а плавный скролл без смены
+                 URL был невозможен. Теперь id на самом блоке, и
+                 scroll-margin-top (style.css) опускает его под шапку. -->
+            <div class="container_pc" id="assembly">
                 <div class="container_select">
                         <?php foreach ($homeBuilds as $homeBuild): ?>
                             <?php

@@ -54,7 +54,7 @@ $isLoggedIn = isset($_SESSION['user_id']);
                         </a>
                     </li>
                     <li class="list">
-                        <a href="/#information">
+                        <a href="/#contacts">
                             <span class="text">О нас</span>
                             <span class="icon"><img src="/assets/images/link-outline.svg"></span>
                         </a>
