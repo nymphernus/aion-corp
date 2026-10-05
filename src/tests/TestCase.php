@@ -222,11 +222,7 @@ class AionTestCase extends PhpUnitTestCase
      */
     protected function markupInsideComments(string $html): array
     {
-        $dom = new DOMDocument();
-        $prev = libxml_use_internal_errors(true);
-        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
-        libxml_clear_errors();
-        libxml_use_internal_errors($prev);
+        $dom = $this->loadDom($html);
 
         $xp = new DOMXPath($dom);
         $found = [];
@@ -241,6 +237,59 @@ class AionTestCase extends PhpUnitTestCase
     }
 
     /**
+     * 5-f-4: количество элементов по XPath.
+     *
+     * Разбор через DOM, а не поиск по строке ответа - с той же причиной,
+     * что и в sidebarItems.
+     */
+    protected function xpathCount(string $html, string $expr): int
+    {
+        $dom = $this->loadDom($html);
+        $nodes = (new DOMXPath($dom))->query($expr);
+        $this->assertInstanceOf(DOMNodeList::class, $nodes);
+        return $nodes->length;
+    }
+
+    /**
+     * 5-f-4: атрибуты элемента, найденного по XPath.
+     *
+     * @return array<string, string> имя атрибута => значение
+     */
+    protected function xpathAttrs(string $html, string $expr, int $index = 0): array
+    {
+        $dom = $this->loadDom($html);
+        $nodes = (new DOMXPath($dom))->query($expr);
+        $this->assertInstanceOf(DOMNodeList::class, $nodes);
+        $this->assertGreaterThan($index, $nodes->length, "не найден элемент по запросу {$expr}");
+        $node = $nodes->item($index);
+        $this->assertInstanceOf(DOMElement::class, $node);
+
+        $attrs = [];
+        foreach ($node->attributes as $attr) {
+            $attrs[$attr->name] = $attr->value;
+        }
+        return $attrs;
+    }
+
+    /**
+     * 5-f-4: разбор страницы с корректной кодировкой.
+     *
+     * Префикс с объявлением обязателен: без него loadHTML читает ответ как
+     * ISO-8859-1 и подписи вроде «Показать пароль» портятся, но XPath по
+     * ASCII-атрибутам продолжает работать - то есть поломка проскочила бы
+     * молча.
+     */
+    private function loadDom(string $html): DOMDocument
+    {
+        $dom = new DOMDocument();
+        $prev = libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+        return $dom;
+    }
+
+    /**
      * 5-f-2c-1: разобрать страницу и отдать узел сайдбара вместе с XPath.
      *
      * Отдаётся именно узел, а не XPath: запрос нужно ограничить сайдбаром,
@@ -250,13 +299,7 @@ class AionTestCase extends PhpUnitTestCase
      */
     private function sidebarNode(string $html): array
     {
-        $dom = new DOMDocument();
-        $prev = libxml_use_internal_errors(true);
-        // страницы приходят в UTF-8, а loadHTML без кодировки читает как
-        // ISO-8859-1 - подписи портятся. Префикс с объявлением решает это.
-        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
-        libxml_clear_errors();
-        libxml_use_internal_errors($prev);
+        $dom = $this->loadDom($html);
 
         $xp = new DOMXPath($dom);
         $nav = $xp->query('//nav[contains(@class, "profile-nav")]');

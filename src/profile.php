@@ -311,7 +311,7 @@ require __DIR__ . '/partials/header.php';
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="auth_pass">Пароль</label>
-                                    <input class="input" id="auth_pass" type="password" name="user_pass" placeholder="Введите пароль" required>
+<?php password_field('user_pass', 'auth_pass', 'current-password', 'Введите пароль', null, null, true, 36); ?>
                                 </div>
                                 <?php // 5-f-1: плашка рисуется только когда есть
                                       // что показать. Раньше <p> выводился всегда,
@@ -341,7 +341,7 @@ require __DIR__ . '/partials/header.php';
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="reg_pass">Пароль</label>
-                                    <input class="input" id="reg_pass" type="password" name="user_pass" placeholder="Минимум 8 символов" required>
+<?php password_field('user_pass', 'reg_pass', 'new-password', 'Минимум 8 символов', null, null, true, 36); ?>
                                 </div>
                                 <?php if ($errorFrom === 'reg' && $errorMessage !== ''): ?>
                                 <div class="alert alert--error"><?= escape($errorMessage) ?></div>
@@ -644,23 +644,18 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
 
                                     <div class="form-group">
                                         <label class="form-label" for="currentPassword">Текущий пароль</label>
-                                        <input class="input" type="password" name="current_password"
-                                               id="currentPassword" autocomplete="current-password" required>
+<?php password_field('current_password', 'currentPassword', 'current-password', '', null, null, true, 40); ?>
                                     </div>
 
                                     <div class="form-row">
                                         <div class="form-group">
                                             <label class="form-label" for="newPassword">Новый пароль</label>
-                                            <input class="input" type="password" name="new_password"
-                                                   id="newPassword" autocomplete="new-password"
-                                                   minlength="8" maxlength="20" required>
+<?php password_field('new_password', 'newPassword', 'new-password', '', 8, 20, true, 44); ?>
                                             <p class="form-hint">От 8 до 20 символов</p>
                                         </div>
                                         <div class="form-group">
                                             <label class="form-label" for="newPasswordConfirm">Повторите новый пароль</label>
-                                            <input class="input" type="password" name="new_password_confirm"
-                                                   id="newPasswordConfirm" autocomplete="new-password"
-                                                   minlength="8" maxlength="20" required>
+<?php password_field('new_password_confirm', 'newPasswordConfirm', 'new-password', '', 8, 20, true, 44); ?>
                                         </div>
                                     </div>
 

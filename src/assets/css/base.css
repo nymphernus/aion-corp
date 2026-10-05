@@ -169,6 +169,82 @@ a {
     box-shadow: 0 0 0 3px var(--accent-light);
 }
 
+/* 5-f-4: поле пароля с кнопкой «показать пароль».
+
+   Обёртка нужна, чтобы кнопка позиционировалась относительно своего
+   поля, а не страницы: в форме смены пароля поля стоят в две колонки,
+   и без обёртки кнопки уехали бы в углы контейнера.
+
+   Отступ справа 56px, а не 32px под одну кнопку. Chrome и Safari рисуют
+   в поле пароля свою иконку менеджера паролей - ключ шириной около 24px
+   от правого края поля. Наши отступы на неё не влияют, ключ рисуется
+   внутри самой рамки. Поэтому закрываем его конструктивно: кнопка
+   непрозрачная и лежит поверх поля, то есть физически накрывает ключ,
+   а текст уходит левее обоих.
+
+   Порядок отрисовки: .input не позиционирован, .password-toggle
+   абсолютен, поэтому кнопка всегда сверху независимо от DOM-порядка. */
+.password-field {
+    position: relative;
+    display: block;
+}
+
+.password-field .input {
+    padding-right: 56px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* фон непрозрачный намеренно: накрывает иконку менеджера паролей
+       браузера, которая иначе просвечивает сквозь кнопку */
+    background: white;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    transition: 150ms;
+    padding: 0;
+}
+
+.password-toggle:hover {
+    color: var(--text);
+    background: var(--bg);
+}
+
+.password-toggle svg {
+    display: block;
+}
+
+/* По умолчанию показываем иконку «открытый глаз», скрываем «закрытый».
+
+   Уточнение селектора через svg не лишнее. Общее правило
+   .password-toggle svg { display: block } имеет специфичность (0,1,1) и
+   перебивает .password-toggle__hide с (0,1,0) независимо от порядка
+   строк - то есть показывались обе иконки сразу, и в кнопке рисовались
+   два глаза. Найдено computed-стилем, до этого проверка шла по наличию
+   элементов и такой случай не видела. Само общее правило оставлено как
+   было: достаточно поднять специфичность противоположного. */
+.password-toggle svg.password-toggle__hide {
+    display: none;
+}
+
+/* Когда пароль виден — наоборот */
+.password-field.is-visible .password-toggle__show {
+    display: none;
+}
+
+.password-field.is-visible .password-toggle__hide {
+    display: block;
+}
+
 /* Карточки */
 
 .card {

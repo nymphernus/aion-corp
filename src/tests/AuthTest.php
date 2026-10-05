@@ -614,4 +614,165 @@ final class AuthTest extends AionTestCase
         $this->assertStringContainsString('data-target="card-builds"', $orders['body']);
         $this->assertStringContainsString('data-target="card-fav"', $fav['body']);
     }
+
+    /**
+     * 5-f-4: у поля пароля в форме входа есть кнопка показа.
+     *
+     * Проверяется разбором DOM, а не поиском строки в ответе: именно так
+     * в 5-f-2c-1 проскочил баг, когда разметка оказалась внутри
+     * незакрытого HTML-комментария и в браузере её не было.
+     */
+    public function testLoginFormHasPasswordToggle(): void
+    {
+        $page = $this->httpGet('/profile.php');
+        $this->assertSame(200, $page['code']);
+
+        $toggle = $this->xpathAttrs(
+            $page['body'],
+            '//div[@id="login_cont"]//button[@data-action="toggle-password"]'
+        );
+
+        // 5-f-4: type="button" обязателен. Кнопка внутри формы по умолчанию
+        // submit, и полагаться на preventDefault в обработчике нельзя: на
+        // старых iOS Safari форма уходит раньше, чем обработчик отработает
+        $this->assertSame('button', $toggle['type'], 'кнопка не должна быть submit');
+        $this->assertSame('Показать пароль', $toggle['aria-label']);
+        $this->assertSame('Показать пароль', $toggle['title']);
+
+        // обе иконки на месте
+        $this->assertSame(1, $this->xpathCount(
+            $page['body'],
+            '//div[@id="login_cont"]//svg[contains(@class, "password-toggle__show")]'
+        ));
+        $this->assertSame(1, $this->xpathCount(
+            $page['body'],
+            '//div[@id="login_cont"]//svg[contains(@class, "password-toggle__hide")]'
+        ));
+
+        // поле осталось полем пароля, имя на месте
+        $input = $this->xpathAttrs(
+            $page['body'],
+            '//div[@id="login_cont"]//div[@class="password-field"]/input'
+        );
+        $this->assertSame('password', $input['type']);
+        $this->assertSame('user_pass', $input['name']);
+        $this->assertSame('auth_pass', $input['id']);
+        $this->assertArrayHasKey('required', $input);
+        $this->assertArrayNotHasKey(
+            'value',
+            $input,
+            'пароль не должен попадать в HTML даже пустым значением'
+        );
+    }
+
+    /**
+     * 5-f-4: то же в форме регистрации, у которой своё поле.
+     */
+    public function testRegistrationFormHasPasswordToggle(): void
+    {
+        $page = $this->httpGet('/profile.php');
+        $this->assertSame(200, $page['code']);
+
+        $this->assertSame(1, $this->xpathCount(
+            $page['body'],
+            '//div[@id="pass_cont"]//div[@class="password-field"]/input[@id="reg_pass"]'
+        ));
+        $toggle = $this->xpathAttrs(
+            $page['body'],
+            '//div[@id="pass_cont"]//button[@data-action="toggle-password"]'
+        );
+        $this->assertSame('button', $toggle['type']);
+        $this->assertSame('Показать пароль', $toggle['aria-label']);
+    }
+
+    /**
+     * 5-f-4: три поля смены пароля, у каждого своя кнопка.
+     *
+     * Независимость проверяется по разметке: своя обёртка
+     * .password-field и своя кнопка на каждое поле. Одна кнопка на форму
+     * переключала бы все три разом, а новый пароль и его повтор удобно
+     * сверять вместе - значит переключать их надо по отдельности.
+     */
+    public function testPasswordChangeHasIndependentToggles(): void
+    {
+        $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php?section=security');
+        $this->assertSame(200, $page['code']);
+
+        $this->assertSame(3, $this->xpathCount(
+            $page['body'],
+            '//section[@id="card-security"]//div[@class="password-field"]'
+        ));
+        $this->assertSame(3, $this->xpathCount(
+            $page['body'],
+            '//section[@id="card-security"]//button[@data-action="toggle-password"]'
+        ));
+        $this->assertSame(3, $this->xpathCount(
+            $page['body'],
+            '//section[@id="card-security"]//button[@type="button"][@data-action="toggle-password"]'
+        ));
+
+        foreach (['current_password', 'new_password', 'new_password_confirm'] as $i => $name) {
+            $input = $this->xpathAttrs(
+                $page['body'],
+                '//section[@id="card-security"]//div[@class="password-field"]/input',
+                $i
+            );
+            $this->assertSame($name, $input['name'], 'порядок полей смены пароля');
+            $this->assertSame('password', $input['type']);
+            $this->assertArrayNotHasKey('value', $input, "у поля {$name} не должно быть value");
+        }
+
+        // ограничения длины не потерялись при переносе разметки в хелпер
+        $newPass = $this->xpathAttrs($page['body'], '//input[@name="new_password"]');
+        $this->assertSame('8', $newPass['minlength']);
+        $this->assertSame('20', $newPass['maxlength']);
+        $this->assertSame('new-password', $newPass['autocomplete']);
+
+        $current = $this->xpathAttrs($page['body'], '//input[@name="current_password"]');
+        $this->assertSame('current-password', $current['autocomplete']);
+    }
+
+    /**
+     * 5-f-4: у каждого поля пароля на странице своя кнопка.
+     *
+     * Считается по обоим состояниям страницы, потому что формы входа и
+     * регистрации залогиненному не рисуются: гостю достаются две кнопки,
+     * пользователю на странице безопасности - три. Сперва думали про одно
+     * число пять, но это ошибка счёта, а не разметки.
+     *
+     * Проверяется и то, что не осталось полей вне обёртки: иначе
+     * расхождение выдало бы себя только визуально, по отсутствию иконки
+     * у одного из полей.
+     */
+    public function testEveryPasswordFieldHasItsOwnToggle(): void
+    {
+        $guest = $this->httpGet('/profile.php');
+        $this->assertSame(200, $guest['code']);
+        $this->assertSame(2, $this->xpathCount($guest['body'], '//input[@type="password"]'));
+        $this->assertSame(2, $this->xpathCount($guest['body'], '//button[@data-action="toggle-password"]'));
+        $this->assertSame(
+            0,
+            $this->xpathCount(
+                $guest['body'],
+                '//input[@type="password"][not(parent::div[@class="password-field"])]'
+            ),
+            'у поля пароля гостя должна быть обёртка с кнопкой'
+        );
+
+        $this->makeLoggedInUser();
+        $page = $this->httpGet('/profile.php?section=security');
+        $this->assertSame(200, $page['code']);
+        $this->assertSame(3, $this->xpathCount($page['body'], '//input[@type="password"]'));
+        $this->assertSame(3, $this->xpathCount($page['body'], '//button[@data-action="toggle-password"]'));
+        $this->assertSame(
+            0,
+            $this->xpathCount(
+                $page['body'],
+                '//input[@type="password"][not(parent::div[@class="password-field"])]'
+            ),
+            'у поля пароля в профиле должна быть обёртка с кнопкой'
+        );
+    }
 }

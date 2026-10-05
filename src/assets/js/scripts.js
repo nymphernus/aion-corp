@@ -87,7 +87,52 @@ document.addEventListener('click', function(e) {
         e.preventDefault();
         var nav = document.querySelector('.nav');
         if (nav) nav.classList.toggle('nav--open');
+    } else if (action === 'toggle-password') {
+        // 5-f-4: показать/скрыть пароль.
+        //
+        // Кнопка объявлена type="button", поэтому submit не происходит и
+        // полагаться только на preventDefault не приходится: на старых iOS
+        // Safari он не всегда срабатывает, и форма уходит раньше.
+        e.preventDefault();
+        var pwField = el.closest ? el.closest('.password-field') : null;
+        if (!pwField) return;
+        var pwInput = pwField.querySelector('input');
+        if (!pwInput) return;
+
+        // Каретка запоминается до смены типа: смена type сбрасывает
+        // selectionStart, и курсор уехал бы в конец, копия значения
+        // сдвинулась бы вправо.
+        var caret = null;
+        try {
+            caret = pwInput.selectionStart;
+        } catch (err) {
+            // у поля нет выделения (например disabled) - пропускаем
+        }
+
+        var visible = pwField.classList.toggle('is-visible');
+        pwInput.type = visible ? 'text' : 'password';
+        var pwLabel = visible ? 'Скрыть пароль' : 'Показать пароль';
+        el.setAttribute('aria-label', pwLabel);
+        el.setAttribute('title', pwLabel);
+
+        // Фокус остаётся в поле, иначе после клика он ушёл бы на кнопку
+        pwInput.focus();
+        if (caret !== null) {
+            try {
+                pwInput.setSelectionRange(caret, caret);
+            } catch (err) {
+                // не все поля пароля поддерживают выделение
+            }
+        }
     }
+});
+
+// 5-f-4: клик по кнопке не должен забирать фокус у поля до того, как
+// отработает обработчик выше. Без этого каретка мигает: поле теряет
+// фокус на кнопку и тут же получает его обратно.
+document.addEventListener('mousedown', function(e) {
+    var pwToggle = e.target.closest ? e.target.closest('.password-toggle') : null;
+    if (pwToggle) e.preventDefault();
 });
 
 // 3.7-f-3-12: пересборка селекта форм-фактора под категорию.
