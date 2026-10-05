@@ -113,6 +113,54 @@
                             </div>
                         </div>
 
+                        <!-- 7: подтверждение контактов администратором.
+
+                             Секция идёт после «Контактов», потому что
+                             подтверждает именно их. Значения заполняет JS
+                             при открытии модалки из data-row; до первого
+                             клика тут стоят прочерки.
+
+                             Email в самой модалке редактировать нельзя:
+                             поля для него тут нет, есть только телефон, а
+                             блок верификации показывает его read-only. Раньше
+                             при переходе из модалки заказа email вообще не
+                             передавался, и поле оставалось пустым - ключ
+                             добавлен в dataset.user.
+
+                             Формы approveEmailForm и approvePhoneForm лежат
+                             после dialog, а не здесь: вложенных форм в HTML
+                             не бывает, а вокруг содержимого модалки уже
+                             стоит форма редактирования пользователя. -->
+                        <div class="modal-section">
+                            <h3>Верификация</h3>
+                            <div class="verify-admin-row">
+                                <div class="verify-admin-info">
+                                    <div class="form-label">Email</div>
+                                    <div id="adminUserEmail" class="verify-admin-value">—</div>
+                                </div>
+                                <div class="verify-admin-actions">
+                                    <span id="adminUserEmailStatus" class="badge"></span>
+                                    <button type="button" class="btn btn--primary btn--sm"
+                                            data-action="approve-email" id="adminApproveEmailBtn" disabled>
+                                        Подтвердить
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="verify-admin-row">
+                                <div class="verify-admin-info">
+                                    <div class="form-label">Телефон</div>
+                                    <div id="adminUserPhone" class="verify-admin-value">—</div>
+                                </div>
+                                <div class="verify-admin-actions">
+                                    <span id="adminUserPhoneStatus" class="badge"></span>
+                                    <button type="button" class="btn btn--primary btn--sm"
+                                            data-action="approve-phone" id="adminApprovePhoneBtn" disabled>
+                                        Подтвердить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="modal-actions">
                             <button type="button" class="btn btn--danger" id="editUserDeleteBtn" data-action="open-delete-user-modal">Удалить</button>
                             <div class="modal-actions-right">
@@ -133,4 +181,29 @@
                     <!-- 3.7-g-4: скрытый input вместо submit-кнопки,
                          потому что форму отправляет form.submit() -->
                     <input type="hidden" name="deleteUser" value="1">
+                </form>
+
+                <!-- 7: формы подтверждения верификации.
+
+                     Отдельные формы, а не кнопки внутри формы модалки:
+                     вложенных форм в HTML не бывает, а вокруг всего
+                     содержимого editUserModal уже стоит форма
+                     редактирования пользователя с name="editUser".
+                     Отправляются из JS через form.submit() - поэтому
+                     скрытый input вместо submit-кнопки, как у
+                     deleteUserForm.
+
+                     action указан явно: браузер по умолчанию отправил бы
+                     POST на текущий адрес, а это /admin.php?tab=users
+                     только по счастливому совпадению - при переходе из
+                     закладки другого адреса обработчик не нашёлся бы. -->
+                <form id="approveEmailForm" method="post" action="/admin.php?tab=users" hidden>
+                    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="userId" value="">
+                    <input type="hidden" name="approveEmail" value="1">
+                </form>
+                <form id="approvePhoneForm" method="post" action="/admin.php?tab=users" hidden>
+                    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="userId" value="">
+                    <input type="hidden" name="approvePhone" value="1">
                 </form>

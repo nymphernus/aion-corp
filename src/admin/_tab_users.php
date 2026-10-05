@@ -51,7 +51,9 @@ if (!defined('ADMIN_CONTEXT')) {
                     $sql = "SELECT user_id, user_name, user_surname, user_login, user_group,
                                    user_address, user_number, user_email, user_regdate,
                                    user_postal_code, user_region, user_city,
-                                   user_street, user_house, user_apartment
+                                   user_street, user_house, user_apartment,
+                                   email_verified, email_verification_requested,
+                                   phone_verified, phone_verification_requested
                             FROM users WHERE 1=1" . $listWhere . "
                             ORDER BY {$listOrder} LIMIT ? OFFSET ?";
                     if ($listParams === []) {
@@ -89,6 +91,14 @@ if (!defined('ADMIN_CONTEXT')) {
                             'address' => $row['user_address'],
                             'number' => $row['user_number'],
                             'email' => $row['user_email'],
+                            // 7: флаги верификации нужны блоку «Верификация» в модалке.
+                            // Приводятся к int, потому что из JSON иначе приходят
+                            // строки «0» и «1», а в JS сравнение со строгим
+                            // равенством сработало бы иначе.
+                            'email_verified' => (int) $row['email_verified'],
+                            'email_verification_requested' => (int) $row['email_verification_requested'],
+                            'phone_verified' => (int) $row['phone_verified'],
+                            'phone_verification_requested' => (int) $row['phone_verification_requested'],
                             // 3.7-g-6: показывается в модалке только на чтение
                             'regdate' => isset($row['user_regdate'])
                                 ? date('d.m.Y', strtotime((string) $row['user_regdate']))

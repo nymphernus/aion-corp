@@ -1301,3 +1301,61 @@ button.profile-nav-item {
     color: var(--text);
     margin: 0 0 8px;
 }
+/* 7: блок верификации в модалке пользователя (admin/_tab_users).
+
+   Строки такие же, как в карточке безопасности, но плотнее: в модалке
+   места мало, а показывать надо и контакт, и статус, и действие. */
+
+.verify-admin-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.verify-admin-row:last-child {
+    border-bottom: none;
+}
+
+/* flex: 1 и min-width: 0 обязательны вместе: без min-width длинный
+   email не даёт колонке сжаться и выталкивает кнопку за край модалки,
+   потому что у .verify-admin-actions стоит flex-shrink: 0. */
+.verify-admin-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.verify-admin-value {
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-all;
+}
+
+.verify-admin-value.is-muted {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.verify-admin-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.verify-admin-row .badge {
+    font-size: 11px;
+}
+
+/* На 640px бейдж и кнопка перестают помещаться рядом с контактом и
+   встают под ним - так же, как строки в карточке безопасности. */
+@media (max-width: 640px) {
+    .verify-admin-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}

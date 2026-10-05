@@ -46,6 +46,18 @@ function adminOrderRowData(array $row): array
         'user_regdate' => !empty($row['user_regdate'])
             ? date('d.m.Y', strtotime((string) $row['user_regdate']))
             : '',
+        // 7: флаги верификации покупателя. Нужны блоку «Верификация» в его
+        // модалке, которая открывается сюда кнопкой покупателя. Без них
+        // кнопка «Подтвердить» всегда была бы disabled, то есть блок
+        // выглядел бы работающим, но ничего не делал.
+        //
+        // Имена с префиксом user_ - как и остальные ключи покупателя в
+        // этом сборщике. Флаги приходят из разных таблиц (users и orders),
+        // поэтому префикс снимает неоднозначность.
+        'user_email_verified' => (int) ($row['email_verified'] ?? 0),
+        'user_email_verification_requested' => (int) ($row['email_verification_requested'] ?? 0),
+        'user_phone_verified' => (int) ($row['phone_verified'] ?? 0),
+        'user_phone_verification_requested' => (int) ($row['phone_verification_requested'] ?? 0),
         'assembly_id' => $row['asm_id'],
         'assembly_name' => $row['assembly_name'],
         'assembly_price' => $row['assembly_price'],

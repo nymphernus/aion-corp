@@ -59,7 +59,9 @@ if (!defined('ADMIN_CONTEXT')) {
                                        users.user_login, users.user_group,
                                        users.user_postal_code, users.user_region, users.user_city,
                                        users.user_street, users.user_house, users.user_apartment,
-                                       users.user_regdate
+                                       users.user_regdate,
+                                       users.email_verified, users.email_verification_requested,
+                                       users.phone_verified, users.phone_verification_requested
                                 FROM users,assembly,orders
                                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id"
                                 . $listWhere . "

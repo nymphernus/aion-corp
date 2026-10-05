@@ -236,14 +236,17 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 7: блок верификации живёт внутри карточки «Безопасность», и админу
-     * он тоже доступен - подтвердить собственные контакты он вправе так
-     * же, как любой пользователь.
+     * 7: у админа блок верификации внутри карточки «Безопасность».
      *
      * Отдельным тестом, потому что отката на info тут не видно: блок
      * нарисован на той же странице, что и форма смены пароля, и если его
-     * убрать у админа, то исчезнут только кнопки заявки - а на это нет
-     * других тестов.
+     * убрать, то исчезнут только кнопки заявки - а на это не было бы
+     * ни одного теста.
+     *
+     * Проверка пустых контактов сделана по каждой строке отдельно, а не
+     * счётом бейджей «Не указан». Первый вариант считал, что у админа
+     * оба контакта пусты, и падал, как только админу завели email: тест
+     * зависел от данных пользователя, а не от разметки.
      */
     public function testAdminSeesVerificationInsideSecurityCard(): void
     {
@@ -256,28 +259,317 @@ final class AdminTest extends AionTestCase
         $this->assertStringContainsString('Верификация контактов', $page['body']);
         $this->assertStringContainsString('card-divider', $page['body']);
         $this->assertStringContainsString('class="card-subtitle"', $page['body']);
-
-        // обе строки на месте, и обе с «Не указан»: у админа контактов нет
         $this->assertSame(
             2,
             $this->xpathCount($page['body'], '//section[@id="card-security"]//div[@class="verify-row"]'),
             'в карточке безопасности должно быть две строки верификации'
         );
-        $this->assertSame(
-            2,
-            substr_count($page['body'], '>Не указан</span>'),
-            'у админа оба контакта пусты, значит оба бейджа «Не указан»'
+
+        // отдельной карточки больше нет
+        $this->assertStringNotContainsString('id="card-verification"', $page['body']);
+
+        // Через .//, а не прямым потомком: verify-row__value лежит внутри
+        // verify-row__info, то есть на уровень глубже. С прямым
+        // предикатом запрос молча возвращал ноль строк, и сравнение двух
+        // нулей проходило - то есть проверка не проверяла ничего.
+        // строка без контакта: бейдж «Не указан» и ноль кнопок заявки
+        $emptyRows = $this->xpathCount(
+            $page['body'],
+            '//section[@id="card-security"]//div[@class="verify-row"]'
+            . '[.//div[@class="verify-row__value"][normalize-space(text())="Не указан"]]'
         );
         $this->assertSame(
             0,
             $this->xpathCount(
                 $page['body'],
-                '//section[@id="card-security"]//button[@name="requestEmailVerification"]'
+                '//section[@id="card-security"]//div[@class="verify-row"]'
+                . '[.//div[@class="verify-row__value"][normalize-space(text())="Не указан"]]//button'
             ),
-            'при пустом email кнопки заявки быть не должно'
+            'при пустом контакте кнопки заявки быть не должно'
         );
+        $this->assertSame(
+            $emptyRows,
+            $this->xpathCount(
+                $page['body'],
+                '//section[@id="card-security"]//div[@class="verify-row"]'
+                . '[div[@class="verify-row__status"]/span[normalize-space(text())="Не указан"]]'
+            ),
+            'пустому контакту соответствует бейдж «Не указан»'
+        );
+    }
+    /**
+     *
+     * Прямой INSERT, а не регистрация через форму: полей email и телефона
+     * в форме регистрации нет, а нужны все четыре сочетания состояний -
+     * «нет контакта», «есть заявка», «подтверждён».
+     *
+     * @param array<string, mixed> $extra дополнительные колонки users
+     */
+    private function makeUserWithContacts(string $prefix, array $extra = []): string
+    {
+        $login = $this->uniqueLogin($prefix);
+        $this->trackCleanup($login);
 
-        // отдельной карточки больше нет
-        $this->assertStringNotContainsString('id="card-verification"', $page['body']);
+        $cols = [
+            'user_name' => 'Проверка',
+            'user_login' => $login,
+            'user_pass' => password_hash('password123', PASSWORD_BCRYPT),
+            'user_group' => 'user',
+        ];
+        foreach ($extra as $name => $value) {
+            $cols[$name] = $value;
+        }
+
+        $names = array_keys($cols);
+        $placeholders = array_fill(0, count($names), '?');
+        $types = str_repeat('s', count($names));
+
+        $mysql = connect();
+        $stmt = db_prepare(
+            $mysql,
+            "INSERT INTO users (" . implode(', ', array_map(static fn($n) => "`$n`", $names)) . ')'
+            . ' VALUES (' . implode(', ', $placeholders) . ')',
+            $types,
+            ...array_values($cols)
+        );
+        $stmt->execute();
+        $mysql->close();
+
+        return $login;
+    }
+
+    /**
+     * 7: прочитать флаги верификации пользователя прямо из базы.
+     *
+     * @return array{email_verified: string, email_verification_requested: string, phone_verified: string, phone_verification_requested: string}
+     */
+    private function verificationFlags(string $login): array
+    {
+        $mysql = connect();
+        $stmt = db_prepare(
+            $mysql,
+            "SELECT email_verified, email_verification_requested, phone_verified, phone_verification_requested
+               FROM users WHERE user_login = ?",
+            "s",
+            $login
+        );
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $mysql->close();
+
+        $this->assertIsArray($row, 'пользователь должен существовать');
+        return $row;
+    }
+
+    /**
+     * 7: админ подтверждает email, когда заявка есть.
+     *
+     * Полный цикл: пользователь оставил заявку, админ нажал «Подтвердить».
+     */
+    public function testAdminCanApproveEmailWhenRequested(): void
+    {
+        $this->loginAsAdmin();
+
+        $login = $this->makeUserWithContacts('ver_ok_', [
+            'user_email' => 'ver_ok@test.local',
+            'email_verification_requested' => 1,
+        ]);
+
+        $before = $this->verificationFlags($login);
+        $this->assertSame('0', (string) $before['email_verified']);
+        $this->assertSame('1', (string) $before['email_verification_requested']);
+
+        $page = $this->httpGet('/admin.php?tab=users');
+        $r = $this->httpPost('/admin.php?tab=users', [
+            'approveEmail' => '1',
+            'userId' => (string) $this->userId($login),
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(302, $r['code'], 'подтверждение должно редиректить');
+
+        $after = $this->verificationFlags($login);
+        $this->assertSame('1', (string) $after['email_verified'], 'email должен стать подтверждённым');
+        $this->assertSame(
+            '0',
+            (string) $after['email_verification_requested'],
+            'заявка должна сниматься вместе с подтверждением'
+        );
+    }
+
+    /**
+     * 7: прямой POST без заявки не подтверждает ничего.
+     *
+     * Второй уровень защиты. В интерфейсе кнопка без заявки disabled, но
+     * disabled - это атрибут в браузере, а не в протоколе: форму можно
+     * отправить руками. Условие email_verification_requested = 1 стоит в
+     * WHERE, поэтому UPDATE затрагивает ноль строк.
+     */
+    public function testAdminCannotApproveEmailWithoutRequest(): void
+    {
+        $this->loginAsAdmin();
+
+        $login = $this->makeUserWithContacts('ver_no_', [
+            'user_email' => 'ver_no@test.local',
+        ]);
+
+        $page = $this->httpGet('/admin.php?tab=users');
+        $r = $this->httpPost('/admin.php?tab=users', [
+            'approveEmail' => '1',
+            'userId' => (string) $this->userId($login),
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        // 302, а не 403: обработчик отработал и честно сделал ноль строк.
+        // Различие видно только в базе, поэтому проверяем именно её.
+        $this->assertSame(302, $r['code']);
+
+        $flags = $this->verificationFlags($login);
+        $this->assertSame('0', (string) $flags['email_verified'], 'без заявки подтверждать нельзя');
+        $this->assertSame('0', (string) $flags['email_verification_requested']);
+    }
+
+    /**
+     * 7: то же для телефона, и тоже без заявки.
+     */
+    public function testAdminCannotApprovePhoneWithoutRequest(): void
+    {
+        $this->loginAsAdmin();
+
+        $login = $this->makeUserWithContacts('ver_nop_', [
+            'user_number' => '+79990001122',
+        ]);
+
+        $page = $this->httpGet('/admin.php?tab=users');
+        $r = $this->httpPost('/admin.php?tab=users', [
+            'approvePhone' => '1',
+            'userId' => (string) $this->userId($login),
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(302, $r['code']);
+
+        $flags = $this->verificationFlags($login);
+        $this->assertSame('0', (string) $flags['phone_verified'], 'без заявки подтверждать нельзя');
+        $this->assertSame('0', (string) $flags['phone_verification_requested']);
+    }
+
+    /**
+     * 7: подтверждение требует CSRF-токена.
+     */
+    public function testApproveVerificationRequiresCsrf(): void
+    {
+        $this->loginAsAdmin();
+
+        $login = $this->makeUserWithContacts('ver_csrf_', [
+            'user_email' => 'ver_csrf@test.local',
+            'email_verification_requested' => 1,
+        ]);
+
+        $r = $this->httpPost('/admin.php?tab=users', [
+            'approveEmail' => '1',
+            'userId' => (string) $this->userId($login),
+            'csrf_token' => 'stale-token',
+        ]);
+        $this->assertSame(403, $r['code']);
+
+        $flags = $this->verificationFlags($login);
+        $this->assertSame('0', (string) $flags['email_verified'], 'без токена подтверждать нельзя');
+    }
+
+    /**
+     * 7: обычный пользователь не может подтвердить контакт.
+     *
+     * Форма approveEmailForm живёт в админке, но обработчик закрыт
+     * $isAdmin, поэтому прямой POST от пользователя ничего не меняет.
+     */
+    public function testRegularUserCannotApproveVerification(): void
+    {
+        $login = $this->makeUserWithContacts('ver_reg_', [
+            'user_email' => 'ver_reg@test.local',
+            'email_verification_requested' => 1,
+        ]);
+
+        $this->loginAs($login, 'password123');
+        $page = $this->httpGet('/profile.php');
+        $this->assertSame(200, $page['code']);
+
+        $r = $this->httpPost('/admin.php?tab=users', [
+            'approveEmail' => '1',
+            'userId' => (string) $this->userId($login),
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertContains($r['code'], [302, 403], 'пользователь не должен получить подтверждение');
+
+        $flags = $this->verificationFlags($login);
+        $this->assertSame('0', (string) $flags['email_verified'], 'пользователь не может подтвердить сам');
+    }
+
+    /**
+     * 7: в модалке пользователя есть блок верификации с обеими строками.
+     *
+     * Проверяется разбором DOM, а не поиском строки в ответе: незакрытый
+     * HTML-комментарий не виден в ответе, но элементы внутри него не
+     * работают - такая ошибка уже была с сайдбаром.
+     */
+    public function testUserModalHasVerificationBlock(): void
+    {
+        $this->loginAsAdmin();
+
+        $page = $this->httpGet('/admin.php?tab=users');
+        $this->assertSame(200, $page['code']);
+
+        $this->assertSame(2, $this->xpathCount($page['body'], '//div[@class="verify-admin-row"]'));
+        $this->assertSame(1, $this->xpathCount($page['body'], '//h3[normalize-space()="Верификация"]'));
+
+        // кнопки объявлены type="button": внутри формы модалки кнопка
+        // без типа отправила бы форму редактирования пользователя
+        foreach (['adminApproveEmailBtn', 'adminApprovePhoneBtn'] as $id) {
+            $attrs = $this->xpathAttrs($page['body'], "//button[@id='{$id}']");
+            $this->assertSame('button', $attrs['type'], "кнопка {$id} не должна быть submit");
+            $this->assertArrayHasKey('disabled', $attrs, "кнопка {$id} должна быть изначально выключена");
+        }
+
+        // формы лежат вне dialog: вложенных форм не бывает
+        foreach (['approveEmailForm', 'approvePhoneForm'] as $id) {
+            $attrs = $this->xpathAttrs($page['body'], "//form[@id='{$id}']");
+            $this->assertSame('/admin.php?tab=users', $attrs['action']);
+            $this->assertArrayHasKey('hidden', $attrs);
+            $this->assertSame(0, $this->xpathCount(
+                $page['body'],
+                "//form[@id='{$id}']/ancestor::dialog"
+            ), "форма {$id} не должна лежать внутри dialog");
+        }
+
+        // Флаги доезжают до строк таблицы: без них кнопка всегда была бы
+        // disabled и блок выглядел бы работающим, но ничего не делал.
+        //
+        // Проверяется «каждая строка», а не число строк: на вкладке
+        // пользователей столько же людей, сколько строк, и жёсткое
+        // число завязывало бы тест на состав базы. Первый вариант ждал
+        // ровно одну и падал, когда в базе стало трое пользователей.
+        $allRows = $this->xpathCount($page['body'], '//tr[@data-row]');
+        $this->assertGreaterThan(0, $allRows, 'в таблице пользователей должны быть строки');
+        $this->assertSame(
+            $allRows,
+            $this->xpathCount(
+                $page['body'],
+                "//tr[@data-row][contains(@data-row, 'email_verification_requested')]"
+                . "[contains(@data-row, 'phone_verification_requested')]"
+            ),
+            'флаги верификации должны быть в data-row каждого пользователя'
+        );
+    }
+
+    /**
+     * 7: user_id пользователя - нужно для POST в тестах выше.
+     */
+    private function userId(string $login): int
+    {
+        $mysql = connect();
+        $stmt = db_prepare($mysql, "SELECT user_id FROM users WHERE user_login = ?", "s", $login);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $mysql->close();
+
+        $this->assertIsArray($row, 'пользователь должен существовать');
+        return (int) $row['user_id'];
     }
 }

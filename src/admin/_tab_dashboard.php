@@ -65,7 +65,9 @@ $stmt = db_prepare($mysql, "SELECT o.order_id, o.status, o.created_at, o.assembl
                                    users.user_login, users.user_group, users.user_email, users.user_number,
                                    users.user_postal_code, users.user_region, users.user_city,
                                    users.user_street, users.user_house, users.user_apartment,
-                                   users.user_regdate
+                                   users.user_regdate,
+                                   users.email_verified, users.email_verification_requested,
+                                   users.phone_verified, users.phone_verification_requested
                             FROM orders o
                             JOIN users ON users.user_id = o.user_id
                             JOIN assembly a ON a.assembly_id = o.assembly_id

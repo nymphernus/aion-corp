@@ -374,6 +374,10 @@ function openUserModal(data) {
     uSet('#editUserNumber', data.number);
     uSet('#editUserGroup', data.group);
 
+    // 7: блок верификации. Идёт после заполнения полей, потому что сам
+    // показывает email и телефон, а не редактирует их.
+    fillVerificationBlock(modal, data);
+
     var delBtn = modal.querySelector('#editUserDeleteBtn');
     if (delBtn) {
         delBtn.dataset.id = data.id;
@@ -509,6 +513,17 @@ document.addEventListener('click', function(e) {
             street: data.user_street ?? '',
             house: data.user_house ?? '',
             apartment: data.user_apartment ?? '',
+            // 7: email покупателя в модалку не передавался вообще, хотя в
+            // data-row он есть. Из-за этого блок верификации при переходе
+            // из заказа показывал «Не указан» у пользователя с заполненным
+            // email, и админ не мог подтвердить контакт
+            email: data.user_email ?? '',
+            // 7: флаги верификации, иначе кнопка «Подтвердить» всегда была
+            // бы disabled на этом пути
+            email_verified: data.user_email_verified ?? 0,
+            email_verification_requested: data.user_email_verification_requested ?? 0,
+            phone_verified: data.user_phone_verified ?? 0,
+            phone_verification_requested: data.user_phone_verification_requested ?? 0,
             // 3.7-g-7: без этого ключа поле «Дата регистрации» в модалке
             // покупателя оставалось пустым при переходе из заказа
             regdate: data.user_regdate ?? '',
@@ -732,3 +747,110 @@ document.addEventListener('input', function(e) {
     });
 });
 
+
+// 7: блок «Верификация» в модалке пользователя.
+//
+// Четыре состояния на контакт, по ТЗ:
+//   1. контакта нет - значение «Не указан» серым курсивом, бейдж пустой,
+//      кнопка скрыта: подтверждать нечего;
+//   2. контакт есть, не подтверждён, заявки не было - бейдж серый
+//      «Не подтверждён», кнопка видна, но disabled: ждём заявки;
+//   3. заявка есть - бейдж жёлтый «Заявка от пользователя», кнопка
+//      активна;
+//   4. подтверждён - бейдж зелёный, кнопка скрыта.
+//
+// Скрытие кнопки это hidden, а не disabled: при пустом контакте
+// disabled-кнопка с подписью «Подтвердить» выглядела бы как кнопка,
+// которая сломалась.
+//
+// Значение disabled сбрасывается в каждой ветке явно. Иначе кнопка,
+// побывав активной для одного пользователя, осталась бы активной для
+// следующего, у которого заявки нет: модалка открывается много раз
+// подряд, а состояние кнопки живёт в DOM.
+function fillVerificationBlock(modal, data) {
+    var fill = function (valueId, statusId, btnId, contact, verified, requested) {
+        var valueEl = modal.querySelector(valueId);
+        var statusEl = modal.querySelector(statusId);
+        var btn = modal.querySelector(btnId);
+        if (!valueEl || !statusEl || !btn) return;
+
+        btn.disabled = false;
+
+        if (!contact) {
+            valueEl.textContent = 'Не указан';
+            valueEl.classList.add('is-muted');
+            statusEl.className = 'badge';
+            statusEl.textContent = '';
+            btn.hidden = true;
+            return;
+        }
+
+        valueEl.textContent = contact;
+        valueEl.classList.remove('is-muted');
+        btn.hidden = false;
+
+        // Двойное равенство осознанно: из data-row значения приходят
+        // числами, но если формат поменяется, 0 и "0" должны читаться
+        // одинаково, а не молча давать ложное «не подтверждён».
+        if (Number(verified) === 1) {
+            statusEl.className = 'badge badge--success';
+            statusEl.textContent = 'Подтверждён';
+            btn.hidden = true;
+        } else if (Number(requested) === 1) {
+            statusEl.className = 'badge badge--warning';
+            statusEl.textContent = 'Заявка от пользователя';
+            btn.disabled = false;
+        } else {
+            statusEl.className = 'badge';
+            statusEl.textContent = 'Не подтверждён';
+            btn.disabled = true;
+        }
+    };
+
+    // 3.7-f-4-2: у order-пути ключи с префиксом user_, у таблицы
+    // пользователей - без него. Поэтому читаем оба.
+    var pick = function (shortKey, longKey) {
+        var v = data[shortKey];
+        if (v === undefined || v === null || v === '') v = data[longKey];
+        return Number(v) || 0;
+    };
+
+    fill(
+        '#adminUserEmail', '#adminUserEmailStatus', '#adminApproveEmailBtn',
+        data.email, pick('email_verified', 'user_email_verified'),
+        pick('email_verification_requested', 'user_email_verification_requested')
+    );
+    fill(
+        '#adminUserPhone', '#adminUserPhoneStatus', '#adminApprovePhoneBtn',
+        data.number, pick('phone_verified', 'user_phone_verified'),
+        pick('phone_verification_requested', 'user_phone_verification_requested')
+    );
+}
+
+// 7: подтверждение верификации администратором.
+//
+// Формы approveEmailForm и approvePhoneForm лежат после dialog, потому
+// что вложенных форм не бывает. Отправляются через form.submit().
+//
+// Второй уровень защиты - на сервере: обработчик требует
+// email_verification_requested = 1 в WHERE. Проверка disabled здесь
+// нужна не для безопасности, а чтобы не отправлять заведомо
+// бесполезный POST: сервер всё равно сделал бы 0 строк.
+document.addEventListener('click', function(e) {
+    var approve = function (action, formId) {
+        var btn = e.target.closest('[data-action="' + action + '"]');
+        if (!btn) return false;
+        if (btn.disabled) return true;
+        var userIdField = document.getElementById('editUserId');
+        var userId = userIdField ? userIdField.value : '';
+        if (!userId) return true;
+        var form = document.getElementById(formId);
+        if (!form) return true;
+        form.querySelector('[name="userId"]').value = userId;
+        form.submit();
+        return true;
+    };
+
+    if (approve('approve-email', 'approveEmailForm')) return;
+    approve('approve-phone', 'approvePhoneForm');
+});

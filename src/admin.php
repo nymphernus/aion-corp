@@ -600,6 +600,66 @@ if ($isAdmin && isset($_POST['editUser'])) {
 // других таблиц с FK на orders нет (проверено: единственный FK у orders -
 // assembly_id, то есть от заказа к сборке, а не наоборот), поэтому
 // удалять можно без проверок использования.
+
+// 7: подтверждение верификации контактов администратором.
+//
+// Двойная защита. Кнопка в модалке активна только при заявке, но это
+// интерфейс: прямой POST без заявки обязан быть отбит здесь, поэтому
+// requested = 1 стоит в WHERE. Без этого условия любой, кто открыл
+// сессию админа, подтвердил бы любой контакт одной отправкой формы.
+//
+// После UPDATE заявка снимается: verified = 1 и requested = 0.
+// Иначе повторное нажатие снова дало бы UPDATE, хотя суть уже сделана,
+// и в модалке остался бы бейдж «Заявка от пользователя».
+//
+// userId приводится к int и проверяется на ноль: в WHERE подставляется
+// параметр, но пустая строка в int дала бы 0 и UPDATE по user_id = 0 -
+// обновление ни одной строки, но лишний поход в базу и редирект с
+// сообщением об успехе.
+if ($isAdmin && isset($_POST['approveEmail'])) {
+    csrf_verify();
+    $userId = (int) ($_POST['userId'] ?? 0);
+
+    if ($userId > 0) {
+        $stmt = db_prepare(
+            $mysql,
+            "UPDATE `users`
+                SET `email_verified` = 1, `email_verification_requested` = 0
+              WHERE `user_id` = ? AND `email_verification_requested` = 1",
+            "i",
+            $userId
+        );
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=users');
+    exit();
+}
+
+if ($isAdmin && isset($_POST['approvePhone'])) {
+    csrf_verify();
+    $userId = (int) ($_POST['userId'] ?? 0);
+
+    if ($userId > 0) {
+        $stmt = db_prepare(
+            $mysql,
+            "UPDATE `users`
+                SET `phone_verified` = 1, `phone_verification_requested` = 0
+              WHERE `user_id` = ? AND `phone_verification_requested` = 1",
+            "i",
+            $userId
+        );
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=users');
+    exit();
+}
+
 if ($isAdmin && isset($_POST['deleteOrder'])) {
     csrf_verify();
     $orderId = (int) ($_POST['orderId'] ?? 0);
