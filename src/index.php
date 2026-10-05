@@ -120,6 +120,20 @@ $mapAddress       = site_setting($homeSettings, 'map_address_text');
 $mapLat           = site_setting($homeSettings, 'map_lat', '55.7558');
 $mapLng           = site_setting($homeSettings, 'map_lng', '37.6173');
 $mapZoom          = site_setting($homeSettings, 'map_zoom', '15');
+
+// 5-f-2: иконки соцсетей. Пустая ссылка это отсутствие иконки, а не
+// иконка в никуда, поэтому массив фильтруется. Здесь, а не в разметке:
+// переменная нужна до вывода, а при ошибке PHP в разметке страница
+// отдавалась бы с кодом 200 и надписью Warning посреди секции - это
+// выяснилось уже после того, как переменная потерялась при переносе
+// блока в 5-f-3.
+$socials = array_filter([
+    ['label' => 'VK',       'url' => $contactVk,       'icon' => '/assets/images/logo-vk.svg'],
+    ['label' => 'Telegram', 'url' => $contactTelegram, 'icon' => '/assets/images/logo-telegram.svg'],
+    ['label' => 'WhatsApp', 'url' => $contactWhatsapp, 'icon' => '/assets/images/logo-whatsapp.svg'],
+], static function ($item) {
+    return $item['url'] !== '';
+});
 ?>
             <div id="main__container">
                 <div class="slider">
@@ -361,72 +375,77 @@ $mapZoom          = site_setting($homeSettings, 'map_zoom', '15');
 
                 Клик по снимку открывает ту же точку в OpenStreetMap.
             -->
-            <div class="container_about">
-                <a class="anch" name="information"></a>
-                <div class="cont_shell_about">
-                    <div class="about_content">
-                        <h2 class="contacts__title">Свяжитесь с нами</h2>
+<!--
+                5-f-3: секция контактов. Разметка переписана целиком.
 
-                        <div class="contacts__list">
-                            <div class="contact-item">
-                                <span class="contact-item__label">Телефон</span>
+                Прежняя опиралась на .container_about с width:100vw,
+                height:75vh и float внутри - блок не мог расти по высоте,
+                карта висела на .about_map с розовым градиентом и
+                анимацией. Здесь обычная сетка: две колонки, высота по
+                содержимому.
+
+                Данные те же, что и в 5-f-2: контакты и снимок карты из
+                site_settings, который правит админка.
+            -->
+            <section class="contacts" id="contacts">
+                <div class="contacts__container">
+                    <div class="contacts__info">
+                        <h2 class="page-title">Свяжитесь с нами</h2>
+
+                        <div class="contact-item">
+                            <div class="contact-item__label">Телефон</div>
 <?php if ($contactPhone !== ''): ?>
-                                <a class="contact-item__value" href="tel:<?= escape(preg_replace('/[^\d+]/', '', $contactPhone)) ?>"><?= escape($contactPhone) ?></a>
-<?php endif; ?>
-                            </div>
-                            <div class="contact-item">
-                                <span class="contact-item__label">Email</span>
-<?php if ($contactEmail !== ''): ?>
-                                <a class="contact-item__value" href="mailto:<?= escape($contactEmail) ?>"><?= escape($contactEmail) ?></a>
-<?php endif; ?>
-                            </div>
-<?php if ($mapAddress !== ''): ?>
-                            <div class="contact-item">
-                                <span class="contact-item__label">Мы на карте</span>
-                                <span class="contact-item__value"><?= escape($mapAddress) ?></span>
-                            </div>
+                            <a href="tel:<?= escape(preg_replace('/[^\d+]/', '', $contactPhone)) ?>"
+                               class="contact-item__value"><?= escape($contactPhone) ?></a>
 <?php endif; ?>
                         </div>
 
-<?php
-// Иконку соцсети рисуем, только если адрес непустой. Пустая ссылка это
-// отсутствие иконки, а не иконка, ведущая в никуда.
-$socials = array_filter([
-    ['label' => 'VK',       'url' => $contactVk,       'icon' => '/assets/images/logo-vk.svg'],
-    ['label' => 'Telegram', 'url' => $contactTelegram, 'icon' => '/assets/images/logo-telegram.svg'],
-    ['label' => 'WhatsApp', 'url' => $contactWhatsapp, 'icon' => '/assets/images/logo-whatsapp.svg'],
-], static function ($item) {
-    return $item['url'] !== '';
-});
-?>
+                        <div class="contact-item">
+                            <div class="contact-item__label">Email</div>
+<?php if ($contactEmail !== ''): ?>
+                            <a href="mailto:<?= escape($contactEmail) ?>"
+                               class="contact-item__value"><?= escape($contactEmail) ?></a>
+<?php endif; ?>
+                        </div>
+
+<?php if ($mapAddress !== ''): ?>
+                        <div class="contact-item">
+                            <div class="contact-item__label">Мы на карте</div>
+                            <div class="contact-item__value"><?= escape($mapAddress) ?></div>
+                        </div>
+<?php endif; ?>
+
+<?php // Пустая ссылка это отсутствие иконки, а не иконка в никуда.
+      // Иконки рисуются из массива: чтобы добавить площадку, достаточно
+      // одной строки здесь ?>
 <?php if ($socials): ?>
                         <div class="contacts__socials">
 <?php foreach ($socials as $social): ?>
-                            <a class="social-icon" href="<?= escape($social['url']) ?>"
-                               target="_blank" rel="noopener noreferrer"
+                            <a href="<?= escape($social['url']) ?>" target="_blank"
+                               rel="noopener noreferrer" class="social-icon"
                                title="<?= escape($social['label']) ?>">
-                                <img src="<?= escape(asset_url($social['icon'])) ?>" alt="<?= escape($social['label']) ?>">
+                                <img src="<?= escape(asset_url($social['icon'])) ?>"
+                                     alt="<?= escape($social['label']) ?>">
                             </a>
 <?php endforeach; ?>
                         </div>
 <?php endif; ?>
                     </div>
 
-                    <div class="about_map">
+                    <div class="contacts__map">
 <?php if ($mapSnapshot !== ''): ?>
-                        <a class="site-map-link"
-                           href="https://www.openstreetmap.org/?mlat=<?= escape(urlencode($mapLat)) ?>&amp;mlon=<?= escape(urlencode($mapLng)) ?>#map=<?= escape(urlencode($mapZoom)) ?>/<?= escape(urlencode($mapLat)) ?>/<?= escape(urlencode($mapLng)) ?>"
-                           target="_blank" rel="noopener noreferrer"
+                        <a href="https://www.openstreetmap.org/?mlat=<?= escape(urlencode($mapLat)) ?>&amp;mlon=<?= escape(urlencode($mapLng)) ?>#map=<?= escape(urlencode($mapZoom)) ?>/<?= escape(urlencode($mapLat)) ?>/<?= escape(urlencode($mapLng)) ?>"
+                           target="_blank" rel="noopener noreferrer" class="map-link"
                            title="Открыть карту в OpenStreetMap">
-                            <img class="site-map-img" src="<?= escape($mapSnapshot) ?>"
-                                 alt="Мы на карте - <?= escape($mapAddress) ?>" loading="lazy">
+                            <img src="<?= escape($mapSnapshot) ?>" loading="lazy"
+                                 alt="Мы на карте - <?= escape($mapAddress) ?>">
                         </a>
 <?php else: ?>
-                        <div class="site-map-placeholder">Карта пока не настроена</div>
+                        <div class="map-placeholder">Карта не настроена</div>
 <?php endif; ?>
                     </div>
                 </div>
-            </div>
+            </section>
 
 
 

@@ -145,7 +145,11 @@ body::-webkit-scrollbar-thumb {
 	   (body), из-за чего admin.php и assembly.php показывали серый фон */
 	background: transparent;
 }
-.container_pc,.container_conf,.container_about{
+/* 5-f-3: .container_about убран из общего правила - секции контактов
+   больше нет. .container_conf в разметке тоже не встречается, но
+   оставлен: это тот же блок-обёртка слайдера и конфигуратора, и
+   трогать его без задачи не буду. */
+.container_pc,.container_conf{
 	width: 100vw;
     height: 75vh;
     overflow: hidden;
@@ -696,132 +700,167 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 	height: 10%;
 	margin-right: 10%;
 }
-.about_map{
-	float: right;
-	width: 60%;
-	height: 90%;
-	padding:3px;
-	border-radius: 40px;
-	background: linear-gradient(-45deg, #fe4596, #c188ed, #f2e189);
-	background-size: 400%;
-	animation: gradient 10s ease infinite;
-}
-.about_map iframe{
-	width: 100%;
-	height: 100%;
-	border-radius: 40px;
+/* 5-f-3: секция контактов. Разметка переписана целиком, прежние правила
+   .container_about, .cont_shell_about, .about_map с float и розовым
+   градиентом, а также .site-map-* и .contacts__title удалены - они
+   ссылались на старую структуру и больше ничего не рисуют.
+
+   Раскладка: сетка из двух колонок, ширина ограничена 1280px, высота
+   по содержимому. Прежний блок был width:100vw и height:75vh, то есть
+   не мог вырасти под контент. */
+.contacts {
+	padding: 60px 24px 80px;
 }
 
-/* 5-f-2: карта на главной стала снимком, а не iframe. Размер задаёт
-   .site-map-img: без него картинка лежала бы в контейнере своей
-   высотой, а не растягивалась на всю площадь блока. */
-.site-map-link {
-	display: block;
-	width: 100%;
-	height: 100%;
-	border-radius: 40px;
-	overflow: hidden;
-	transition: 200ms;
-}
-.site-map-link:hover {
-	box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-}
-.site-map-img {
-	display: block;
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-}
-/* Снимка ещё нет: говорим об этом прямо, а не оставляем пустой блок */
-.site-map-placeholder {
-	display: flex;
+.contacts__container {
+	display: grid;
+	grid-template-columns: 1fr 1.5fr;
+	gap: 48px;
+	max-width: 1280px;
+	margin: 0 auto;
 	align-items: center;
-	justify-content: center;
-	width: 100%;
-	height: 100%;
-	border-radius: 40px;
-	background: var(--bg);
-	color: var(--text-secondary);
-	font-size: 16px;
 }
 
-/* Контакты. Полный редизайн раздела - 5-f-3, здесь только размеры:
-   без них новые блоки выводились бы размером с обычный текст. */
-.contacts__title {
-	margin: 0 0 24px;
-	font-size: 40px;
-	font-weight: bold;
-	text-align: center;
+.contacts__info {
+	padding: 0;
 }
+
+.contacts .page-title {
+	font-size: 32px;
+	font-weight: 700;
+	color: var(--text);
+	margin: 0 0 32px;
+	letter-spacing: -0.02em;
+}
+
+/* Адаптив секции контактов.
+   1024px: одна колонка, карта встаёт под контактами.
+   640px: уменьшены отступы, заголовок, значение контакта и высота
+   карты с 400 до 280 - на телефоне 400px занимали бы пол-экрана. */
+@media (max-width: 1024px) {
+	.contacts__container {
+		grid-template-columns: 1fr;
+		gap: 32px;
+	}
+}
+
+@media (max-width: 640px) {
+	.contacts {
+		padding: 40px 16px 60px;
+	}
+	.contacts .page-title {
+		font-size: 26px;
+	}
+	.contact-item__value {
+		font-size: 18px;
+	}
+	.contacts__socials {
+		margin-top: 24px;
+	}
+	.map-link img,
+	.map-placeholder {
+		height: 280px;
+	}
+}
+
 .contact-item {
 	margin-bottom: 20px;
 }
+
 .contact-item__label {
-	display: block;
-	font-size: 15px;
+	font-size: 12px;
+	color: var(--text-secondary);
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	opacity: 0.7;
+	letter-spacing: 0.06em;
 	margin-bottom: 4px;
+	font-weight: 600;
 }
+
 .contact-item__value {
-	font-size: 30px;
+	font-size: 20px;
+	color: var(--text);
+	text-decoration: none;
 	font-weight: 500;
-	color: inherit;
+	transition: color 150ms;
+}
+
+.contact-item__value:hover {
+	color: var(--accent);
 	text-decoration: none;
 }
-.contact-item__value:hover {
-	opacity: 0.8;
-}
+
 .contacts__socials {
 	display: flex;
-	gap: 14px;
-	margin-top: 28px;
+	gap: 12px;
+	margin-top: 32px;
 }
+
 .social-icon {
+	width: 48px;
+	height: 48px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 56px;
-	height: 56px;
 	background: white;
 	border: 1px solid var(--border);
 	border-radius: 12px;
-	transition: 200ms;
-}
-.social-icon img {
-	width: 28px;
-	height: 28px;
-	display: block;
-}
-.social-icon:hover {
-	border-color: var(--accent);
-	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+	transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.cont_shell_about{
-	backdrop-filter: blur(10px);
-	height:100%;
-	display:flex;
-	justify-content: space-between;
-	padding: 0 7%;
-	margin-left: auto;
-    margin-right: auto;
-	width: 95%;
+.social-icon img {
+	width: 24px;
+	height: 24px;
+	object-fit: contain;
+}
+
+.social-icon:hover {
+	border-color: var(--accent);
+	transform: translateY(-3px);
+	box-shadow: 0 8px 20px rgba(37, 99, 235, 0.15);
+	text-decoration: none;
+}
+
+/* Снимок карты. Рамка и скругление на .contacts__map, а не на картинке:
+   тогда border виден вокруг всего блока и не зависит от object-fit. */
+.contacts__map {
+	border-radius: 16px;
+	overflow: hidden;
+	border: 1px solid var(--border);
+	background: white;
+	transition: 300ms;
+}
+
+.contacts__map:hover {
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+.map-link {
+	display: block;
+	text-decoration: none;
+}
+
+.map-link img {
+	width: 100%;
+	height: 400px;
+	object-fit: cover;
+	display: block;
+}
+
+/* Снимка ещё нет: говорим об этом прямо, а не оставляем пустой блок */
+.map-placeholder {
+	height: 400px;
+	display: flex;
 	align-items: center;
+	justify-content: center;
+	color: var(--text-secondary);
+	font-size: 14px;
 }
-@keyframes gradient {
-	0% {
-		background-position: 0% 50%;
-	}
-	50% {
-		background-position: 100% 50%;
-	}
-	100% {
-		background-position: 0% 50%;
-	}
-}
+
+/* 5-f-3: @keyframes gradient удалён. Единственный пользователь был
+   .about_map с розовым градиентом - секция контактов переписана, а
+   background-position больше нигде не анимируется. Файл с анимацией
+   не жалко: анимация фонового положения съедала бы GPU на всей странице,
+   где она есть. */
 
 /*FOOTER*/
 .footer{
@@ -874,20 +913,9 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     .container_select {
         flex-wrap: wrap;
     }
-    .container_about {
-        height: auto;
-        min-height: 75vh;
-    }
-    .cont_shell_about {
-        flex-direction: column;
-        padding: 24px;
-    }
-    .about_map {
-        float: none;
-        width: 100%;
-        height: 400px;
-        margin-top: 16px;
-    }
+    /* 5-f-3: прежние правила для .container_about, .cont_shell_about и
+       .about_map в этой медиа-ветке удалены вместе с разметкой секции.
+       Адаптив контактов живёт ниже, в своём @media, ближе к правилам. */
 }
 
 @media (max-width: 768px) {
