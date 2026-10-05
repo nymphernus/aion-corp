@@ -648,4 +648,55 @@ final class AdminTest extends AionTestCase
         }
         return $headings;
     }
+
+    /**
+     * 7: бейдж без текста не рисуется.
+     *
+     * Баг из скриншота пользователя: в состоянии «контакта нет» рядом с
+     * серым курсивным «Не указан» стояла пустая серая таблетка. Бейдж там
+     * намеренно без текста - ставить «Не подтверждён» нельзя, ведь
+     * подтверждать нечего, - но пустой элемент с padding 4px 10px, фоном и
+     * радиусом всё равно рисует плашку 20x8.
+     *
+     * Проверяется правило в CSS, а не только разметка: баг жил именно в
+     * стилях, и правка разметки его бы не убрала.
+     */
+    public function testEmptyBadgeHasNoStyles(): void
+    {
+        $css = $this->readAsset('/assets/css/base.css');
+
+        $this->assertMatchesRegularExpression(
+            '/\.badge:empty\s*\{[^}]*display:\s*none/',
+            $css,
+            'пустой бейдж должен скрываться правилом .badge:empty'
+        );
+
+        // и он должен быть в списке правил, а не в несуществующем файле
+        $this->assertStringContainsString('.badge:empty', $css);
+
+        // бейджи в модалке объявлены пустыми, без пробела: :empty не ловит
+        // пробельный текст, и правило перестало бы работать
+        $this->loginAsAdmin();
+        $page = $this->httpGet('/admin.php?tab=users');
+
+        foreach (['adminUserEmailStatus', 'adminUserPhoneStatus'] as $id) {
+            $attrs = $this->xpathAttrs($page['body'], "//span[@id='{$id}']");
+            $this->assertSame('badge', $attrs['class'], "{$id} должен быть без модификаторов");
+            $this->assertSame(
+                0,
+                $this->xpathCount($page['body'], "//span[@id='{$id}']/text()[normalize-space()]"),
+                "{$id} в разметке должен быть пустым"
+            );
+        }
+    }
+
+    /**
+     * 7: содержимое файла ассета.
+     */
+    private function readAsset(string $relative): string
+    {
+        $path = dirname(__DIR__) . $relative;
+        $this->assertFileExists($path, "файл {$relative} должен существовать");
+        return (string) file_get_contents($path);
+    }
 }
