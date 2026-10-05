@@ -985,6 +985,45 @@ document.addEventListener('click', function(e) {
     );
 });
 
+// --- ДОП-2: kebab-меню карточки файла ---
+document.addEventListener('click', function(e) {
+    // Toggle меню
+    const toggle = e.target.closest('[data-action="toggle-file-menu"]');
+    if (toggle) {
+        e.preventDefault();
+        e.stopPropagation();
+        const menu = toggle.closest('.file-card__menu')
+                          .querySelector('.file-card__dropdown');
+        // Закрыть все открытые, кроме текущего
+        document.querySelectorAll('.file-card__dropdown').forEach(d => {
+            if (d !== menu) d.hidden = true;
+        });
+        menu.hidden = !menu.hidden;
+        return;
+    }
+
+    // Клик вне меню — закрыть все
+    if (!e.target.closest('.file-card__menu')) {
+        document.querySelectorAll('.file-card__dropdown')
+            .forEach(d => d.hidden = true);
+    }
+
+    // Скопировать URL: полный адрес с origin + обратная связь
+    const copyBtn = e.target.closest('[data-action="copy-file-url"]');
+    if (copyBtn) {
+        e.preventDefault();
+        const url = window.location.origin + copyBtn.dataset.url;
+        navigator.clipboard.writeText(url).then(() => {
+            const label = copyBtn.querySelector('span');
+            if (label) {
+                const old = label.textContent;
+                label.textContent = 'Скопировано!';
+                setTimeout(() => { label.textContent = old; }, 1500);
+            }
+        });
+    }
+});
+
 // --- БЛОК 3: пикер существующих изображений ---
 // Открытие пикера из модалки корпуса
 document.addEventListener('click', function(e) {

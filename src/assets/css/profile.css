@@ -1585,6 +1585,8 @@ a.files-stat:hover {
     flex-direction: column;
     gap: 10px;
     transition: 150ms;
+    /* ДОП-2: точка привязки dropdown-меню */
+    position: relative;
 }
 .file-card:hover {
     border-color: var(--accent);
@@ -1635,6 +1637,53 @@ a.files-stat:hover {
     justify-content: flex-end;
     gap: 6px;
     margin-top: auto;
+}
+
+/* ДОП-2: kebab-меню на карточке файла */
+.file-card__menu {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+.file-card__dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    padding: 4px;
+    min-width: 200px;
+    z-index: 10;
+    margin-top: 4px;
+}
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    text-align: left;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+    transition: 150ms;
+    font-family: inherit;
+}
+.dropdown-item:hover {
+    background: var(--bg);
+}
+.dropdown-item--danger { color: var(--error); }
+.dropdown-item--danger:hover { background: rgba(239,68,68,0.08); }
+.dropdown-item svg {
+    width: 16px;
+    height: 16px;
+    opacity: 0.6;
+    flex-shrink: 0;
 }
 
 /* FIX-4: фильтр в два ряда - селект+поиск, ниже кнопки */

@@ -186,19 +186,56 @@ function human_size(int $bytes): string {
                     </div>
                 <?php endif; ?>
             </div>
-            <div class="file-card__actions">
-                <button type="button" 
-                        class="btn-icon btn-icon--muted" 
-                        data-action="delete-file"
-                        data-file="<?= escape($f['basename']) ?>"
-                        title="Удалить файл">
-                    <svg width="16" height="16" viewBox="0 0 24 24" 
-                         fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"></path>
-                        <path d="M10 11v6M14 11v6"></path>
+            <!-- ДОП-2: меню-«kebab» вместо ряда иконок. Позиционируется
+                 относительно карточки (position: relative у file-card) -->
+            <div class="file-card__menu">
+                <button type="button"
+                        class="btn-icon btn-icon--muted"
+                        data-action="toggle-file-menu"
+                        aria-label="Действия">
+                    <svg width="16" height="16" viewBox="0 0 24 24"
+                         fill="currentColor">
+                        <circle cx="12" cy="5" r="1.5"></circle>
+                        <circle cx="12" cy="12" r="1.5"></circle>
+                        <circle cx="12" cy="19" r="1.5"></circle>
                     </svg>
                 </button>
+                <div class="file-card__dropdown" hidden>
+                    <button type="button"
+                            class="dropdown-item"
+                            data-action="attach-file"
+                            data-file-url="<?= escape($f['url']) ?>">
+                        <svg width="16" height="16" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                        Привязать к корпусу
+                    </button>
+                    <button type="button"
+                            class="dropdown-item"
+                            data-action="copy-file-url"
+                            data-url="<?= escape($f['url']) ?>">
+                        <svg width="16" height="16" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span>Скопировать URL</span>
+                    </button>
+                    <button type="button"
+                            class="dropdown-item dropdown-item--danger"
+                            data-action="delete-file"
+                            data-file="<?= escape($f['basename']) ?>">
+                        <svg width="16" height="16" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"></path>
+                            <path d="M10 11v6M14 11v6"></path>
+                        </svg>
+                        Удалить
+                    </button>
+                </div>
             </div>
         </div>
     <?php endforeach; ?>
