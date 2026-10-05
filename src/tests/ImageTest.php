@@ -84,8 +84,8 @@ final class ImageTest extends AionTestCase
     }
 
     /**
-     * Прозрачность webp - тоже PNG. Это и есть регрессия: раньше такая
-     * картинка становилась .jpg, и прозрачный фон заливался белым.
+     * Прозрачность webp - тоже PNG. Раньше такая картинка становилась
+     * .jpg, и прозрачный фон заливался белым.
      */
     public function testWebpWithAlphaBecomesPng(): void
     {
@@ -111,11 +111,33 @@ final class ImageTest extends AionTestCase
     }
 
     /**
-     * Непрозрачная картинка - JPEG, независимо от формата входа.
-     * Контроль к двум тестам выше: если детектор начнёт врать в другую
-     * сторону, прозрачный фон потеряется уже не там.
+     * JPEG в проекте запрещён: на выходе из обработчика формат один -
+     * PNG, независимо от того, что было на входе.
+     *
+     * Это ровно то изменение, что ломает старый код: раньше непрозрачные
+     * файлы уходили в .jpg, и проверка ниже падала бы на 'jpg'.
      */
-    public function testOpaqueImagesBecomeJpg(): void
+    public function testJpgInputBecomesPng(): void
+    {
+        $jpg = $this->tmpDir . '/opaque.jpg';
+        $im = imagecreatetruecolor(60, 60);
+        imagefilledrectangle($im, 0, 0, 59, 59, imagecolorallocate($im, 200, 30, 30));
+        imagejpeg($im, $jpg, 92);
+        imagedestroy($im);
+
+        $this->assertSame('image/jpeg', detect_image_mime($jpg));
+
+        $result = process_uploaded_image($jpg, $this->tmpDir . '/out/', 'from-jpg');
+        $this->assertNotNull($result);
+        $this->assertSame('png', $result['ext'], 'JPG на входе обязан давать PNG на выходе');
+        $this->assertStringEndsWith('.png', $result['path']);
+        $this->assertSame('image/png', detect_image_mime($result['path']));
+    }
+
+    /**
+     * Непрозрачные PNG и webp - тоже PNG. Раньше они становились .jpg.
+     */
+    public function testOpaqueImagesBecomePng(): void
     {
         $png = $this->tmpDir . '/opaque.png';
         $this->makeOpaquePng($png);
@@ -123,7 +145,7 @@ final class ImageTest extends AionTestCase
 
         $fromPng = process_uploaded_image($png, $this->tmpDir . '/out/', 'opaque-png');
         $this->assertNotNull($fromPng);
-        $this->assertSame('jpg', $fromPng['ext']);
+        $this->assertSame('png', $fromPng['ext']);
 
         $webp = $this->tmpDir . '/opaque.webp';
         $im = imagecreatetruecolor(60, 60);
@@ -133,7 +155,66 @@ final class ImageTest extends AionTestCase
 
         $fromWebp = process_uploaded_image($webp, $this->tmpDir . '/out/', 'opaque-webp');
         $this->assertNotNull($fromWebp);
-        $this->assertSame('jpg', $fromWebp['ext']);
+        $this->assertSame('png', $fromWebp['ext']);
+    }
+
+    /**
+     * Пиксели не подменяются: у результата есть альфа-канал (0 =
+     * непрозрачно), а цвет углового пикселя совпадает с исходным.
+     *
+     * Заливка прозрачью в обработчике была бы ловушкой: если бы она
+     * шла ДО копирования, картинка стала бы полностью прозрачной, а
+     * проверка has_alpha_channel() этого не заметила бы - альфа есть.
+     * Поэтому сравнивается именно цвет.
+     */
+    public function testOpaquePngKeepsItsColors(): void
+    {
+        $src = $this->tmpDir . '/solid.png';
+        $im = imagecreatetruecolor(60, 60);
+        imagefilledrectangle($im, 0, 0, 59, 59, imagecolorallocate($im, 200, 40, 40));
+        imagepng($im, $src);
+        imagedestroy($im);
+
+        $result = process_uploaded_image($src, $this->tmpDir . '/out/', 'solid');
+        $this->assertNotNull($result);
+
+        $out = imagecreatefrompng($result['path']);
+        $this->assertNotFalse($out);
+        $rgba = imagecolorat($out, 0, 0);
+        imagedestroy($out);
+
+        $alpha = ($rgba & 0x7F000000) >> 24;
+        $this->assertSame(0, $alpha, 'непрозрачный остаётся непрозрачным (alpha 0)');
+        $this->assertSame(200, ($rgba >> 16) & 0xFF, 'красный канал должен сохраниться');
+        $this->assertSame(40, ($rgba >> 8) & 0xFF, 'зелёный канал должен сохраниться');
+        $this->assertSame(40, $rgba & 0xFF, 'синий канал должен сохраниться');
+    }
+
+    /**
+     * Полупрозрачность переживает конвертацию как полупрозрачность,
+     * а не схлопывается в прозрачную или в непрозрачную.
+     */
+    public function testPartialAlphaIsPreserved(): void
+    {
+        $src = $this->tmpDir . '/half.png';
+        $im = imagecreatetruecolor(60, 60);
+        imagealphablending($im, false);
+        imagesavealpha($im, true);
+        imagefill($im, 0, 0, imagecolorallocatealpha($im, 0, 0, 0, 127));
+        imagefilledrectangle($im, 0, 0, 59, 59, imagecolorallocatealpha($im, 255, 0, 0, 64));
+        imagepng($im, $src);
+        imagedestroy($im);
+
+        $result = process_uploaded_image($src, $this->tmpDir . '/out/', 'half');
+        $this->assertNotNull($result);
+
+        $out = imagecreatefrompng($result['path']);
+        $this->assertNotFalse($out);
+        $rgba = imagecolorat($out, 30, 30);
+        imagedestroy($out);
+
+        $this->assertSame(64, ($rgba & 0x7F000000) >> 24, 'alpha 64 должен остаться 64');
+        $this->assertSame(255, ($rgba >> 16) & 0xFF, 'цвет полупрозрачного пикселя должен сохраниться');
     }
 
     /**

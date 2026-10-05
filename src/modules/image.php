@@ -5,17 +5,16 @@
  * Модуль подключается из connect.php: обработчик загрузки в admin.php
  * живёт там же, где остальной код, и не должен знать про порядок require.
  *
- * Правила конвертации:
- *   - JPEG -> JPEG (перекодирование с quality 85: метаданные и EXIF
- *     отбрасываются, на фотографиях корпусов это большая часть веса);
- *   - PNG с прозрачностью -> PNG (прозрачность терять нельзя);
- *   - PNG без прозрачности -> JPEG (рендеры весили бы сотни КБ);
- *   - GIF анимированный -> GIF как есть (покадровая обработка через GD
- *     всё равно уничтожила бы анимацию);
- *   - GIF статичный -> JPEG (первый кадр);
- *   - WebP -> JPEG (webp больше не основной формат сайта).
+ * Правило конвертации одно: на выходе ВСЕГДА PNG.
  *
- * Имя файла всегда slug.ext, где ext - итоговый формат.
+ * Раньше формат выбирался по прозрачности (альфа -> png, остальное ->
+ * jpg), но JPEG в проекте запрещён: JPG несёт потерю качества при
+ * каждом пересохранении и не умеет альфу. PNG хранит картинку без
+ * потерь и прозрачность, поэтому переход любого формата в PNG
+ * безопасен. GIF-анимация - единственное исключение: GD не умеет
+ * собирать анимацию обратно, поэтому такой файл копируется байтово.
+ *
+ * Имя файла всегда slug.png (или slug.gif для анимации).
  */
 
 declare(strict_types=1);
@@ -150,19 +149,11 @@ if (!function_exists('process_uploaded_image')) {
             $mime = 'image/jpeg';
         }
 
-        // Итоговый формат решает ПРОЗРАЧНОСТЬ, а не формат входа.
-        // Раньше ветка была "png с альфой -> png, всё остальное -> jpg",
-        // и прозрачный webp молча уезжал в JPEG вместе со своей альфой -
-        // так потерялись все 17 картинок корпусов при миграции webp -> jpg.
-        // Теперь: анимация байтово gif, альфа любого формата -> png,
-        // остальное -> jpg.
-        if ($mime === 'image/gif' && is_animated_gif($tmpPath)) {
-            $ext = 'gif';
-        } elseif (has_alpha_channel($tmpPath)) {
-            $ext = 'png';
-        } else {
-            $ext = 'jpg';
-        }
+        // Формат на выходе не зависит от входа: всегда PNG, кроме
+        // GIF-анимации. has_alpha_channel() в выборе формата больше не
+        // участвует - альфа в PNG сохраняется и так, когда она есть, а
+        // когда её нет, она и не появится (из JPG её не бывает).
+        $ext = ($mime === 'image/gif' && is_animated_gif($tmpPath)) ? 'gif' : 'png';
 
         $target = $targetDir . $slug . '.' . $ext;
 
@@ -180,27 +171,26 @@ if (!function_exists('process_uploaded_image')) {
         }
 
         try {
-            if ($ext === 'png') {
-                // прозрачность: альфа-канал сохраняется целиком
-                imagealphablending($im, false);
-                imagesavealpha($im, true);
-                if (!imagepng($im, $target, 6)) {
-                    return null;
-                }
-            } else {
-                // JPEG: белый фон вместо прозрачных пикселей,quality 85
-                $out = imagecreatetruecolor(imagesx($im), imagesy($im));
-                $white = imagecolorallocate($out, 255, 255, 255);
-                imagefilledrectangle($out, 0, 0, imagesx($im), imagesy($im), $white);
-                if (!imagecopy($out, $im, 0, 0, 0, 0, imagesx($im), imagesy($im))) {
-                    imagedestroy($out);
-                    return null;
-                }
-                $ok = imagejpeg($out, $target, 85);
+            // Пиксели копируем в новый truecolor с отключённым
+            // блендингом: иначе полупрозрачные области смешались бы с
+            // чёрным и потеряли исходную альфу.
+            $out = imagecreatetruecolor(imagesx($im), imagesy($im));
+            imagealphablending($out, false);
+            imagesavealpha($out, true);
+            // Заливка прозрачью: у результата всегда есть альфа-канал,
+            // даже когда источник был непрозрачным JPG.
+            imagefill($out, 0, 0, imagecolorallocatealpha($out, 0, 0, 0, 127));
+
+            if (!imagecopy($out, $im, 0, 0, 0, 0, imagesx($im), imagesy($im))) {
                 imagedestroy($out);
-                if (!$ok) {
-                    return null;
-                }
+                return null;
+            }
+
+            // 9 = максимальное сжатие без потери качества (zlib level 9)
+            $ok = imagepng($out, $target, 9);
+            imagedestroy($out);
+            if (!$ok) {
+                return null;
             }
         } finally {
             imagedestroy($im);

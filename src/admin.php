@@ -367,7 +367,10 @@ if ($isAdmin && isset($_POST['addComponent'])) {
                     $duplicate = null;
                     foreach (scandir($targetDir) as $name2) {
                         if ($name2 === '.' || $name2 === '..' || $name2[0] === '.') continue;
-                        if (!preg_match('/\.(jpg|png|gif)$/i', $name2)) continue;
+                        // JPG исключён не случайно: в проекте их больше
+                        // нет, формат на выходе у обработчика один - png
+                        // (и gif для анимации).
+                        if (!preg_match('/\.(png|gif)$/i', $name2)) continue;
                         $path2 = $targetDir . $name2;
                         if (!is_file($path2) || $path2 === $result['path']) continue;
                         if (md5_file($path2) === $newMd5) {
