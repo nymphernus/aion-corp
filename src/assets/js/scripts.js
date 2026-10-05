@@ -944,19 +944,46 @@ function applyImageToTrigger(src) {
     }
 }
 
-// Файл выбран в модалке: превью через FileReader, url-выбор сбрасывается.
-// Файл и выбор из загруженных не должны срабатывать одновременно.
+// Файл выбран в модалке-пикере.
+//
+// ГЛАВНОЕ: #pickerFileInput живёт внутри #filePickerModal, а форма
+// компонента заканчивается ДО этого dialog - пикер в неё не вложен.
+// Поэтому выбранный файл сам по себе не отправится на сервер: $_FILES
+// останется пустым, и картинка после сохранения пропадёт, хотя в окне
+// её видно. Лечится переносом файла в #imageFileInput, который внутри
+// формы, через DataTransfer.
+function transferFileToFormInput(file) {
+    var target = document.getElementById('imageFileInput');
+    if (!target) return false;
+    // input.files только для чтения, но DataTransfer позволяет собрать
+    // новый FileList и подставить его.
+    var dt = new DataTransfer();
+    dt.items.add(file);
+    target.files = dt.files;
+    return true;
+}
+
 document.addEventListener('change', function(e) {
     if (e.target.id !== 'pickerFileInput') return;
-    const file = e.target.files[0];
+    var file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
+    // Файл переносится в форму ДО превью: если перенос не удался,
+    // молча показывать картинку нельзя - она всё равно не сохранится.
+    if (!transferFileToFormInput(file)) {
+        alert('Не удалось подготовить файл к загрузке. Обновите страницу и попробуйте снова.');
+        return;
+    }
+
+    var reader = new FileReader();
     reader.onload = function(ev) {
         applyImageToTrigger(ev.target.result);
-        const selUrl = document.getElementById('imageSelectedUrl');
+        // Файл vs выбор из загруженных не должны срабатывать одновременно
+        var selUrl = document.getElementById('imageSelectedUrl');
         if (selUrl) selUrl.value = '';
         document.getElementById('removeImageFlag').value = '0';
+        // Модалка закрывается: файл уже принят, превью видно в триггере
+        document.getElementById('filePickerModal').close();
     };
     reader.readAsDataURL(file);
 });
@@ -987,46 +1014,37 @@ function submitFileDelete(filename) {
     form.submit();
 }
 
+// Удаление привязанного файла разрешено, но администратор должен увидеть,
+// что именно сломается. Список привязок приходит в data-used-by;
+// components.image при этом не обнуляется - решение остаётся за админом.
 document.addEventListener('click', function(e) {
     const del = e.target.closest('[data-action="delete-file"]');
     if (!del) return;
     e.preventDefault();
 
-    // Привязанный файл удалить нельзя. Пользователь получает alert до
-    // отправки формы, сервер отказывает повторно - даже если JS обойден.
-    if (del.dataset.used) {
-        alert('Файл используется компонентом. Сначала отвяжите его.');
-        return;
-    }
-
     const filename = del.dataset.file;
-    confirmAction('Удалить файл?',
-        'Файл ' + filename + ' будет удалён с диска безвозвратно.',
-        () => submitFileDelete(filename));
-});
-
-// --- ДОП-2: kebab-меню карточки файла ---
-document.addEventListener('click', function(e) {
-    // Toggle меню
-    const toggle = e.target.closest('[data-action="toggle-file-menu"]');
-    if (toggle) {
-        e.preventDefault();
-        e.stopPropagation();
-        const menu = toggle.closest('.file-card__menu')
-                          .querySelector('.file-card__dropdown');
-        // Закрыть все открытые, кроме текущего
-        document.querySelectorAll('.file-card__dropdown').forEach(d => {
-            if (d !== menu) d.hidden = true;
-        });
-        menu.hidden = !menu.hidden;
-        return;
+    let usedBy = [];
+    if (del.dataset.usedBy) {
+        try {
+            const parsed = JSON.parse(del.dataset.usedBy);
+            if (Array.isArray(parsed)) usedBy = parsed;
+        } catch (err) {
+            usedBy = [];
+        }
     }
 
-    // Клик вне меню — закрыть все
-    if (!e.target.closest('.file-card__menu')) {
-        document.querySelectorAll('.file-card__dropdown')
-            .forEach(d => d.hidden = true);
+    let message = 'Файл ' + filename + ' будет удалён с диска безвозвратно.';
+    if (usedBy.length) {
+        const names = usedBy
+            .map(function(c) { return '• ' + c.name; })
+            .join('\n');
+        message += '\n\nВНИМАНИЕ: файл используется в компонентах:\n' + names
+            + '\n\nПосле удаления картинки у этих компонентов будут битыми.';
     }
+
+    confirmAction('Удалить файл?', message, function() {
+        submitFileDelete(filename);
+    });
 });
 
 // --- БЛОК 4: привязка файла к корпусу из файлового менеджера ---
@@ -1085,9 +1103,10 @@ document.addEventListener('click', function(e) {
     }
     hidden.value = url;
 
-    // Файловый ввод сбрасываем: файл vs выбор существующего не должны
-    // срабатывать одновременно
+    // Файловые вводы сбрасываем: файл vs выбор существующего не должны
+    // срабатывать одновременно. Оба - и пикер, и форма.
     document.getElementById('pickerFileInput').value = '';
+    document.getElementById('imageFileInput').value = '';
     document.getElementById('removeImageFlag').value = '0';
 
     document.getElementById('filePickerModal').close();

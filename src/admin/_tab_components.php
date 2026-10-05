@@ -489,17 +489,23 @@ if ($result) {
                     <div class="modal-form">
                         <h2>Изображение корпуса</h2>
 
-                        <!-- Секция 1: загрузка нового файла -->
+                        <!-- Секция 1: загрузка нового файла.
+                             ВАЖНО: этот input вне формы компонента
+                             (dialog идёт после </form>), поэтому name=""
+                             и он служит только источником для JS - файл
+                             переносится в #imageFileInput внутри формы.
+                             С name="image_file" браузер отправил бы его
+                             отдельным POST, которого сервер не ждёт. -->
                         <div class="image-picker-upload">
                             <label class="btn btn--primary">
-                                <input type="file" name="image_file"
+                                <input type="file"
                                        id="pickerFileInput"
                                        accept="image/jpeg,image/png,image/webp,image/gif"
                                        style="display:none">
                                 Загрузить новый файл
                             </label>
                             <span class="image-picker-upload__hint">
-                                JPG, PNG, WebP, GIF до 10 МБ
+                                JPG, PNG, WebP, GIF до 10 МБ → сохранится в PNG
                             </span>
                         </div>
 

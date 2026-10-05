@@ -12,9 +12,9 @@ if (!defined('ADMIN_CONTEXT')) {
 }
 
 // Обработка ошибок файловых операций
-if (isset($_GET['error']) && $_GET['error'] === 'used') {
-    echo '<div class="alert alert--error">Файл используется компонентом. Сначала отвяжите его.</div>';
-}
+// error=used больше не бывает: привязанный файл удалить можно, а
+// предупреждение с перечислением компонентов показывает модалка. Блок
+// оставлен только чтобы старые ссылки из закладок не были без текста.
 
 // --- Логика сбора файлов ---
 // Файл лежит в /admin/, каталог картинок - на уровень выше.
@@ -151,15 +151,20 @@ function human_size(int $bytes): string {
     </form>
 </div>
 
-<!-- Сетка файлов -->
+<!-- Сетка файлов. Меню-«kebab» убрано: клик по самой картинке
+     привязывает файл к корпусу, удаление - отдельной иконкой. -->
 <div class="files-grid">
     <?php foreach ($filteredFiles as $f): ?>
         <div class="file-card">
-            <div class="file-card__preview">
-                <img src="<?= escape($f['url']) ?>" 
+            <button type="button"
+                    class="file-card__preview"
+                    data-action="attach-file"
+                    data-file-url="<?= escape($f['url']) ?>"
+                    title="Привязать к корпусу">
+                <img src="<?= escape($f['url']) ?>"
                      alt="<?= escape($f['basename']) ?>"
                      loading="lazy">
-            </div>
+            </button>
             <div class="file-card__info">
                 <div class="file-card__name" 
                      title="<?= escape($f['basename']) ?>">
@@ -184,52 +189,30 @@ function human_size(int $bytes): string {
                     </div>
                 <?php endif; ?>
             </div>
-            <!-- ДОП-2: меню-«kebab» вместо ряда иконок. Позиционируется
-                 относительно карточки (position: relative у file-card) -->
-            <div class="file-card__menu">
-                <button type="button"
-                        class="btn-icon btn-icon--muted"
-                        data-action="toggle-file-menu"
-                        aria-label="Действия">
-                    <svg width="16" height="16" viewBox="0 0 24 24"
-                         fill="currentColor">
-                        <circle cx="12" cy="5" r="1.5"></circle>
-                        <circle cx="12" cy="12" r="1.5"></circle>
-                        <circle cx="12" cy="19" r="1.5"></circle>
-                    </svg>
-                </button>
-                <div class="file-card__dropdown" hidden>
-                    <button type="button"
-                            class="dropdown-item"
-                            data-action="attach-file"
-                            data-file-url="<?= escape($f['url']) ?>">
-                        <svg width="16" height="16" viewBox="0 0 24 24"
-                             fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                        </svg>
-                        Привязать к корпусу
-                    </button>
-                    <?php // Привязанный файл удалить нельзя: ссылка из
-                          // components.image осталась бы битой. Кнопка
-                          // остаётся активной, но помечена data-used - JS
-                          // покажет alert до отправки формы, сервер
-                          // откажет повторно даже при обходе JS. ?>
-                    <button type="button"
-                            class="dropdown-item dropdown-item--danger"
-                            data-action="delete-file"
-                            data-file="<?= escape($f['basename']) ?>"
-                            <?= $f['used_by'] ? 'data-used="1" title="Файл используется компонентом"' : '' ?>>
-                        <svg width="16" height="16" viewBox="0 0 24 24"
-                             fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"></path>
-                            <path d="M10 11v6M14 11v6"></path>
-                        </svg>
-                        Удалить
-                    </button>
-                </div>
-            </div>
+            <!-- Удаление: отдельная иконка в углу карточки. Привязанный
+                 файл тоже можно удалить - предупреждение с перечислением
+                 компонентов показывает confirmDeleteFile (JS). -->
+            <button type="button"
+                    class="file-card__delete"
+                    data-action="delete-file"
+                    data-file="<?= escape($f['basename']) ?>"
+                    data-used="<?= $f['used_by'] ? '1' : '0' ?>"
+                    data-used-by="<?= escape(json_encode(
+                        array_map(
+                            static fn(array $c): array => ['id' => (int) $c['id'], 'name' => $c['name']],
+                            $f['components']
+                        ),
+                        JSON_UNESCAPED_UNICODE
+                    )) ?>"
+                    aria-label="Удалить <?= escape($f['basename']) ?>"
+                    title="Удалить файл">
+                <svg width="16" height="16" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"></path>
+                    <path d="M10 11v6M14 11v6"></path>
+                </svg>
+            </button>
         </div>
     <?php endforeach; ?>
 </div>

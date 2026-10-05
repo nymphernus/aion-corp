@@ -480,23 +480,15 @@ if ($isAdmin && $filename !== '') {
     $path = __DIR__ . '/assets/images/cases/' . $filename;
 
     if (is_file($path)) {
-        // Привязанный файл удалять нельзя: ссылка из components.image
-        // осталась бы битой. Сравнение идёт по имени файла, а не по
-        // полному пути - в базе путь может лежать и со слешем, и без.
-        $stmt = db_prepare($mysql,
-            "SELECT component_id FROM components
-             WHERE image IS NOT NULL
-               AND image LIKE '%assets/images/cases/%'
-               AND SUBSTRING_INDEX(image, '/', -1) = ?",
-            "s", $filename);
-        $stmt->execute();
-        $usedCount = count($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
-
-        if ($usedCount > 0) {
-            header('Location: /admin.php?tab=files&error=used');
-            exit;
-        }
-
+        // Привязанный файл удалить МОЖНО - решение администратора.
+        // Раньше сервер отказывал (error=used), из-за чего привязанную
+        // картинку нельзя было убрать совсем. Теперь предупреждение
+        // живёт в модалке на клиенте, а сервер только считает привязки,
+        // чтобы показать их имена, и удаляет.
+        //
+        // components.image при этом НЕ обнуляется: ссылка остаётся
+        // битой ровно так, как её оставил админ, - молча чинить её
+        // значило бы подменять его решение.
         unlink($path);
     }
 

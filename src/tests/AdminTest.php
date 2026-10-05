@@ -898,23 +898,25 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 8: привязанный файл удалить нельзя.
+     * 8: привязанный файл удалить МОЖНО, решение за администратором.
      *
-     * Удаление идёт напрямую с диска, поэтому единственная защита -
-     * проверка привязок: файл, на который ссылается components.image,
-     * остаётся на месте, а пользователь получает error=used.
+     * Раньше сервер отказывал (error=used) и привязанную картинку нельзя
+     * было убрать совсем. Теперь файл удаляется, а components.image
+     * остаётся как был - обнулять его молча значило бы подменять решение
+     * админа. Предупреждение с перечислением компонентов показывает
+     * модалка на клиенте (проверяется ниже по data-used-by).
      *
      * Фикстура своя: тест создаёт файл и корпус с привязкой, потому что
      * демо-данные могут отсутствовать (SEED_DATA=0), а боевые файлы
      * трогать нельзя - прошлый вариант теста архивировал реальный
      * baa-16.jpg, когда привязок ещё не было.
      */
-    public function testDeleteFileRejectsUsed(): void
+    public function testDeleteFileAllowsUsedFile(): void
     {
         $this->loginAsAdmin();
 
         $casesDir = dirname(__DIR__) . '/assets/images/cases/';
-        $filename = 'test-used-' . uniqid() . '.jpg';
+        $filename = 'test-used-' . uniqid() . '.png';
         $path = $casesDir . $filename;
         file_put_contents($path, 'X');
 
@@ -933,16 +935,66 @@ final class AdminTest extends AionTestCase
                 'filename' => $filename,
             ]);
             $this->assertSame(302, $response['code']);
-            $this->assertStringContainsString('error=used', $response['location']);
-            $this->assertFileExists($path, 'привязанный файл обязан уцелеть');
+            $this->assertStringNotContainsString('error=', $response['location']);
+            $this->assertFileDoesNotExist($path, 'привязанный файл тоже должен удаляться');
 
-            // кнопка удаления привязанного файла помечена, а текст ошибки
-            // на странице объясняет причину
-            $page2 = $this->httpGet('/admin.php?tab=files');
-            $this->assertStringContainsString('data-used="1"', $page2['body']);
-            $this->assertStringContainsString('Файл используется компонентом', $page2['body']);
+            // привязка в базе осталась: сервер её не чистил
+            $mysql = connect();
+            $check = db_prepare($mysql, "SELECT image FROM components WHERE component_id = ?", "i", $componentId);
+            $check->execute();
+            $row = $check->get_result()->fetch_assoc();
+            $mysql->close();
+            $this->assertSame(
+                'assets/images/cases/' . $filename,
+                $row['image'],
+                'components.image не должен обнуляться молча'
+            );
         } finally {
-            // уборка фикстуры в любом исходе
+            $mysql = connect();
+            $del = db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $componentId);
+            $del->execute();
+            $mysql->close();
+            @unlink($path);
+        }
+    }
+
+    /**
+     * 8: карточка файла предупреждает о привязях до удаления.
+     *
+     * Без этого модалка сообщала бы «файл удалится» и не дала бы админу
+     * понять, что у конкретных корпусов сломается картинка.
+     */
+    public function testFileCardCarriesUsedByList(): void
+    {
+        $this->loginAsAdmin();
+
+        $casesDir = dirname(__DIR__) . '/assets/images/cases/';
+        $filename = 'test-card-' . uniqid() . '.png';
+        $path = $casesDir . $filename;
+        file_put_contents($path, 'X');
+
+        $mysql = connect();
+        $ins = db_prepare($mysql, "INSERT INTO components (component_name, category_id, component_price, amount, image) VALUES (?, 6, 1000, 1, ?)", "ss", 'Test Card Case', 'assets/images/cases/' . $filename);
+        $ins->execute();
+        $componentId = (int) $ins->insert_id;
+        $mysql->close();
+
+        try {
+            $page = $this->httpGet('/admin.php?tab=files');
+            $this->assertSame(200, $page['code']);
+
+            // кнопка удаления этой карточки несёт used=1 и имя корпуса
+            $this->assertMatchesRegularExpression(
+                '/data-file="' . preg_quote($filename, '/') . '"[^>]*data-used="1"/u',
+                $page['body'],
+                'кнопка удаления привязанного файла должна быть помечена data-used="1"'
+            );
+            $this->assertStringContainsString(
+                'Test Card Case',
+                $page['body'],
+                'модалка должна знать имя компонента, у которого сломается картинка'
+            );
+        } finally {
             $mysql = connect();
             $del = db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $componentId);
             $del->execute();
@@ -959,7 +1011,7 @@ final class AdminTest extends AionTestCase
         $this->loginAsAdmin();
 
         $dir = dirname(__DIR__) . '/assets/images/cases/';
-        $filename = 'test-delete-' . uniqid() . '.jpg';
+        $filename = 'test-delete-' . uniqid() . '.png';
         $path = $dir . $filename;
         file_put_contents($path, 'dummy');
 
@@ -1001,7 +1053,7 @@ final class AdminTest extends AionTestCase
         };
 
         // 1) orphan удаляется одним действием
-        $name = 'test-del-' . uniqid() . '.jpg';
+        $name = 'test-del-' . uniqid() . '.png';
         file_put_contents($casesDir . $name, str_repeat('X', 100));
         $r = $act($name);
         $this->assertSame(302, $r['code']);
@@ -1013,63 +1065,46 @@ final class AdminTest extends AionTestCase
         $this->assertSame(302, $r['code']);
         $this->assertStringNotContainsString('error=', $r['location']);
 
-        // 3) привязанный файл удалить нельзя - used.
-        // Фикстура своя: боевые картинки тест не трогает.
-        $bound = 'test-bound-' . uniqid() . '.jpg';
-        file_put_contents($casesDir . $bound, 'X');
-        $mysql = connect();
-        $ins = db_prepare($mysql, "INSERT INTO components (component_name, category_id, component_price, amount, image) VALUES (?, 6, 1000, 1, ?)", "ss", 'Test Bound Case', 'assets/images/cases/' . $bound);
-        $ins->execute();
-        $boundId = (int) $ins->insert_id;
-        $mysql->close();
-
-        // 4) traversal: basename() должен срезать путь и не дать удалить
+        // 3) traversal: basename() должен срезать путь и не дать удалить
         //    файл за пределами cases/
-        $outside = dirname($casesDir) . 'test-outside-' . uniqid() . '.jpg';
+        $outside = dirname($casesDir) . 'test-outside-' . uniqid() . '.png';
         file_put_contents($outside, 'X');
 
         try {
-            $r = $act($bound);
-            $this->assertSame(302, $r['code']);
-            $this->assertStringContainsString('error=used', $r['location']);
-            $this->assertFileExists($casesDir . $bound);
-
             $r = $act('../' . basename($outside));
             $this->assertSame(302, $r['code']);
             $this->assertFileExists($outside, 'файл вне cases/ удалять нельзя');
         } finally {
-            $mysql = connect();
-            $del = db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $boundId);
-            $del->execute();
-            $mysql->close();
-            @unlink($casesDir . $bound);
             @unlink($outside);
         }
     }
 
     /**
-     * 8: в меню карточки файла ровно два пункта - «Привязать к корпусу»
-     * и «Удалить». Архивации и копирования URL больше нет.
+     * 8: карточка файла без меню - привязка кликом по картинке,
+     * удаление отдельной иконкой.
      */
-    public function testFileMenuHasOnlyAttachAndDelete(): void
+    public function testFileCardHasNoKebabMenu(): void
     {
         $this->loginAsAdmin();
 
         $page = $this->httpGet('/admin.php?tab=files');
         $this->assertSame(200, $page['code']);
 
+        // привязка и удаление на месте
         $this->assertMatchesRegularExpression(
             '/data-action="attach-file"/u',
             $page['body'],
-            'в меню карточки должен остаться пункт привязки'
+            'клик по картинке должен привязывать файл'
         );
         $this->assertMatchesRegularExpression(
             '/data-action="delete-file"/u',
             $page['body'],
-            'в меню карточки должен остаться пункт удаления'
+            'иконка удаления должна быть на карточке'
         );
 
-        // удалённая функциональность не должна просочиться в разметку
+        // kebab-меню убрано вместе с копированием URL и архивом
+        $this->assertStringNotContainsString('toggle-file-menu', $page['body']);
+        $this->assertStringNotContainsString('file-card__dropdown', $page['body']);
         $this->assertStringNotContainsString('data-action="copy-file-url"', $page['body']);
         $this->assertStringNotContainsString('data-action="archive-file"', $page['body']);
         $this->assertStringNotContainsString('data-action="restore-file"', $page['body']);

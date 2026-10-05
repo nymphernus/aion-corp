@@ -1618,13 +1618,15 @@ a.files-stat:hover {
     flex-direction: column;
     gap: 10px;
     transition: 150ms;
-    /* ДОП-2: точка привязки dropdown-меню */
+    /* точка привязки иконки удаления в углу карточки */
     position: relative;
 }
 .file-card:hover {
     border-color: var(--accent);
     box-shadow: 0 4px 12px rgba(37,99,235,0.08);
 }
+/* Превью стало кнопкой: клик по картинке привязывает файл к корпусу.
+   Раньше здесь был div, а привязка пряталась в kebab-меню. */
 .file-card__preview {
     height: 160px;
     border-radius: 8px;
@@ -1633,11 +1635,24 @@ a.files-stat:hover {
     display: flex;
     align-items: center;
     justify-content: center;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    width: 100%;
+}
+.file-card__preview:hover {
+    background: var(--accent-light);
+}
+.file-card__preview:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 .file-card__preview img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+    pointer-events: none;
 }
 .file-card__name {
     font-size: 13px;
@@ -1672,24 +1687,38 @@ a.files-stat:hover {
     margin-top: auto;
 }
 
-/* ДОП-2: kebab-меню на карточке файла */
-.file-card__menu {
+/* Иконка удаления в углу карточки файла. Появляется на hover, но остаётся
+   доступной с клавиатуры: фокус делает её видимой при tab-навигации. */
+.file-card__delete {
     position: absolute;
     top: 8px;
     right: 8px;
-}
-.file-card__dropdown {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: var(--bg-card);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.92);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-    padding: 4px;
-    min-width: 200px;
-    z-index: 10;
-    margin-top: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    opacity: 0;
+    transition: 150ms;
+    z-index: 2;
+}
+.file-card:hover .file-card__delete,
+.file-card__delete:focus-visible {
+    opacity: 1;
+}
+.file-card__delete:hover {
+    background: var(--error);
+    color: white;
+    border-color: var(--error);
+}
+.file-card__delete svg {
+    pointer-events: none;
 }
 .dropdown-item {
     display: flex;
@@ -1712,11 +1741,6 @@ a.files-stat:hover {
 }
 .dropdown-item--danger { color: var(--error); }
 .dropdown-item--danger:hover { background: rgba(239,68,68,0.08); }
-/* привязанный файл удалить нельзя: пункт приглушён, но остаётся
-   кликабельным - по клику JS показывает alert с объяснением */
-.dropdown-item[data-used] {
-    opacity: 0.55;
-}
 .dropdown-item svg {
     width: 16px;
     height: 16px;
