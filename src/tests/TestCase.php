@@ -156,6 +156,117 @@ class AionTestCase extends PhpUnitTestCase
     }
 
     /**
+     * 5-f-2c-1: список пунктов сайдбара, как их видит браузер.
+     *
+     * Именно через DOM, а не поиском по строке ответа. Причина конкретная:
+     * в 5-f-2c-1 комментарий в сайдбаре был закрыт приёмом из CSS, и в
+     * ответе сервера строки с пунктами «Личная информация» и
+     * «Безопасность» присутствовали, а браузер съедал их вместе с
+     * комментарием - то есть в меню их не было. Любая проверка вида
+     * assertStringContainsString('href="/profile.php?section=..."') такой
+     * случай проходит, потому что ищет в исходнике ответа.
+     *
+     * Текст внутри HTML-комментария не является элементом, поэтому в DOM
+     * такие пункты просто отсутствуют.
+     *
+     * @return string[] подписи пунктов в порядке документа
+     */
+    protected function sidebarItems(string $html): array
+    {
+        [$nav, $xp] = $this->sidebarNode($html);
+        $nodes = $xp->query(
+            './/a[contains(@class, "profile-nav-item")]'
+            . '|.//button[contains(@class, "profile-nav-item")]'
+            . '|.//summary[contains(@class, "profile-nav-item")]',
+            $nav
+        );
+        $items = [];
+        foreach ($nodes as $node) {
+            $items[] = trim((string) preg_replace('/\s+/u', ' ', $node->textContent));
+        }
+        return $items;
+    }
+
+    /**
+     * 5-f-2c-1: href пунктов сайдбара, тем же разбором DOM.
+     *
+     * @return string[]
+     */
+    protected function sidebarHrefs(string $html): array
+    {
+        [$nav, $xp] = $this->sidebarNode($html);
+        $nodes = $xp->query('.//*[@href]', $nav);
+        $hrefs = [];
+        foreach ($nodes as $node) {
+            $hrefs[] = $node->getAttribute('href');
+        }
+        return $hrefs;
+    }
+
+    /**
+     * 5-f-2c-1: куски разметки, которые браузер считает комментарием.
+     *
+     * Ловит класс ошибок с незакрытым HTML-комментарием: если внутри
+     * комментария оказалась ссылка или блок, они не работают, хотя в ответе
+     * сервера присутствуют.
+     *
+     * Проверка узкая и по форме, а не по смыслу текста. Ловим открывающий
+     * тег с атрибутами или закрывающий тег - то есть кусок разметки.
+     * Упоминание тега в тексте пропускаем: комментарий 3.7-i-6 в
+     * profile.php пишет про <use>, 3.7-f-3-2 в admin-order-modal.php - про
+     * <a>, 3.7-h-2 в admin-user-modal.php - про name="editUser". Всё это
+     * закрыто правильно и ничего не ломает. Ломает именно съеденный
+     * элемент вида <a href="...">текст</a>.
+     *
+     * @return string[] посторонние фрагменты, которые на странице быть не должны
+     */
+    protected function markupInsideComments(string $html): array
+    {
+        $dom = new DOMDocument();
+        $prev = libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+
+        $xp = new DOMXPath($dom);
+        $found = [];
+        // У DOMDocument нет getComments(), комментарии берутся запросом //comment()
+        foreach ($xp->query('//comment()') as $comment) {
+            $text = (string) preg_replace('/\s+/u', ' ', $comment->textContent);
+            if (preg_match('/<[a-zA-Z][a-zA-Z0-9]*\s+[a-zA-Z-]+="|<\/[a-zA-Z]/', $text)) {
+                $found[] = substr($text, 0, 120);
+            }
+        }
+        return $found;
+    }
+
+    /**
+     * 5-f-2c-1: разобрать страницу и отдать узел сайдбара вместе с XPath.
+     *
+     * Отдаётся именно узел, а не XPath: запрос нужно ограничить сайдбаром,
+     * иначе под него попадёт любая другая навигация на странице.
+     *
+     * @return array{0: DOMNode, 1: DOMXPath}
+     */
+    private function sidebarNode(string $html): array
+    {
+        $dom = new DOMDocument();
+        $prev = libxml_use_internal_errors(true);
+        // страницы приходят в UTF-8, а loadHTML без кодировки читает как
+        // ISO-8859-1 - подписи портятся. Префикс с объявлением решает это.
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+
+        $xp = new DOMXPath($dom);
+        $nav = $xp->query('//nav[contains(@class, "profile-nav")]');
+        $this->assertGreaterThan(0, $nav->length, 'сайдбар не найден на странице');
+        $node = $nav->item(0);
+        $this->assertInstanceOf(DOMNode::class, $node);
+        return [$node, $xp];
+    }
+
+    /**
      * 5-f-2c: войти в чистой сессии и вернуть страницу профиля.
      *
      * Отдельная сессия нужна, чтобы проверить, что вход работает, а не то,

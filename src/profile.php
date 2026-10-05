@@ -178,7 +178,13 @@ if ($userProfile) {
             $stmt->close();
 
             csrf_rotate();
-            header('Location: /profile.php?section=card-security&password_changed=1');
+            // 5-f-2c-1: section=security, а не section=card-security. В $sectionMap
+            // ключи info/security/orders/fav, а card-security - это уже
+            // результат отображения. Со значением card-security ключ не
+            // находился, $activeSection откатывался в card-info, и после
+            // успешной смены пароля страница открывалась на «Личной
+            // информации» вместо карточки безопасности
+            header('Location: /profile.php?section=security&password_changed=1');
             exit();
         }
     }
@@ -359,32 +365,51 @@ require __DIR__ . '/partials/header.php';
                     // списку, id секции берётся из массива, а не из запроса.
                     // 5-f-2c: 'security' добавлен в белый список. id секции берётся из
                     // этого массива, а не из запроса - значение из GET в
-                    // разметку как не попадает.
+                    // разметку как не попадает, неизвестный ключ даёт info.
                     $sectionMap = [
                         'info'     => 'card-info',
                         'orders'   => 'card-builds',
                         'fav'      => 'card-fav',
                         'security' => 'card-security',
+                        // 5-f-2c-1: верификация добавляется в Stage 7, ключ
+                        // заведён заранее, чтобы пункт сайдбара не вёл в
+                        // 404 до того, как появится карточка. Если карточки
+                        // нет, $sectionStyle прячет только её, а страница
+                        // остаётся непустой - см. проверку ниже
+                        'verification' => 'card-verification',
                     ];
                     $sectionKey = (string) ($_GET['section'] ?? 'info');
                     $activeSection = $sectionMap[$sectionKey] ?? 'card-info';
-                    // 5-f-2c: секции заказов и избранного рисуются только
-                    // обычному пользователю, для админа параметр игнорируется:
-                    // иначе ?section=orders скрыл бы единственную карточку и
-                    // страница осталась бы пустой.
+
+                    // 5-f-2c-1: какие секции реально есть на этой странице.
+                    // Заказы и избранное рисуются только обычному
+                    // пользователю, но карточка безопасности есть у обоих -
+                    // пароль у администратора такой же пользовательский.
                     //
-                    // Безопасность - исключение. Раньше здесь стояло без
-                    //условий $activeSection = 'card-info' для всех, и
-                    // карточка безопасности для админа оказывалась
-                    // непроходимой: ?section=security тут же сбрасывался, а
-                    // кнопки в сайдбаре у админа нет, потому что ветка
-                    // !isAdmin её не рисует. Итог был такой: у админа есть
-                    // форма, до которой нельзя добраться. Проверено на
-                    // выводе страницы - у admin карточка всегда со
+                    // Порядок важен: сначала список существующих секций, и
+                    // только потом сверка с GET. Наоборот получалось так, что
+                    // isset() смотрел на ещё не заданную переменную, всегда
+                    // возвращал false, и $activeSection безусловно
+                    // откатывался в card-info - то есть ровно тот баг, ради
+                    // которого правка и делалась. Проверено на выводе: при
+                    // ?section=security карточка оставалась со
                     // style="display:none".
-                    if ($isAdmin && $activeSection !== 'card-security') {
+                    $sectionExists = ['card-info' => true, 'card-security' => true];
+                    if (!$isAdmin) {
+                        $sectionExists['card-fav'] = true;
+                        $sectionExists['card-builds'] = true;
+                    }
+                    // Секцию, которой на странице нет, показывать нельзя:
+                    // иначе страница осталась бы пустой. Сверяем по факту
+                    // наличия карточки, а не по белому списку - список и
+                    // разметка могут разойтись, а здесь источник один.
+                    // 'verification' в списке ниже не добавлена намеренно:
+                    // карточка появится в Stage 7, до тех пор
+                    // ?section=verification честно откатывается на info
+                    if (!isset($sectionExists[$activeSection])) {
                         $activeSection = 'card-info';
                     }
+
                     // скрываем секцию, если она не выбранная
                     $sectionStyle = static function (string $id) use ($activeSection): string {
                         return $id === $activeSection ? '' : ' style="display:none;"';

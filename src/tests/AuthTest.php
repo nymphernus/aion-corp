@@ -470,4 +470,148 @@ final class AuthTest extends AionTestCase
         $this->assertStringNotContainsString('id="card-security"', $page['body']);
         $this->assertStringNotContainsString('name="current_password"', $page['body']);
     }
+
+    /**
+     * 5-f-2c-1: пункт «Безопасность» в сайдбаре - обычная ссылка с
+     * ?section=, а не кнопка с JS.
+     *
+     * Кнопка работала только там, где секция уже нарисована. В админке
+     * карточек профиля нет, поэтому клик по кнопке на дашборде прятал
+     * секции (их ноль), ничего не показывал и оставался на
+     * /admin.php?tab=dashboard.
+     *
+     * Проверяется разбором DOM, а не поиском по строке ответа: незакрытый
+     * HTML-комментарий в этом же подэтапе съел обе ссылки, и в ответе
+     * сервера они были, а в меню - нет.
+     */
+    public function testSidebarLinksToProfileSections(): void
+    {
+        $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php');
+        $this->assertSame(200, $page['code']);
+
+        $this->assertSame(
+            ['Личная информация', 'Безопасность', 'Мои заказы', 'Избранное', 'Выйти'],
+            $this->sidebarItems($page['body']),
+            'состав пунктов сайдбара обычного пользователя'
+        );
+
+        $hrefs = $this->sidebarHrefs($page['body']);
+        $this->assertContains('/profile.php?section=info', $hrefs);
+        $this->assertContains('/profile.php?section=security', $hrefs);
+    }
+
+    /**
+     * 5-f-2c-1: на страницах профиля не должно быть разметки, которую
+     * браузер считает комментарием.
+     *
+     * Точный regression-тест на баг с незакрытым комментарием: он не виден
+     * ни в ответе сервера, ни в php -l, ни в тестах по строке ответа, но
+     * элементы внутри него не работают.
+     */
+    public function testNoMarkupSwallowedByHtmlComments(): void
+    {
+        $this->makeLoggedInUser();
+
+        foreach (['/profile.php', '/profile.php?section=security'] as $url) {
+            $page = $this->httpGet($url);
+            $this->assertSame(
+                [],
+                $this->markupInsideComments($page['body']),
+                "на {$url} разметка не должна попадать внутрь HTML-комментария"
+            );
+        }
+    }
+
+    /**
+     * 5-f-2c-1: ?section=security открывает карточку, а не прячет её.
+     *
+     * Проверяется именно отсутствие display:none, а не наличие id.
+     * Раньше карточка в разметке была, но всегда со
+     * style="display:none;" - тесты на 'id="card-security"' такой случай
+     * пропускали.
+     */
+    public function testSecuritySectionOpensByUrl(): void
+    {
+        $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php?section=security');
+        $this->assertSame(200, $page['code']);
+        $this->assertStringContainsString('id="card-security" data-section>', $page['body']);
+        $this->assertStringContainsString(
+            'id="card-info" data-section style="display:none;"',
+            $page['body']
+        );
+    }
+
+    /**
+     * 5-f-2c-1: неизвестный ключ в ?section= откатывается на info.
+     */
+    public function testUnknownSectionFallsBackToInfo(): void
+    {
+        $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php?section=bred');
+        $this->assertSame(200, $page['code']);
+        $this->assertStringContainsString('id="card-info" data-section>', $page['body']);
+        $this->assertStringContainsString(
+            'id="card-security" data-section style="display:none;"',
+            $page['body']
+        );
+    }
+
+    /**
+     * 5-f-2c-1: после смены пароля редирект ведёт на section=security,
+     * а не на section=card-security.
+     *
+     * section=card-security в $sectionMap не находился: там ключи
+     * info/security/orders/fav, а card-security - уже результат отображения.
+     * Страница открывалась на «Личной информации», то есть только что
+     * открытая карточка безопасности тут же пряталась.
+     */
+    public function testPasswordChangeRedirectsToSecuritySection(): void
+    {
+        $login = $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php?section=security');
+        $r = $this->httpPost('/profile.php', [
+            'changePassword' => '1',
+            'current_password' => 'password123',
+            'new_password' => 'newpass456',
+            'new_password_confirm' => 'newpass456',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+
+        $this->assertSame(302, $r['code']);
+        $this->assertStringContainsString('section=security', $r['location']);
+
+        // и по этому адресу карточка действительно открыта
+        $after = $this->httpGet('/profile.php' . strstr($r['location'], '?section'));
+        $this->assertStringContainsString('id="card-security" data-section>', $after['body']);
+        $this->assertStringContainsString('Пароль успешно изменён', $after['body']);
+    }
+
+    /**
+     * 5-f-2c-1: заказы и избранное обычному пользователю по-прежнему
+     * открываются и по ?section=, и по кнопке.
+     *
+     * Правка перевела на ссылки только те секции, что нужны с любой
+     * страницы. Кнопки заказов и избранного оставлены как были - регресс
+     * по ним ловится здесь.
+     */
+    public function testOrdersAndFavStillOpen(): void
+    {
+        $this->makeLoggedInUser();
+
+        $orders = $this->httpGet('/profile.php?section=orders');
+        $this->assertStringContainsString('id="card-builds" data-section>', $orders['body']);
+
+        $fav = $this->httpGet('/profile.php?section=fav');
+        $this->assertStringContainsString('id="card-fav" data-section>', $fav['body']);
+
+        // кнопки на месте
+        $this->assertStringContainsString('data-target="card-builds"', $orders['body']);
+        $this->assertStringContainsString('data-target="card-fav"', $fav['body']);
+    }
 }

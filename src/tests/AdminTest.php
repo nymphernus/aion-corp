@@ -11,6 +11,11 @@ final class AdminTest extends AionTestCase
     {
         $adminPass = getenv('ADMIN_PASSWORD');
         $this->assertNotEmpty($adminPass, 'ADMIN_PASSWORD не задан в окружении');
+        // 5-f-2c-1: каждый тест входит под admin заново. Лимит попыток входа
+        // общий на логин, и без сброса шестой прогон подряд получал 429 -
+        // это выглядело как поломка, хотя ломалась только проверка. Раньше
+        // чистил вручную перед прогоном.
+        $this->clearLoginAttempts('admin');
         $r = $this->loginAs('admin', (string) $adminPass);
         $this->assertSame(302, $r['code']);
         $page = $this->httpGet('/profile.php');
@@ -130,5 +135,96 @@ final class AdminTest extends AionTestCase
         $s = db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $cid);
         $s->execute();
         $mysql->close();
+    }
+
+    /**
+     * 5-f-2c-1: админ доходит до карточки безопасности прямым адресом.
+     *
+     * Раньше стояло условие if ($isAdmin && $activeSection !==
+     * 'card-security') { $activeSection = 'card-info' }, то есть параметр для
+     * админа глушился всегда, а кнопки безопасности в его ветке сайдбара нет.
+     * Итог: форма есть, добраться до неё нельзя. Проверено на выводе до
+     * правки - у admin карточка всегда со style="display:none;".
+     */
+    public function testAdminReachesSecurityCardByUrl(): void
+    {
+        $this->loginAsAdmin();
+
+        $page = $this->httpGet('/profile.php?section=security');
+        $this->assertSame(200, $page['code']);
+        $this->assertStringContainsString('id="card-security" data-section>', $page['body']);
+        $this->assertStringContainsString('name="current_password"', $page['body']);
+        $this->assertStringContainsString(
+            'id="card-info" data-section style="display:none;"',
+            $page['body']
+        );
+    }
+
+    /**
+     * 5-f-2c-1: админ видит в сайдбаре ссылку на безопасность, в том числе
+     * на страницах админки, где карточек профиля нет вовсе.
+     *
+     * Старый вариант был кнопкой с data-target, и на дашборде клик по ней
+     * прятал секции (их ноль), ничего не показывал и оставался на той же
+     * странице.
+     */
+    public function testAdminSidebarLinksToSecurity(): void
+    {
+        $this->loginAsAdmin();
+
+        // 6 пунктов: две ссылки на секции профиля, дашборд, аккордеон
+        // панели, настройки и выход. Заказы и избранное админу не рисуются.
+        $expected = [
+            'Личная информация',
+            'Безопасность',
+            'Дашборд',
+            'Панель управления',
+            'Настройки сайта',
+            'Выйти',
+        ];
+
+        foreach (['/profile.php', '/admin.php?tab=dashboard', '/admin.php?tab=users'] as $url) {
+            $page = $this->httpGet($url);
+            $this->assertSame(200, $page['code'], $url);
+            $this->assertSame(
+                $expected,
+                $this->sidebarItems($page['body']),
+                "состав пунктов сайдбара на {$url}"
+            );
+            $hrefs = $this->sidebarHrefs($page['body']);
+            $this->assertContains(
+                '/profile.php?section=security',
+                $hrefs,
+                "на {$url} должна быть ссылка на безопасность"
+            );
+            $this->assertSame(
+                [],
+                $this->markupInsideComments($page['body']),
+                "на {$url} разметка не должна попадать внутрь HTML-комментария"
+            );
+        }
+    }
+
+    /**
+     * 5-f-2c-1: секции, которых у админа на странице нет, откатываются на
+     * info, а не оставляют пустую страницу.
+     */
+    public function testAdminUnknownSectionsFallBackToInfo(): void
+    {
+        $this->loginAsAdmin();
+
+        foreach (['orders', 'fav', 'verification', 'карточка'] as $key) {
+            $page = $this->httpGet('/profile.php?section=' . rawurlencode($key));
+            $this->assertSame(200, $page['code'], $key);
+            $this->assertStringContainsString(
+                'id="card-info" data-section>',
+                $page['body'],
+                "?section={$key} должен открыть личную информацию"
+            );
+        }
+
+        // карточек заказов и избранного у админа на странице просто нет
+        $page = $this->httpGet('/profile.php?section=orders');
+        $this->assertStringNotContainsString('id="card-builds"', $page['body']);
     }
 }
