@@ -303,7 +303,8 @@ if ($isAdmin && isset($_POST['addComponent'])) {
             $newImagePath = null;
         }
         
-        // Загрузка нового изображения
+        // Загрузка нового изображения: сжатие через GD-модуль,
+        // дедупликация по MD5 против всех файлов cases/
         if (!empty($_FILES['image_file']['name'])) {
             $file = $_FILES['image_file'];
             
@@ -319,8 +320,8 @@ if ($isAdmin && isset($_POST['addComponent'])) {
                 exit();
             }
             
-            // 2. Размер
-            elseif ($file['size'] > 5 * 1024 * 1024) {
+            // 2. Размер: до 10 МБ (ini поднят до 10M/12M в Dockerfile)
+            elseif ($file['size'] > 10 * 1024 * 1024) {
                 header('Location: /admin.php?tab=components&error=size');
                 exit();
             }
@@ -331,14 +332,9 @@ if ($isAdmin && isset($_POST['addComponent'])) {
                 $mime = finfo_file($finfo, $file['tmp_name']);
                 finfo_close($finfo);
                 
-                $allowedMimes = [
-                    'image/jpeg' => 'jpg',
-                    'image/png'  => 'png',
-                    'image/webp' => 'webp',
-                    'image/gif'  => 'gif',
-                ];
+                $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
                 
-                if (!isset($allowedMimes[$mime])) {
+                if (!in_array($mime, $allowedMimes, true)) {
                     header('Location: /admin.php?tab=components&error=mime');
                     exit();
                 }
@@ -348,26 +344,40 @@ if ($isAdmin && isset($_POST['addComponent'])) {
                     exit();
                 }
                 else {
-                    $ext = $allowedMimes[$mime];
-                    
-                    // Генерируем уникальное имя из slug + uniqid
+                    // slug из имени компонента (не файла!) - имя файла
+                    // всегда итоговое slug.ext
                     $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', pathinfo($name, PATHINFO_FILENAME)));
                     $slug = trim($slug, '-');
                     if ($slug === '') $slug = 'case';
                     $slug = substr($slug, 0, 40);
-                    
-                    $filename = $slug . '-' . uniqid() . '.' . $ext;
+
                     $targetDir = __DIR__ . '/assets/images/cases/';
-                    $targetPath = $targetDir . $filename;
-                    
-                    if (move_uploaded_file($file['tmp_name'], $targetPath)) {
-                        // Единый формат с init.sql и существующими записями:
-                        // без ведущего слеша. Все страницы, где показывается
-                        // картинка, лежат в корне, относительный путь работает
-                        $newImagePath = 'assets/images/cases/' . $filename;
-                    } else {
+                    $result = process_uploaded_image($file['tmp_name'], $targetDir, $slug);
+
+                    if ($result === null) {
                         header('Location: /admin.php?tab=components&error=save');
                         exit();
+                    }
+                    $newImagePath = 'assets/images/cases/' . basename($result['path']);
+
+                    // Дедупликация по MD5 против всех файлов каталога.
+                    // Тот же файл под другим именем не плодит копии: новый
+                    // файл удаляется, путь занимал уже существующий.
+                    $newMd5 = md5_file($result['path']);
+                    $duplicate = null;
+                    foreach (scandir($targetDir) as $name2) {
+                        if ($name2 === '.' || $name2 === '..' || $name2[0] === '.') continue;
+                        if (!preg_match('/\.(jpg|png|gif)$/i', $name2)) continue;
+                        $path2 = $targetDir . $name2;
+                        if (!is_file($path2) || $path2 === $result['path']) continue;
+                        if (md5_file($path2) === $newMd5) {
+                            $duplicate = $name2;
+                            break;
+                        }
+                    }
+                    if ($duplicate !== null) {
+                        @unlink($result['path']);
+                        $newImagePath = 'assets/images/cases/' . $duplicate;
                     }
                 }
             }

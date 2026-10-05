@@ -17,7 +17,7 @@ if (!defined('ADMIN_CONTEXT')) {
 // Обработка ошибок загрузки изображения
 $uploadErrors = [
     'upload' => 'Ошибка загрузки файла',
-    'size'   => 'Файл слишком большой (макс 5 МБ)',
+    'size'   => 'Файл слишком большой (макс 10 МБ)',
     'mime'   => 'Недопустимый тип файла',
     'image'  => 'Файл не является изображением',
     'save'   => 'Не удалось сохранить файл',
@@ -293,7 +293,7 @@ if ($result) {
                                 <input type="hidden" name="removeImage" id="removeImageFlag" value="0">
                                 
                                 <p class="form-hint">
-                                    JPG, PNG, WebP, GIF. До 5 МБ.
+                                    JPG, PNG, WebP, GIF. До 10 МБ. Сжимается автоматически: JPEG/PNG без прозрачности → JPG, PNG с прозрачностью остаётся PNG, GIF-анимация сохраняется.
                                 </p>
                             </div>
                         </div>
