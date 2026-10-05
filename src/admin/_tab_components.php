@@ -288,7 +288,7 @@ if ($result) {
                             <input type="hidden" name="removeImage" id="removeImageFlag" value="0">
 
                             <p class="form-hint">
-                                JPG, PNG, WebP, GIF. До 10 МБ. Сжимается автоматически: JPEG/PNG без прозрачности → JPG, PNG с прозрачностью остаётся PNG, GIF-анимация сохраняется.
+                                JPG, PNG, WebP, GIF. До 10 МБ. Итоговый формат выбирает прозрачность: картинка с прозрачностью сохраняется как PNG (любой формат на входе), без прозрачности сжимается в JPG, GIF-анимация остаётся как есть.
                             </p>
                         </div>
 
