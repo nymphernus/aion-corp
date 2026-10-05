@@ -31,7 +31,21 @@ $isLoggedIn = isset($_SESSION['user_id']);
 <?php foreach ($extraCss as $css): ?>
     <link rel="stylesheet" href="<?= escape(asset_url($css)) ?>">
 <?php endforeach; ?>
-    <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/png">
+    <!-- 7.5: svg-фавикон, png остаётся запасным вариантом.
+
+         Порядок важен: браузер берёт первый rel="icon", который
+         поддерживает. Старые не знают svg и пропустят его, новые
+         возьмут svg и не будут трогать тяжёлый png. Ссылка на png
+         объявлена как alternate icon - это не запасной вариант на
+         случай ошибки, а объявление второго кандидата; без неё
+         старый браузер показал бы иконку по умолчанию.
+
+         rel="shortcut icon" убран: он значил то же самое, а в HTML5
+         правильный способ - просто rel="icon". Короткое имя живёт в
+         rel ещё с IE, где требовалось указать его для всех прочих
+         ссылок на иконку. -->
+    <link rel="icon" href="/assets/images/favicon.svg" type="image/svg+xml">
+    <link rel="alternate icon" href="/assets/images/favicon.png" type="image/png">
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;700&display=swap" rel="stylesheet">
 </head>
 <body<?= $bodyClass !== '' ? ' class="' . escape($bodyClass) . '"' : '' ?>>

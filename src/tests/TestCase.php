@@ -48,12 +48,16 @@ class AionTestCase extends PhpUnitTestCase
         ]);
         $body = (string) curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        // Content-Type нужен для проверки статики: svg отданный как
+        // text/plain или octet-stream отклонили бы и не отрисовали,
+        // а по коду ответа это не видно - он тот же 200.
+        $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         // адрес из Location нужен, чтобы отличить редирект на форму входа от
         // любого другого: CURLOPT_FOLLOWLOCATION не включён, поэтому при 302
         // тело ответа пустое
         $location = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
         curl_close($ch);
-        return ['code' => $code, 'body' => $body, 'location' => $location];
+        return ['code' => $code, 'body' => $body, 'location' => $location, 'type' => $type];
     }
 
     /**
