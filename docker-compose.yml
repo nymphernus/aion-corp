@@ -10,7 +10,9 @@ services:
       - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Stage 10: схему и минимальные данные создаёт scripts/migrate.php
+      # из php-контейнера при старте. Legacy-путь для «всё сразу»:
+      # docker compose exec -T db mysql ... < src/scripts/legacy_init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
@@ -40,6 +42,8 @@ services:
       # 5-d-3: непустое значение включает счётчик запросов к базе,
       # он печатается в подвале страницы. По умолчанию выключено.
       DEBUG_SQL_COUNT: ${DEBUG_SQL_COUNT:-}
+      # Stage 10: 1 = залить демо-компоненты при старте (seed_components.php)
+      SEED_DATA: ${SEED_DATA:-0}
 
 volumes:
   mysql_data:
