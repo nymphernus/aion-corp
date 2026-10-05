@@ -129,19 +129,27 @@ function human_size(int $bytes): string {
     </a>
 </div>
 
-<!-- Фильтр -->
+<!-- Фильтр (FIX-4: селект+поиск в одном ряду, кнопки отдельной строкой) -->
 <div class="admin-filters">
     <form method="get" class="admin-filters__form">
         <input type="hidden" name="tab" value="files">
-        <select name="filter" class="input">
-            <option value="">Все файлы</option>
-            <option value="used" <?= $filter === 'used' ? 'selected' : '' ?>>Привязанные</option>
-            <option value="orphan" <?= $filter === 'orphan' ? 'selected' : '' ?>>Не используется</option>
-        </select>
-        <input type="search" name="q" class="input" 
-               placeholder="Поиск по имени"
-               value="<?= escape($query) ?>">
-        <button type="submit" class="btn btn--primary">Применить</button>
+        <div class="admin-filters__row">
+            <select name="filter" class="input">
+                <option value="">Все файлы</option>
+                <option value="used" <?= $filter === 'used' ? 'selected' : '' ?>>Привязанные</option>
+                <option value="orphan" <?= $filter === 'orphan' ? 'selected' : '' ?>>Не используется</option>
+            </select>
+            <input type="search" name="q" class="input"
+                   placeholder="Поиск по имени"
+                   value="<?= escape($query) ?>">
+        </div>
+        <div class="admin-filters__actions">
+            <button type="submit" class="btn btn--primary">Применить</button>
+            <?php if ($filter !== '' || $query !== ''): ?>
+                <a href="?tab=files" class="btn btn--ghost">Сбросить</a>
+            <?php endif; ?>
+            <span class="files-filter-found">Найдено: <?= count($filteredFiles) ?></span>
+        </div>
     </form>
 </div>
 

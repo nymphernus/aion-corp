@@ -1636,3 +1636,23 @@ a.files-stat:hover {
     gap: 6px;
     margin-top: auto;
 }
+
+/* FIX-4: фильтр в два ряда - селект+поиск, ниже кнопки */
+.admin-filters__row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.admin-filters__row .input {
+    max-width: 300px;
+}
+.admin-filters__actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.files-filter-found {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
