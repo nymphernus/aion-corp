@@ -263,8 +263,11 @@ if ($isAdmin && isset($_POST['addComponent'])) {
     $amount = (int) ($_POST['col'] ?? 0);
     $categoryId = (int) ($_POST['cat'] ?? 0);
     
-    // --- Загрузка изображения корпуса (Stage 8) ---
-    // Только для category_id = 6 (Корпус)
+    // --- Изображение корпуса (Stage 8) ---
+    // Только для category_id = 6 (Корпус). Приоритет по БЛОКУ 3:
+    // 1) image_selected_url - выбран существующий файл;
+    // 2) image_file - загружен новый;
+    // 3) removeImage=1 - отвязать.
     $newImagePath = null;
     if ($categoryId === 6) {
         // Существующий путь (при edit)
@@ -273,9 +276,30 @@ if ($isAdmin && isset($_POST['addComponent'])) {
         $result = $stmt->get_result();
         $row = $result->fetch_assoc();
         $newImagePath = $row['image'] ?? null;
-        
-        // Удаление изображения
-        if (!empty($_POST['removeImage']) && $_POST['removeImage'] === '1') {
+
+        // При выборе из загруженных клиент чистит файловый input, но
+        // сервер всё равно решает сам: file вытесняет url, url вытесняет
+        // простой сброс флага (иначе последний open+cancel сохранил бы
+        // stale-выбор).
+        if (!empty($_FILES['image_file']['name'])) {
+            $imageSelectedUrl = '';
+        } else {
+            $imageSelectedUrl = trim((string) ($_POST['image_selected_url'] ?? ''));
+        }
+
+        // 1) Выбран существующий файл: валидация - путь строго в cases/ и
+        // файл физически есть. Формат хранения - без ведущего слеша, как
+        // в init.sql у всех существующих записей.
+        if (!empty($imageSelectedUrl)) {
+            $pickUrl = (string) $imageSelectedUrl;
+            if (strpos($pickUrl, 'assets/images/cases/') === 0
+                && strpos($pickUrl, '..') === false
+                && is_file(__DIR__ . '/assets/images/cases/' . basename($pickUrl))) {
+                $newImagePath = $pickUrl;
+            }
+        }
+        // 3) Отвязка: только когда нет ни файла, ни выбора из пикера
+        elseif (!empty($_POST['removeImage']) && $_POST['removeImage'] === '1') {
             $newImagePath = null;
         }
         

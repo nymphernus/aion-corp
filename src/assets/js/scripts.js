@@ -974,7 +974,7 @@ document.addEventListener('click', function(e) {
     if (!btn) return;
     e.preventDefault();
     const filename = btn.dataset.file;
-    
+
     confirmAction('Удалить файл?', 
         'Файл ' + filename + ' будет удалён с диска. Если он используется компонентом — ссылка станет битой.',
         () => {
@@ -983,4 +983,50 @@ document.addEventListener('click', function(e) {
             form.submit();
         }
     );
+});
+
+// --- БЛОК 3: пикер существующих изображений ---
+// Открытие пикера из модалки корпуса
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[data-action="open-file-picker"]')) return;
+    e.preventDefault();
+    const picker = document.getElementById('filePickerModal');
+    if (picker) picker.showModal();
+});
+
+// Выбор файла в пикере: превью в основной модалке + скрытое поле с URL
+document.addEventListener('click', function(e) {
+    const item = e.target.closest('[data-action="pick-file"]');
+    if (!item) return;
+    e.preventDefault();
+
+    const url = item.dataset.url;
+
+    const img = document.getElementById('imagePreviewImg');
+    const placeholder = document.getElementById('imagePreviewPlaceholder');
+    const removeBtn = document.getElementById('removeImageBtn');
+    if (!img) return;
+
+    img.src = url;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+    removeBtn.hidden = false;
+
+    // URL уходит в hidden- поле формы (иначе сервер о выборе не узнает)
+    let hidden = document.getElementById('imageSelectedUrl');
+    if (!hidden) {
+        hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'image_selected_url';
+        hidden.id = 'imageSelectedUrl';
+        document.querySelector('#addComponentModal form').appendChild(hidden);
+    }
+    hidden.value = url;
+
+    // Файловый ввод сбрасываем: файл vs выбор существующего не должны
+    // срабатывать одновременно
+    document.getElementById('imageFileInput').value = '';
+    document.getElementById('removeImageFlag').value = '0';
+
+    document.getElementById('filePickerModal').close();
 });

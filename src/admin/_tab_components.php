@@ -271,6 +271,12 @@ if ($result) {
                                                style="display:none">
                                         Выбрать файл
                                     </label>
+                                    <!-- БЛОК 3: выбор из уже загруженных файлов cases/ -->
+                                    <button type="button"
+                                            class="btn btn--ghost btn--sm"
+                                            data-action="open-file-picker">
+                                        Выбрать из загруженных
+                                    </button>
                                     <button type="button" 
                                             class="btn btn--ghost btn--sm"
                                             data-action="remove-component-image"
@@ -475,3 +481,66 @@ if ($result) {
                          потому что форму отправляет form.submit() -->
                     <input type="hidden" name="deleteComponent" value="1">
                 </form>
+
+                <!-- БЛОК 3: пикер существующих файлов cases/ для модалки корпуса.
+                     Сортировка по ДОП-3: непривязанные файлы сверху, внутри
+                     групп - натуральный порядок по имени. -->
+                <dialog id="filePickerModal" class="modal modal--wide">
+                    <div class="modal-form">
+                        <h2>Выбрать изображение</h2>
+
+                        <div class="file-picker-grid" id="filePickerGrid">
+<?php
+                        // Сбор файлов + флаг привязки. Привязка может храниться
+                        // с ведущим слешем и без него - считаем по basename.
+                        $pickerDir = dirname(__DIR__) . '/assets/images/cases/';
+                        $pickerImages = [];
+                        foreach (scandir($pickerDir) as $name) {
+                            if ($name === '.' || $name === '..' || $name[0] === '.') continue;
+                            $p = $pickerDir . $name;
+                            if (!is_file($p)) continue;
+                            $pickerImages[$name] = [
+                                'name' => $name,
+                                'url' => 'assets/images/cases/' . $name,
+                                'used' => false,
+                            ];
+                        }
+                        $pstmt = db_prepare($mysql, "SELECT image FROM components WHERE image IS NOT NULL", "");
+                        $pstmt->execute();
+                        $pres = $pstmt->get_result();
+                        while ($prow = $pres->fetch_assoc()) {
+                            $pb = basename($prow['image']);
+                            if (isset($pickerImages[$pb])) {
+                                $pickerImages[$pb]['used'] = true;
+                            }
+                        }
+                        usort($pickerImages, function ($a, $b) {
+                            if ($a['used'] !== $b['used']) return $a['used'] ? 1 : -1;
+                            return strnatcasecmp($a['name'], $b['name']);
+                        });
+                        foreach ($pickerImages as $pf):
+?>
+                            <button type="button"
+                                    class="file-picker-item"
+                                    data-action="pick-file"
+                                    data-url="<?= escape($pf['url']) ?>">
+                                <img src="<?= escape($pf['url']) ?>"
+                                     alt="" loading="lazy">
+                                <div class="file-picker-item__name">
+                                    <?= escape($pf['name']) ?>
+                                    <?php if (!$pf['used']): ?>
+                                        <span class="badge badge--warning">не используется</span>
+                                    <?php endif; ?>
+                                </div>
+                            </button>
+<?php endforeach; ?>
+                        </div>
+
+                        <div class="modal-actions">
+                            <div class="modal-actions-right">
+                                <button type="button" class="btn btn--secondary"
+                                        data-action="close-modal">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                </dialog>
