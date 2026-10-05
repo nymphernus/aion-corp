@@ -26,8 +26,8 @@
 
 .comp-card {
     display: flex;
-    gap: 16px;
-    padding: 20px;
+    gap: 20px;
+    padding: 24px;
     background: white;
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -39,32 +39,22 @@
 }
 
 .comp-card__icon {
-    width: 56px;
-    height: 56px;
+    width: 72px;
+    height: 72px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg);
-    border-radius: 10px;
+    border-radius: 14px;
 }
-/* 7.5: иконка компонента - svg, а не картинка.
-
-   Цвет задан на .comp-card__icon, а не на самом svg: обводка идёт
-   через currentColor, и он берётся у ближайшего предка, который цвет
-   задал. Задавать цвет на svg пришлось бы одиннадцать раз, и смена
-   акцента темы перестала бы быть одной правкой.
-
-   Правило для svg, а не по классу: класс на иконке есть, но svg
-   получится и из icon() в другом месте страницы, и размер тогда
-   задаст тот, кто вызвал. Ниже .icon идёт общий размер - как
-   страховка от схлопывания в ноль, если кто-то вызовет icon() без
-   размера.
-
-   width и height, а не только max-width: без них flex-элемент внутри
-   контейнера 56x56 тянулся бы по содержимому, и на длинной подписи
-   карточки иконка съезжала. */
+/* 8: размер svg в карточке задаётся здесь, атрибуты width/height в
+   разметке (28) остаются запасом на случай, когда css не загрузился.
+   Селектор по классу .icon, а не по тегу: icon() выводит svg и в
+   других местах страницы, и там размер задаёт вызвавший. */
 .comp-card__icon .icon {
+    width: 40px;
+    height: 40px;
     /* 7.5: серый, а не акцентный. Акцентный цвет на иконке читался
        как «здесь что-то настраивается» - знак того же смысла, что у
        ссылки. Иконка компонента описывает, что стоит в сборке, а не
@@ -125,34 +115,38 @@
     min-width: 0;
 }
 
+/* 8: типографика карточки увеличена с 11/16/13 до 13/19/14.5 и
+   дальше: страница сборки - витрина, где каждое слово читают, а не
+   просматривают список. Карточки в профиль и админке - свои классы,
+   эта правка их не задевает. */
 .comp-card__category {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .comp-card__name {
-    font-size: 16px;
+    font-size: 19px;
     font-weight: 600;
     color: var(--text);
-    margin-bottom: 4px;
-    line-height: 1.3;
+    margin-bottom: 6px;
+    line-height: 1.25;
     word-break: break-word;
 }
 
 .comp-card__brief {
-    font-size: 13px;
+    font-size: 14.5px;
     color: var(--text-secondary);
 }
 
 .comp-card__details {
-    margin-top: 12px;
+    margin-top: 14px;
 }
 .comp-card__details summary {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--accent);
     cursor: pointer;
     user-select: none;
@@ -173,7 +167,7 @@
 .comp-card__details summary::before {
     content: '\25B8';
     display: inline-block;
-    font-size: 11px;
+    font-size: 12px;
 }
 /* Поворот без transition: с анимацией Chrome держит transform на
    summary::before залипшим на нуле, проверено замерами через 30, 100,
@@ -182,12 +176,16 @@
     transform: rotate(90deg);
 }
 
+.comp-card__details[open] summary {
+    margin-bottom: 12px;
+}
+
 .comp-card__full {
     margin-top: 12px;
-    padding: 14px;
+    padding: 16px;
     background: var(--bg);
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
 }
 .comp-card__description {
@@ -198,17 +196,19 @@
 .comp-specs {
     display: grid;
     grid-template-columns: max-content 1fr;
-    gap: 6px 16px;
+    gap: 8px 20px;
     margin: 0;
 }
 .comp-specs dt {
     color: var(--text-secondary);
     font-weight: 500;
+    font-size: 14px;
 }
 .comp-specs dd {
     margin: 0;
     color: var(--text);
     word-break: break-word;
+    font-size: 14px;
 }
 
 /* --- сводка сборки --- */
@@ -241,7 +241,7 @@
 }
 
 .build-summary__title {
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 700;
     color: var(--text);
     text-align: center;
@@ -250,14 +250,14 @@
 }
 
 .build-summary__number {
-    font-size: 13px;
+    font-size: 15px;
     color: var(--text-secondary);
     text-align: center;
     margin-bottom: 20px;
 }
 
 .build-summary__price {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
     color: var(--accent);
     text-align: center;
@@ -275,8 +275,8 @@
 }
 .build-summary__actions .btn {
     width: 100%;
-    height: 48px;
-    font-size: 15px;
+    height: 52px;
+    font-size: 16px;
     justify-content: center;
 }
 .build-summary__form {
@@ -285,13 +285,38 @@
     gap: 10px;
 }
 .build-summary__hint {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--text-secondary);
     text-align: center;
     margin: 8px 0 0;
 }
 
 /* --- адаптив --- */
+
+/* 8: на узких экранах размеры возвращаются ближе к прежним: рамка
+   72px и текст 19px при ширине колонки 320-400px съедали бы строку
+   названия, а карточек на странице много - важнее вмещать. */
+@media (max-width: 768px) {
+    .comp-card {
+        padding: 20px;
+        gap: 16px;
+    }
+    .comp-card__icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+    }
+    .comp-card__icon .icon {
+        width: 32px;
+        height: 32px;
+    }
+    .comp-card__name {
+        font-size: 17px;
+    }
+    .comp-card__brief {
+        font-size: 13.5px;
+    }
+}
 
 @media (max-width: 1024px) {
     .build-layout {
