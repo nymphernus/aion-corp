@@ -94,20 +94,12 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
 
                             <div class="modal-row">
                                 <div class="form-group">
-                                    <label class="form-label" for="setSiteName">Короткое название</label>
+                                    <label class="form-label" for="setSiteName">Название сайта</label>
                                     <input class="input" name="site_name" id="setSiteName"
-                                           maxlength="50"
-                                           value="<?= escape(site_setting($settings, 'site_name')) ?>"
-                                           placeholder="AION CORP">
-                                    <p class="form-hint">Заголовок вкладки и подпись в шапке</p>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="setSiteNameFull">Полное название</label>
-                                    <input class="input" name="site_name_full" id="setSiteNameFull"
                                            maxlength="100"
-                                           value="<?= escape(site_setting($settings, 'site_name_full')) ?>"
-                                           placeholder="AION CORPORATION">
-                                    <p class="form-hint">Крупная надпись на главной и в подвале</p>
+                                           value="<?= escape(site_setting($settings, 'site_name')) ?>"
+                                           placeholder="Aion Corporation">
+                                    <p class="form-hint">Отображается в шапке, подвале, заголовке вкладки и на главной</p>
                                 </div>
                             </div>
 
@@ -119,14 +111,22 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
                             </div>
 
                             <div class="form-group">
+                                <label class="form-label" for="setFoundedYear">Год основания</label>
+                                <input class="input" name="site_founded_year" id="setFoundedYear"
+                                       maxlength="4" inputmode="numeric" pattern="\d{4}"
+                                       value="<?= escape(site_setting($settings, 'site_founded_year', '2022')) ?>">
+                                <p class="form-hint">Отображается в подвале как «© 2022 Название». Проект основан один раз — год не должен уезжать вперёд сам.</p>
+                            </div>
+
+                            <div class="form-group">
                                 <label class="form-label" for="setFooterCopyright">Копирайт в подвале</label>
                                 <input class="input" name="site_footer_copyright" id="setFooterCopyright"
                                        maxlength="120"
                                        value="<?= escape(site_setting($settings, 'site_footer_copyright')) ?>"
-                                       placeholder="© 2026 AION CORPORATION">
+                                       placeholder="© 2022 Aion Corporation">
                                 <p class="form-hint">
-                                    Пусто — подвал соберётся как «© текущий год» плюс
-                                    полное название. Год подставляется сам.
+                                    Пусто — подвал соберётся как «© год основания»
+                                    плюс название сайта.
                                 </p>
                             </div>
 

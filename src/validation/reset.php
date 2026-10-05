@@ -11,7 +11,7 @@
  */
 require_once __DIR__ . '/../modules/site.php';
 
-$resetSiteName = 'AION CORP';
+$resetSiteName = 'Aion Corporation';
 $resetMysql = @connect();
 if ($resetMysql instanceof mysqli) {
     $resetSettings = site_settings($resetMysql);

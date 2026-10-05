@@ -311,16 +311,21 @@ $settings = [
     'contact_vk' => '',
     'contact_telegram' => '',
     'contact_whatsapp' => '',
-    // Stage 9: брендинг
-    'site_name' => 'AION CORP',
-    'site_name_full' => 'AION CORPORATION',
+    // Stage 9: брендинг. Название одно - site_name. Раньше было два ключа
+    // («короткое» и «полное»), но различать их было незачем: в шапке,
+    // подвале, заголовке вкладки и на главной всё равно требовалось одно
+    // и то же написание, а редактировать приходилось два поля.
+    'site_name' => 'Aion Corporation',
+    // Год основания, а не текущий год: проект основан один раз, и
+    // «© 2026» вместо «© 2022» менялось бы само собой каждый январь.
+    'site_founded_year' => '2022',
     'site_description' => 'Уникальные компьютеры для игр, стриминга, работы с графикой, видео и большими объёмами данных',
     'site_logo_url' => '/assets/images/logo.png',
     'site_favicon_url' => '/assets/images/favicon.svg',
     'site_favicon_png_url' => '/assets/images/favicon.png',
-    // Копирайт по умолчанию пустой: пустое значение означает «© год +
-    // полное название», и при смене бренда подвал меняется сам. Иначе в
-    // нём навсегда осталось бы имя прежнего владельца.
+    // Копирайт по умолчанию пустой: пустое значение означает «© год
+    // основания + название», и при смене бренда подвал меняется сам.
+    // Иначе в нём навсегда осталось бы имя прежнего владельца.
     'site_footer_copyright' => '',
 ];
 foreach ($settings as $key => $value) {
@@ -333,6 +338,41 @@ foreach ($settings as $key => $value) {
     mig_exec($mysql, $dryRun, "INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)", [$key, $value], "ss");
     mig_log("  [insert] setting $key");
 }
+
+// Одноразовая миграция: два названия -> одно.
+//
+// Раньше настройки назывались site_name («короткое») и site_name_full
+// («полное»). Разделение было лишним, и теперь значения должны быть
+// слиты. Порядок важен: сначала значение переносится в site_name, и
+// только потом старый ключ удаляется, иначе потерялось бы и то, и другое.
+$stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = 'site_name_full'", "");
+$stmt->execute();
+$legacyFullName = trim((string) ($stmt->get_result()->fetch_row()[0] ?? ''));
+
+if ($legacyFullName !== '') {
+    $stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = 'site_name'", "");
+    $stmt->execute();
+    $currentName = trim((string) ($stmt->get_result()->fetch_row()[0] ?? ''));
+
+    if ($currentName === '') {
+        // Переносим единственное непустое значение
+        mig_exec(
+            $mysql,
+            $dryRun,
+            "UPDATE site_settings SET setting_value = ? WHERE setting_key = 'site_name'",
+            [$legacyFullName],
+            "s"
+        );
+        mig_log("  [migrate] site_name <- site_name_full ($legacyFullName)");
+    } else {
+        // Оба непустые: оставляем site_name как есть - он и есть
+        // каноническое название, - но сообщаем, что было расхождение
+        mig_log("  [migrate] site_name_full ($legacyFullName) удаляется, site_name ($currentName) остаётся");
+    }
+}
+
+mig_exec($mysql, $dryRun, "DELETE FROM site_settings WHERE setting_key = 'site_name_full'", []);
+mig_log("  [migrate] удалён ключ site_name_full");
 
 $mysql->close();
 mig_log('=== migrate завершён ===');

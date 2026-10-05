@@ -155,10 +155,10 @@ $socials = array_filter([
                 <div class="hero">
                     <div class="hero__content">
                         <?php // Stage 9: название и описание из site_settings.
-                              // $siteNameFull и $siteDescription определены в
+                              // $siteName и $siteDescription определены в
                               // header.php, подключённом выше, и доступны здесь
                               // как обычные переменные. ?>
-                        <h1 class="hero__title"><?= escape($siteNameFull) ?></h1>
+                        <h1 class="hero__title"><?= escape($siteName) ?></h1>
 <?php if ($siteDescription !== ''): ?>
                         <p class="hero__lead"><?= escape($siteDescription) ?></p>
 <?php endif; ?>

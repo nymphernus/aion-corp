@@ -30,8 +30,7 @@ if (!isset($settings) || !is_array($settings)) {
     $settings = ($brandMysql instanceof mysqli) ? site_settings($brandMysql) : [];
 }
 
-$siteName = site_setting($settings, 'site_name', 'AION CORP');
-$siteNameFull = site_setting($settings, 'site_name_full', $siteName);
+$siteName = site_setting($settings, 'site_name', 'Aion Corporation');
 $siteDescription = site_setting($settings, 'site_description', '');
 $siteLogo = site_setting($settings, 'site_logo_url', '/assets/images/logo.png');
 $siteFavicon = site_setting($settings, 'site_favicon_url', '/assets/images/favicon.svg');
@@ -46,14 +45,17 @@ $isLoggedIn = isset($_SESSION['user_id']);
 <head>
     <meta charset="utf-8">
 <?php // Заголовок вкладки. Если страница задала свой, он дополняется
-      // названием сайта («Админ-панель — AION CORP»). Без этого каждая
-      // страница должна была бы знать название компании, и смена бренда
-      // ломала бы их все. Сам бренд при этом не дублируется, если он уже
-      // есть в заголовке страницы.
-      if ($pageTitle === null || $pageTitle === '') {
+      // названием сайта («Админ-панель — Aion Corporation»). Без этого
+      // каждая страница должна была бы знать название компании, и смена
+      // бренда ломала бы их все.
+      //
+      // Дублирования нет в трёх случаях: заголовок пуст (главная),
+      // заголовок совпадает с названием, либо название уже упоминается в
+      // нём — иначе выходило бы «Aion Corporation — Aion Corporation».
+      if ($pageTitle === null || trim((string) $pageTitle) === '') {
           $fullTitle = $siteName;
-      } elseif ($pageTitle === $siteName || str_contains($pageTitle, $siteName)) {
-          $fullTitle = $pageTitle;
+      } elseif (trim((string) $pageTitle) === $siteName || str_contains((string) $pageTitle, $siteName)) {
+          $fullTitle = (string) $pageTitle;
       } else {
           $fullTitle = $pageTitle . ' — ' . $siteName;
       } ?>

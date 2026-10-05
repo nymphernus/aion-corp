@@ -681,11 +681,12 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     // Здесь только значения, ключ берётся из этого списка.
     // Stage 9: добавились ключи брендинга - по тому же правилу, что и
     // контакты: правится только то, что перечислено здесь.
+    // site_name_full больше нет: два названия были лишними, теперь одно.
     $allowed = [
         'contact_phone', 'contact_email',
         'contact_vk', 'contact_telegram', 'contact_whatsapp',
         'map_address_text',
-        'site_name', 'site_name_full', 'site_description',
+        'site_name', 'site_description', 'site_founded_year',
         'site_logo_url', 'site_favicon_url', 'site_favicon_png_url',
         'site_footer_copyright',
     ];
@@ -768,10 +769,14 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     // Название сайта не должно быть пустым: иначе заголовок вкладки и
     // подпись в шапке останутся без текста. Подставляется дефолт.
     if (array_key_exists('site_name', $values) && $values['site_name'] === '') {
-        $values['site_name'] = 'AION CORP';
+        $values['site_name'] = 'Aion Corporation';
     }
-    if (array_key_exists('site_name_full', $values) && $values['site_name_full'] === '') {
-        $values['site_name_full'] = $values['site_name'];
+    // Год основания: 4 цифры. Мусор в это поле попал бы прямо в подвал.
+    if (array_key_exists('site_founded_year', $values)) {
+        $year = $values['site_founded_year'];
+        if ($year === '' || preg_match('/^\d{4}$/', $year) !== 1) {
+            $values['site_founded_year'] = '2022';
+        }
     }
     // Логотип и фавикон: без ссылки отдаются штатные файлы проекта,
     // иначе шапка осталась бы без картинки после неудачной загрузки.

@@ -21,19 +21,16 @@ if (!isset($settings) || !is_array($settings)) {
 }
 
 $footerCopyright = site_setting($settings, 'site_footer_copyright', '');
-$siteNameFull = site_setting($settings, 'site_name_full', 'AION CORPORATION');
+$siteName = site_setting($settings, 'site_name', 'Aion Corporation');
+$foundedYear = site_setting($settings, 'site_founded_year', '2022');
 
 // Пустая настройка копирайта - не повод показывать «©» без названия.
+// Год подставляется из site_founded_year, а не из date('Y'): проект
+// основан один раз, и «© 2026» вместо «© 2022» уезжало бы само
+// собой каждый январь.
 if (trim($footerCopyright) === '') {
-    $footerCopyright = '© ' . date('Y') . ' ' . $siteNameFull;
+    $footerCopyright = '© ' . $foundedYear . ' ' . $siteName;
 }
-// Год в копирайте обновляем сам: иначе после смены названия пришлось бы
-// править и год, а он всё равно устаревает сам по себе.
-$footerCopyright = preg_replace(
-    '/(?:©|&copy;)\s*\d{4}/u',
-    '© ' . date('Y'),
-    $footerCopyright
-);
 
 $extraJs = $extraJs ?? [];
 ?>
