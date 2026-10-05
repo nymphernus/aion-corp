@@ -817,18 +817,30 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 8: загрузка изображения корпуса отвергает файл > 5 МБ.
+     * 8: загрузка изображения корпуса отвергает файл больше 10 МБ.
+     *
+     * Лимит поднят до 10 МБ (Stage 8-финал). Файл делаем настоящим JPEG
+     * чуть больше лимита: иначе сначала сработает не наша проверка размера,
+     * а finfo/getimagesize или INI-лимит, и тест проверял бы не то.
      */
     public function testUploadRejectsOversized(): void
     {
         $this->loginAsAdmin();
         $page = $this->httpGet('/admin.php?tab=components');
         $token = $this->extractCsrf($page['body']);
-        
-        // Создаём временный файл > 5 МБ
+
+        // настоящий JPEG 10 МБ + 1 байт: GD откроет его, но наш
+        // размерный лимит сработает раньше конвертации
         $tmp = tempnam(sys_get_temp_dir(), 'test');
-        file_put_contents($tmp, str_repeat('A', 5 * 1024 * 1024 + 1));
-        
+        $im = imagecreatetruecolor(200, 200);
+        imagejpeg($im, $tmp, 100);
+        imagedestroy($im);
+        // добиваем до > 10 МБ полезной нагрузкой после EOI-маркера:
+        // finfo/getimagesize читают заголовок, декодер тоже переживёт
+        $handle = fopen($tmp, 'ab');
+        fwrite($handle, str_repeat('A', 10 * 1024 * 1024));
+        fclose($handle);
+
         $response = $this->httpPostMultipart('/admin.php?tab=components', [
             'csrf_token' => $token,
             'addComponent' => '1',
@@ -886,14 +898,17 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 8: удаление файла отвергает файл, привязанный к компоненту.
+     * 8: удаление привязанного файла — двойная защита.
+     *
+     * Модель Stage 8-финал: удаление доступно только из архива, поэтому
+     * живой (привязанный) файл получает отказ need_archive ещё до проверки
+     * привязки, а архивировать привязанный нельзя (used). Обе защиты
+     * проверяются.
      */
     public function testDeleteFileRejectsUsed(): void
     {
         $this->loginAsAdmin();
-        $page = $this->httpGet('/admin.php?tab=files');
-        $token = $this->extractCsrf($page['body']);
-        
+
         // Находим используемый файл
         $mysql = connect();
         $stmt = db_prepare($mysql, "SELECT image FROM components WHERE image IS NOT NULL AND category_id = 6 LIMIT 1");
@@ -903,43 +918,60 @@ final class AdminTest extends AionTestCase
         $this->assertNotNull($row, 'в базе должен быть корпус с изображением');
         $filename = basename($row['image']);
 
+        // удаление живого файла - need_archive (привязка тут не доигрывается)
+        $page = $this->httpGet('/admin.php?tab=files');
         $response = $this->httpPost('/admin.php?tab=files', [
-            'csrf_token' => $token,
+            'csrf_token' => $this->extractCsrf($page['body']),
             'deleteFile' => '1',
             'filename' => $filename,
         ]);
-
-        // 302 назад на files с ошибкой used
         $this->assertSame(302, $response['code']);
-        $this->assertStringContainsString('error=used', $response['location']);
+        $this->assertStringContainsString('error=need_archive', $response['location']);
+
+        // архивировать привязанный - used
+        $page2 = $this->httpGet('/admin.php?tab=files');
+        $response2 = $this->httpPost('/admin.php?tab=files', [
+            'csrf_token' => $this->extractCsrf($page2['body']),
+            'archiveFile' => '1',
+            'filename' => $filename,
+        ]);
+        $this->assertSame(302, $response2['code']);
+        $this->assertStringContainsString('error=used', $response2['location']);
     }
 
     /**
-     * 8: удаление файла работает для неиспользуемого файла.
+     * 8: удаление неиспользуемого файла - тоже через архив (модель финала).
      */
     public function testDeleteFileWorks(): void
     {
         $this->loginAsAdmin();
-        $page = $this->httpGet('/admin.php?tab=files');
-        $token = $this->extractCsrf($page['body']);
-        
-        // Создаём тестовый файл прямо в cases/ (volume монтирует ./src,
-        // поэтому файл виден и тесту, и контейнеру по одному пути)
+
         $dir = dirname(__DIR__) . '/assets/images/cases/';
+        $archiveDir = $dir . '_archive/';
         $filename = 'test-delete-' . uniqid() . '.jpg';
         $path = $dir . $filename;
         file_put_contents($path, 'dummy');
 
-        $response = $this->httpPost('/admin.php?tab=files', [
-            'csrf_token' => $token,
+        // шаг 1: архивировать (orphan - пройдёт)
+        $page = $this->httpGet('/admin.php?tab=files');
+        $r1 = $this->httpPost('/admin.php?tab=files', [
+            'csrf_token' => $this->extractCsrf($page['body']),
+            'archiveFile' => '1',
+            'filename' => $filename,
+        ]);
+        $this->assertSame(302, $r1['code']);
+        $this->assertFileDoesNotExist($path);
+
+        // шаг 2: удалить из архива
+        $page2 = $this->httpGet('/admin.php?tab=files');
+        $r2 = $this->httpPost('/admin.php?tab=files', [
+            'csrf_token' => $this->extractCsrf($page2['body']),
             'deleteFile' => '1',
             'filename' => $filename,
         ]);
-
-        // 302 назад на files без ошибки: файл не привязан, удаление прошло
-        $this->assertSame(302, $response['code']);
-        $this->assertStringNotContainsString('error=', $response['location']);
-        $this->assertFileDoesNotExist($path);
+        $this->assertSame(302, $r2['code']);
+        $this->assertStringNotContainsString('error=', $r2['location']);
+        $this->assertFileDoesNotExist($archiveDir . $filename);
     }
 
     /**
