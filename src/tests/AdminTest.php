@@ -851,19 +851,38 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 8: файловый менеджер показывает файлы.
+     * 8: файловый менеджер показывает файлы и сводные счётчики.
+     *
+     * Типы статусных бейджей зависят от состава данных (после чистки PNG
+     * все файлы привязаны), поэтому проверяем только живую разметку карточек
+     * и работы сводки, а механику фильтра - по появлению кнопки сброса.
      */
     public function testFileManagerShowsFiles(): void
     {
         $this->loginAsAdmin();
         $page = $this->httpGet('/admin.php?tab=files');
-        
+
         $this->assertSame(200, $page['code']);
         $this->assertStringContainsString('Изображения', $page['body']);
         $this->assertStringContainsString('всего файлов', $page['body']);
         $this->assertStringContainsString('file-card', $page['body']);
-        $this->assertStringContainsString('badge--success', $page['body']);  // используется
-        $this->assertStringContainsString('badge--warning', $page['body']);  // не используется
+
+        // на карточках есть статусные бейджи хотя бы одного вида
+        $hasBadge = str_contains($page['body'], 'badge--success')
+                 || str_contains($page['body'], 'badge--warning');
+        $this->assertTrue($hasBadge, 'карточки файлов должны нести статусный бейдж');
+
+        // сводка показывает счётчик неиспользуемых (число, может быть 0)
+        $this->assertMatchesRegularExpression(
+            '/files-stat__label">не используется/u',
+            $page['body'],
+            'в сводке должен быть блок «не используется»'
+        );
+
+        // при активном фильтре появляется кнопка сброса
+        $p2 = $this->httpGet('/admin.php?tab=files&filter=used');
+        $this->assertSame(200, $p2['code']);
+        $this->assertStringContainsString('>Сбросить</a>', $p2['body']);
     }
 
     /**
