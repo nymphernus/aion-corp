@@ -140,9 +140,15 @@ if (!function_exists('process_uploaded_image')) {
      * @param string $tmpPath   путь к исходному файлу (tmp_name)
      * @param string $targetDir каталог сохранения (со слешем на конце)
      * @param string $slug      база имени файла без расширения
+     * @param int|null $maxWidth максимальная ширина в px; null - не
+     *        уменьшать. Нужен для логотипа: он показывается в шапке
+     *        шириной 200px, а хранить его в исходном размере смысла нет.
+     *        Картинки корпусов передают null - там уменьшение не
+     *        требуется и портит качество при лишнем пересчёте пикселей.
+     *        Кадры анимации не трогаются: GIF копируется байтово.
      * @return array{path: string, ext: string}|null null при неудаче
      */
-    function process_uploaded_image(string $tmpPath, string $targetDir, string $slug): ?array
+    function process_uploaded_image(string $tmpPath, string $targetDir, string $slug, ?int $maxWidth = null): ?array
     {
         $mime = detect_image_mime($tmpPath);
         if ($mime === '') {
@@ -171,17 +177,33 @@ if (!function_exists('process_uploaded_image')) {
         }
 
         try {
+            $srcW = imagesx($im);
+            $srcH = imagesy($im);
+
+            // Уменьшение только если ширина больше лимита. Пропорции
+            // сохраняются, иначе логотип растянулся бы по высоте.
+            $outW = $srcW;
+            $outH = $srcH;
+            if ($maxWidth !== null && $maxWidth > 0 && $srcW > $maxWidth) {
+                $outW = $maxWidth;
+                $outH = max(1, (int) round($srcH * ($maxWidth / $srcW)));
+            }
+
             // Пиксели копируем в новый truecolor с отключённым
             // блендингом: иначе полупрозрачные области смешались бы с
             // чёрным и потеряли исходную альфу.
-            $out = imagecreatetruecolor(imagesx($im), imagesy($im));
+            $out = imagecreatetruecolor($outW, $outH);
             imagealphablending($out, false);
             imagesavealpha($out, true);
             // Заливка прозрачью: у результата всегда есть альфа-канал,
             // даже когда источник был непрозрачным JPG.
             imagefill($out, 0, 0, imagecolorallocatealpha($out, 0, 0, 0, 127));
 
-            if (!imagecopy($out, $im, 0, 0, 0, 0, imagesx($im), imagesy($im))) {
+            $copied = ($outW === $srcW && $outH === $srcH)
+                ? imagecopy($out, $im, 0, 0, 0, 0, $srcW, $srcH)
+                : imagecopyresampled($out, $im, 0, 0, 0, 0, $outW, $outH, $srcW, $srcH);
+
+            if (!$copied) {
                 imagedestroy($out);
                 return null;
             }
@@ -214,6 +236,106 @@ if (!function_exists('slugify_image_name')) {
             $slug = 'case';
         }
         return substr($slug, 0, 40);
+    }
+}
+
+if (!function_exists('branding_store')) {
+    /**
+     * Приём картинки бренда (логотип, favicon) из формы настроек.
+     *
+     * Имя файла на диске фиксированное и берётся из белого списка: имя
+     * из POST не используется принципиально, иначе через него можно
+     * было бы записать что угодно в любой каталог.
+     *
+     * SVG-иконка сохраняется как есть: GD конвертирует в растр, а положить
+     * растр под именем .svg браузер не нарисует. Проверяются наличие <svg>
+     * и отсутствие <script> - иконка попадает в <head> каждой страницы.
+     *
+     * @param array|null $file  элемент $_FILES['...']
+     * @param string $target   logo | favicon
+     * @param string $setting  ключ site_settings для URL (не пишется здесь)
+     * @return array{url: string, is_svg: bool, error: ?string}
+     */
+    function branding_store(?array $file, string $target, string $setting): array
+    {
+        $files = [
+            'logo' => ['file' => 'logo.png', 'max_width' => 400],
+            'favicon' => ['file' => 'favicon.png', 'max_width' => 512],
+        ];
+        $cfg = $files[$target] ?? null;
+
+        if ($cfg === null || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return ['url' => '', 'is_svg' => false, 'error' => null];
+        }
+
+        // Логотип показывается в шапке шириной 200px, хранить его в
+        // исходном размере смысла нет.
+        if ((int) $file['size'] > 2 * 1024 * 1024) {
+            return ['url' => '', 'is_svg' => false, 'error' => 'branding_size'];
+        }
+
+        $mime = detect_image_mime($file['tmp_name']);
+        $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+        if (!in_array($mime, $allowed, true)) {
+            return ['url' => '', 'is_svg' => false, 'error' => 'branding_mime'];
+        }
+
+        // getimagesize() про векторные файлы не знает и возвращает false
+        // на валидном svg, поэтому для них проверка другая - ниже, по
+        // содержимому. Раньше проверка стояла до ветки и отклоняла любой
+        // svg-фavicon с ошибкой branding_image.
+        if ($mime !== 'image/svg+xml' && @getimagesize($file['tmp_name']) === false) {
+            return ['url' => '', 'is_svg' => false, 'error' => 'branding_image'];
+        }
+
+        $dir = __DIR__ . '/../assets/images/branding/';
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return ['url' => '', 'is_svg' => false, 'error' => 'branding_dir'];
+        }
+
+        // Признак возвращается наружу: вызывающий код решает, в какой
+        // ключ настройки положить ссылку. Для svg он определяется здесь,
+        // потому что дальше по коду ветка одна, а значение нужно и в
+        // случае успеха.
+        $isSvg = $mime === 'image/svg+xml';
+
+        // Расширение результата - по типу файла, а не по заготовке: svg
+        // обязан лежать под именем .svg, иначе браузер не нарисует его.
+        $base = pathinfo($cfg['file'], PATHINFO_FILENAME);
+        $path = $dir . $base . ($isSvg ? '.svg' : '.png');
+
+        if ($isSvg) {
+            $svg = (string) @file_get_contents($file['tmp_name']);
+            $looksLikeSvg = $svg !== ''
+                && str_contains(substr($svg, 0, 512), '<svg')
+                && preg_match('/<script/i', $svg) === 0;
+            if (!$looksLikeSvg) {
+                return ['url' => '', 'is_svg' => false, 'error' => 'branding_svg'];
+            }
+            // Временный файл с последующим rename: частичная запись
+            // оставила бы в шапке битую картинку.
+            $tmp = $path . '.tmp';
+            if (@file_put_contents($tmp, $svg, LOCK_EX) === false || !@rename($tmp, $path)) {
+                @unlink($tmp);
+                return ['url' => '', 'is_svg' => false, 'error' => 'branding_save'];
+            }
+            $url = '/assets/images/branding/' . $base . '.svg';
+        } else {
+            $result = process_uploaded_image($file['tmp_name'], $dir, $base, $cfg['max_width']);
+            if ($result === null || !is_file($result['path'])) {
+                @unlink($dir . $base . '.png');
+                return ['url' => '', 'is_svg' => false, 'error' => 'branding_save'];
+            }
+            $url = '/assets/images/branding/' . basename($result['path']);
+        }
+
+        @chmod($path, 0644);
+
+        // Версия в URL: без неё браузер продолжит показывать старую
+        // картинку из кеша. mtime меняется при каждой перезаписи.
+        $version = (string) @filemtime($path);
+
+        return ['url' => $url . '?v=' . $version, 'is_svg' => $isSvg, 'error' => null];
     }
 }
 

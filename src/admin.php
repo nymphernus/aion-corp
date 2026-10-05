@@ -692,7 +692,15 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
 
     $values = [];
     foreach ($allowed as $key) {
-        $raw = (string) ($_POST[$key] ?? '');
+        // Поля, которых нет в POST, не трогаются. Иначе любая частичная
+        // форма затирала бы остальные настройки пустыми: отсутствие поля
+        // означает «не менялось», а явная пустая строка - «очистить».
+        // На практике это всплыло в тесте, отправлявшем только ключи
+        // брендинга, и обнулило site_description.
+        if (!array_key_exists($key, $_POST)) {
+            continue;
+        }
+        $raw = (string) $_POST[$key];
         // trim убирает случайные пробелы по краям, но не трогает
         // внутренние: телефон и адрес пишутся как человек их ввёл
         $values[$key] = trim($raw);
@@ -703,12 +711,12 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     // выполнить произвольный скрипт. Пустая строка допустима - значит
     // иконку не показываем вовсе.
     foreach (['contact_vk', 'contact_telegram', 'contact_whatsapp'] as $linkKey) {
-        if ($values[$linkKey] === '') {
+        if (($values[$linkKey] ?? '') === '') {
             continue;
         }
-        if (!filter_var($values[$linkKey], FILTER_VALIDATE_URL)) {
+        if (!filter_var($values[$linkKey] ?? '', FILTER_VALIDATE_URL)) {
             $values[$linkKey] = '';
-        } elseif (!preg_match('#^https?://#i', $values[$linkKey])) {
+        } elseif (!preg_match('#^https?://#i', $values[$linkKey] ?? '')) {
             $values[$linkKey] = '';
         }
     }
@@ -718,7 +726,7 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     // админку на каждой странице. Принимается и абсолютный путь, и
     // относительный без слеша (в бате так хранятся картинки корпусов).
     foreach (['site_logo_url', 'site_favicon_url', 'site_favicon_png_url'] as $imgKey) {
-        $value = $values[$imgKey];
+        $value = $values[$imgKey] ?? '';
         if ($value === '') {
             continue;
         }
@@ -733,23 +741,47 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
         $values[$imgKey] = $normalized;
     }
 
+    // Логотип и favicon приходят файлами в эту же форму. Обработка
+    // идёт ДО проверки путей выше: при успешной загрузке значение
+    // site_logo_url должно быть новым, а не тем, что было в hidden-поле.
+    $logo = branding_store($_FILES['branding_logo'] ?? null, 'logo', 'site_logo_url');
+    if ($logo['url'] !== '') {
+        $values['site_logo_url'] = $logo['url'];
+    }
+
+    // Фавикон приходит одним файлом, а хранится в двух видах: svg для
+    // современных браузеров и png для старых, которые svg не понимают.
+    // Поэтому файл идёт в тот ключ, который соответствует его типу, а
+    // второй ключ при этом сбрасывается: оставить старый svg после
+    // загрузки нового png значило бы показывать старую иконку в
+    // современном браузере (он берёт первую поддерживаемую).
+    $favicon = branding_store($_FILES['branding_favicon'] ?? null, 'favicon', 'site_favicon_url');
+    if ($favicon['url'] !== '') {
+        if ($favicon['is_svg']) {
+            $values['site_favicon_url'] = $favicon['url'];
+        } else {
+            $values['site_favicon_png_url'] = $favicon['url'];
+            $values['site_favicon_url'] = '';
+        }
+    }
+
     // Название сайта не должно быть пустым: иначе заголовок вкладки и
     // подпись в шапке останутся без текста. Подставляется дефолт.
-    if ($values['site_name'] === '') {
+    if (array_key_exists('site_name', $values) && $values['site_name'] === '') {
         $values['site_name'] = 'AION CORP';
     }
-    if ($values['site_name_full'] === '') {
+    if (array_key_exists('site_name_full', $values) && $values['site_name_full'] === '') {
         $values['site_name_full'] = $values['site_name'];
     }
     // Логотип и фавикон: без ссылки отдаются штатные файлы проекта,
     // иначе шапка осталась бы без картинки после неудачной загрузки.
-    if ($values['site_logo_url'] === '') {
+    if (array_key_exists('site_logo_url', $values) && $values['site_logo_url'] === '') {
         $values['site_logo_url'] = '/assets/images/logo.png';
     }
-    if ($values['site_favicon_url'] === '') {
+    if (array_key_exists('site_favicon_url', $values) && $values['site_favicon_url'] === '') {
         $values['site_favicon_url'] = '/assets/images/favicon.svg';
     }
-    if ($values['site_favicon_png_url'] === '') {
+    if (array_key_exists('site_favicon_png_url', $values) && $values['site_favicon_png_url'] === '') {
         $values['site_favicon_png_url'] = '/assets/images/favicon.png';
     }
 
@@ -849,109 +881,6 @@ if ($isAdmin && isset($_POST['saveMapSnapshot'])) {
 
     csrf_rotate();
     header('Location: /admin.php?tab=settings');
-    exit();
-}
-
-// Stage 9: загрузка картинок бренда (логотип, фавикон).
-//
-// Отдельный обработчик от saveSettings: там приходят только строки, а
-// здесь файл. Имя файла на диске фиксированное и подставляется из
-// белого списка - имя из POST не используется принципиально, иначе через
-// него можно было бы записать что угодно в любой каталог.
-//
-// Запись идёт через временный файл с последующим rename: частичная
-// запись оставила бы в шапке битую картинку, а rename в пределах
-// каталога атомарен.
-if ($isAdmin && isset($_POST['uploadBranding'])) {
-    csrf_verify();
-
-    // что загружаем: logo | favicon_svg | favicon_png
-    $targets = [
-        'logo' => ['file' => 'logo.png', 'setting' => 'site_logo_url'],
-        'favicon_svg' => ['file' => 'favicon.svg', 'setting' => 'site_favicon_url'],
-        'favicon_png' => ['file' => 'favicon.png', 'setting' => 'site_favicon_png_url'],
-    ];
-    $target = $targets[(string) ($_POST['brandingTarget'] ?? '')] ?? null;
-
-    if ($target === null) {
-        header('Location: /admin.php?tab=settings&error=branding');
-        exit();
-    }
-
-    $file = $_FILES['branding_file'] ?? null;
-
-    if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        header('Location: /admin.php?tab=settings&error=branding');
-        exit();
-    }
-
-    // тот же лимит, что и у картинок корпусов
-    if ((int) $file['size'] > 2 * 1024 * 1024) {
-        header('Location: /admin.php?tab=settings&error=branding_size');
-        exit();
-    }
-
-    $mime = detect_image_mime($file['tmp_name']);
-    $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!in_array($mime, $allowedMimes, true)) {
-        header('Location: /admin.php?tab=settings&error=branding_mime');
-        exit();
-    }
-    if (@getimagesize($file['tmp_name']) === false) {
-        header('Location: /admin.php?tab=settings&error=branding_image');
-        exit();
-    }
-
-    $dir = __DIR__ . '/assets/images/branding';
-    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
-        header('Location: /admin.php?tab=settings&error=branding_dir');
-        exit();
-    }
-
-    $path = $dir . '/' . $target['file'];
-
-    // Фавикон-SVG приходит как svg-файл, но GD конвертирует в растр:
-    // сохранить векторную иконку через GD нельзя, а положить
-    // «картинку» с другим содержимым под именем .svg браузер не
-    // нарисует. Поэтому для svg-иконки файл принимается как есть,
-    // только после проверки сигнатуры.
-    if ($target['file'] === 'favicon.svg') {
-        $svg = (string) @file_get_contents($file['tmp_name']);
-        $isSvg = $svg !== ''
-            && str_contains(substr($svg, 0, 512), '<svg')
-            && preg_match('/<script/i', $svg) === 0;
-        if (!$isSvg) {
-            header('Location: /admin.php?tab=settings&error=branding_svg');
-            exit();
-        }
-        $tmp = $path . '.tmp';
-        if (@file_put_contents($tmp, $svg, LOCK_EX) === false || !@rename($tmp, $path)) {
-            @unlink($tmp);
-            header('Location: /admin.php?tab=settings&error=branding_save');
-            exit();
-        }
-    } else {
-        // Растр приводится к PNG тем же модулем, что и картинки корпусов:
-        // формат на выходе один, прозрачность сохраняется.
-        $result = process_uploaded_image($file['tmp_name'], $dir . '/', pathinfo($target['file'], PATHINFO_FILENAME));
-        if ($result === null || !is_file($result['path'])) {
-            @unlink($dir . '/' . pathinfo($target['file'], PATHINFO_FILENAME) . '.png');
-            header('Location: /admin.php?tab=settings&error=branding_save');
-            exit();
-        }
-    }
-
-    @chmod($path, 0644);
-
-    // Версия в URL: без неё браузер продолжит показывать старую картинку
-    // из кеша. mtime меняется при каждой перезаписи.
-    $version = (string) @filemtime($path);
-    site_setting_save($mysql, [
-        $target['setting'] => '/assets/images/branding/' . $target['file'] . '?v=' . $version,
-    ]);
-
-    csrf_rotate();
-    header('Location: /admin.php?tab=settings&branding=1');
     exit();
 }
 

@@ -1,7 +1,8 @@
 /**
- * Вкладка «Настройки сайта» — поиск адреса и снимок карты (5-f-2)
+ * Вкладка «Настройки сайта» — поиск адреса, снимок карты (5-f-2) и
+ * предпросмотр картинок бренда (Stage 9)
  *
- * Схема работы: админ вводит адрес, браузер спрашивает координаты у
+ * Схема работы с картой: админ вводит адрес, браузер спрашивает координаты у
  * Nominatim, показывает карту в модалке, из неё html2canvas делает PNG и
  * отправляет на сервер. На главной этот PNG показывается как <img> —
  * внешних запросов от посетителей нет вообще.
@@ -381,5 +382,38 @@
             e.preventDefault();
             geocodeAndPreview();
         }
+    });
+
+    // --- Stage 9: предпросмотр картинок бренда ---
+    //
+    // Файл выбирается в input, но отправляется только по «Сохранить».
+    // Без предпросмотра админ узнал бы о смене логотипа уже после
+    // сохранения, то есть на главной странице.
+    //
+    // FileReader, а не object URL: чтение в data URL ничего не оставляет
+    // в памяти, а object URL пришлось бы отзывать вручную.
+    var brandingPreviews = {
+        brandingLogoInput: 'logoPreview',
+        brandingFaviconInput: 'faviconPreview'
+    };
+
+    Object.keys(brandingPreviews).forEach(function (inputId) {
+        document.addEventListener('change', function (e) {
+            if (!e.target || e.target.id !== inputId) return;
+
+            var file = e.target.files && e.target.files[0];
+            if (!file) return;
+
+            var preview = byId(brandingPreviews[inputId]);
+            if (!preview) return;
+
+            var reader = new FileReader();
+            reader.onload = function (ev) {
+                preview.src = ev.target.result;
+                // картинка была битой, а теперь загружена новая
+                preview.classList.add('is-loaded');
+            };
+            reader.readAsDataURL(file);
+        });
     });
 })();

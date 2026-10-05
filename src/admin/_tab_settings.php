@@ -25,7 +25,12 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
                         на главной. Пустую ссылку в соцсеть иконка не показывает.
                     </p>
 
-                    <form method="post" action="/admin.php?tab=settings">
+                    <?php // enctype обязателен: в этой же форме загружаются
+                          // файлы бренда (логотип, favicon). Без него браузер
+                          // отправит только имена файлов, а $_FILES будет
+                          // пустым - и загрузка молча не сработала бы. ?>
+                    <form method="post" action="/admin.php?tab=settings"
+                          enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
                         <div class="modal-row">
@@ -72,8 +77,94 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
                                    placeholder="Москва, ул. Победы, д. 15">
                         </div>
 
+                        <!--
+                            Stage 9: брендинг. Секция внутри этой же формы,
+                            а не отдельная вкладка: всё под одним «Сохранить».
+                            Скрытые site_*_url нужны, когда картинку не
+                            загружают заново - тогда в POST уходит прежнее
+                            значение, и настройка не сбрасывается.
+                        -->
+                        <div class="settings-block">
+                            <h3 class="settings-block__title">Брендинг</h3>
+                            <p class="form-hint">
+                                Название и картинки сайта. Применяются на всех
+                                страницах: в заголовке вкладки, шапке, подвале
+                                и на главной.
+                            </p>
+
+                            <div class="modal-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="setSiteName">Короткое название</label>
+                                    <input class="input" name="site_name" id="setSiteName"
+                                           maxlength="50"
+                                           value="<?= escape(site_setting($settings, 'site_name')) ?>"
+                                           placeholder="AION CORP">
+                                    <p class="form-hint">Заголовок вкладки и подпись в шапке</p>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="setSiteNameFull">Полное название</label>
+                                    <input class="input" name="site_name_full" id="setSiteNameFull"
+                                           maxlength="100"
+                                           value="<?= escape(site_setting($settings, 'site_name_full')) ?>"
+                                           placeholder="AION CORPORATION">
+                                    <p class="form-hint">Крупная надпись на главной и в подвале</p>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="setSiteDescription">Описание</label>
+                                <textarea class="input" name="site_description" id="setSiteDescription"
+                                          rows="2" maxlength="300"><?= escape(site_setting($settings, 'site_description')) ?></textarea>
+                                <p class="form-hint">Подпись под названием на главной</p>
+                            </div>
+
+                            <div class="modal-row">
+                                <div class="form-group">
+                                    <label class="form-label">Логотип</label>
+                                    <div class="branding-preview">
+                                        <img src="<?= escape(site_setting($settings, 'site_logo_url', '/assets/images/logo.png')) ?>"
+                                             alt="Логотип" id="logoPreview">
+                                    </div>
+                                    <input type="hidden" name="site_logo_url"
+                                           value="<?= escape(site_setting($settings, 'site_logo_url')) ?>">
+                                    <label class="btn btn--secondary btn--sm">
+                                        <input type="file" id="brandingLogoInput"
+                                               name="branding_logo"
+                                               accept="image/png,image/jpeg,image/webp,image/gif"
+                                               style="display:none">
+                                        Загрузить новый логотип
+                                    </label>
+                                    <p class="form-hint">PNG, JPG, WebP до 2 МБ. Ширина уменьшается до 400px</p>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Favicon</label>
+                                    <div class="branding-preview branding-preview--icon">
+                                        <img src="<?= escape(site_setting($settings, 'site_favicon_png_url', '/assets/images/favicon.png')) ?>"
+                                             alt="Favicon" id="faviconPreview">
+                                    </div>
+                                    <input type="hidden" name="site_favicon_url"
+                                           value="<?= escape(site_setting($settings, 'site_favicon_url')) ?>">
+                                    <input type="hidden" name="site_favicon_png_url"
+                                           value="<?= escape(site_setting($settings, 'site_favicon_png_url')) ?>">
+                                    <label class="btn btn--secondary btn--sm">
+                                        <input type="file" id="brandingFaviconInput"
+                                               name="branding_favicon"
+                                               accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                                               style="display:none">
+                                        Загрузить новый favicon
+                                    </label>
+                                    <p class="form-hint">
+                                        SVG положит в svg-иконку, растр — в png.
+                                        Вторую иконку при этом сбросит, иначе
+                                        браузер показывал бы старую.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="modal-actions"><div class="modal-actions-right">
-                            <button type="submit" name="saveSettings" class="btn btn--primary">Сохранить контакты</button>
+                            <button type="submit" name="saveSettings" class="btn btn--primary">Сохранить</button>
                         </div>
                     </form>
                 </section>

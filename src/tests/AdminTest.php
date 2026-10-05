@@ -1326,6 +1326,150 @@ final class AdminTest extends AionTestCase
     }
 
     /**
+     * Stage 9: загрузка логотипа и favicon из формы настроек.
+     *
+     * Проверяется полный путь: файл уходит в branding/, уменьшается до
+     * 400px по ширине с сохранением пропорций, а site_settings получает
+     * новый путь с версией. Отдельно favicon- SVG: он кладётся как есть
+     * (GD конвертирует в растр, а растр под именем .svg браузер не
+     * нарисует) и при этом сбрасывает png-ключ - иначе браузер
+     * продолжал бы показывать старую иконку.
+     *
+     * Настройки восстанавливаются в finally.
+     */
+    public function testBrandingUploadSavesLogoAndFavicon(): void
+    {
+        $this->loginAsAdmin();
+
+        require_once dirname(__DIR__) . '/modules/site.php';
+
+        $mysql = connect();
+        $before = [];
+        // Все ключи брендинга, а не только картинки: обработчик
+        // сохраняет весь белый список, поэтому тест обязан вернуть всё,
+        // что задевает.
+        foreach (['site_logo_url', 'site_favicon_url', 'site_favicon_png_url', 'site_name'] as $key) {
+            $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $key);
+            $st->execute();
+            $before[$key] = (string) ($st->get_result()->fetch_row()[0] ?? '');
+        }
+        $mysql->close();
+
+        $brandingDir = dirname(__DIR__) . '/assets/images/branding';
+
+        // логотип 900x300 - шире лимита, значит должен уменьшиться
+        $logo = sys_get_temp_dir() . '/brand-test-logo.png';
+        $im = imagecreatetruecolor(900, 300);
+        imagealphablending($im, false);
+        imagesavealpha($im, true);
+        imagefill($im, 0, 0, imagecolorallocatealpha($im, 0, 0, 0, 127));
+        imagefilledrectangle($im, 40, 110, 260, 190, imagecolorallocate($im, 30, 90, 200));
+        imagepng($im, $logo);
+        imagedestroy($im);
+
+        $favicon = sys_get_temp_dir() . '/brand-test-favicon.svg';
+        file_put_contents(
+            $favicon,
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+            . '<rect width="32" height="32" fill="#1e40af"/></svg>'
+        );
+
+        try {
+            $page = $this->httpGet('/admin.php?tab=settings');
+            $this->assertSame(200, $page['code']);
+            // форма обязана быть multipart, иначе файлы не приедут
+            $this->assertStringContainsString(
+                'enctype="multipart/form-data"',
+                $page['body'],
+                'форма настроек должна принимать файлы'
+            );
+            $this->assertStringContainsString('name="branding_logo"', $page['body']);
+            $this->assertStringContainsString('name="branding_favicon"', $page['body']);
+
+            $r = $this->httpPostMultipart('/admin.php?tab=settings', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'saveSettings' => '1',
+                'site_name' => 'TEST CORP',
+                'site_name_full' => 'AION CORPORATION',
+                'site_logo_url' => $before['site_logo_url'],
+                'site_favicon_url' => $before['site_favicon_url'],
+                'site_favicon_png_url' => $before['site_favicon_png_url'],
+                'branding_logo' => ['name' => 'brand-test-logo.png', 'type' => 'image/png', 'tmp_name' => $logo],
+            ]);
+            $this->assertSame(302, $r['code']);
+
+            $mysql = connect();
+            $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", 'site_logo_url');
+            $st->execute();
+            $logoUrl = (string) $st->get_result()->fetch_row()[0];
+            $st2 = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", 'site_name');
+            $st2->execute();
+            $nameAfter = (string) $st2->get_result()->fetch_row()[0];
+            $mysql->close();
+
+            $this->assertSame('TEST CORP', $nameAfter, 'название должно сохраниться');
+            $this->assertStringContainsString('/assets/images/branding/logo.png', $logoUrl);
+            $this->assertStringContainsString('v=', $logoUrl, 'в URL нужна версия, иначе браузер покажет старый файл из кеша');
+
+            // файл на диске и он уменьшен
+            $savedLogo = dirname(__DIR__) . '/assets/images/branding/logo.png';
+            $this->assertFileExists($savedLogo);
+            $info = getimagesize($savedLogo);
+            $this->assertNotFalse($info);
+            $this->assertSame(400, (int) $info[0], 'логотип должен уменьшиться до 400px по ширине');
+            $this->assertSame(
+                133,
+                (int) $info[1],
+                'пропорции должны сохраниться: 900x300 -> 400x133'
+            );
+
+            // теперь favicon-файл в формате svg.
+            // Форму отправляем полной: обработчик сохраняет все ключи из
+            // белого списка, а отсутствующие поля приравниваются к пустым.
+            // Частичная отправка затёрла бы остальные настройки.
+            $page2 = $this->httpGet('/admin.php?tab=settings');
+            $r2 = $this->httpPostMultipart('/admin.php?tab=settings', [
+                'csrf_token' => $this->extractCsrf($page2['body']),
+                'saveSettings' => '1',
+                'site_name' => 'AION CORP',
+                'site_name_full' => 'AION CORPORATION',
+                'site_logo_url' => $logoUrl,
+                'site_favicon_url' => $before['site_favicon_url'],
+                'site_favicon_png_url' => $before['site_favicon_png_url'],
+                'branding_favicon' => ['name' => 'brand-test-favicon.svg', 'type' => 'image/svg+xml', 'tmp_name' => $favicon],
+            ]);
+            $this->assertSame(302, $r2['code']);
+
+            $mysql = connect();
+            $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", 'site_favicon_url');
+            $st->execute();
+            $favUrl = (string) $st->get_result()->fetch_row()[0];
+            $mysql->close();
+
+            $this->assertStringContainsString(
+                'favicon.svg',
+                $favUrl,
+                'загруженный svg должен занять svg-ключ'
+            );
+            $this->assertStringContainsString(
+                '<svg',
+                (string) @file_get_contents(dirname(__DIR__) . '/assets/images/branding/favicon.svg'),
+                'svg-файл должен быть сохранён как есть, а не перекодирован GD'
+            );
+        } finally {
+            $mysql = connect();
+            foreach ($before as $key => $value) {
+                db_prepare($mysql, "UPDATE site_settings SET setting_value = ? WHERE setting_key = ?", "ss", $value, $key)->execute();
+            }
+            $mysql->close();
+            @unlink($logo);
+            @unlink($favicon);
+            @unlink($brandingDir . '/logo.png');
+            @unlink($brandingDir . '/favicon.svg');
+        }
+    }
+
+    /**
      * 4: модалка привязки показывает ВСЕ корпуса, а не только те, у
      * которых картинки нет.
      *

@@ -619,6 +619,51 @@ h1{
     border: 1px solid var(--border);
 }
 
+/* Stage 9: секция «Брендинг» внутри формы настроек.
+   Отступ сверху отделяет её от блока контактов - это всё одна форма,
+   отдельная .card была бы вложенной картой в карте. */
+.settings-block {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+.settings-block__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 4px;
+}
+.settings-block .form-group {
+    margin-bottom: 14px;
+}
+/* Превью логотипа и favicon: рамка нужна, чтобы было видно границы
+   картинки на светлом фоне - сам логотип обычно прозрачный. */
+.branding-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 88px;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+}
+.branding-preview img {
+    max-width: 200px;
+    max-height: 80px;
+    object-fit: contain;
+}
+/* favicon показывается в натуральную величину - судить надо о том, как
+   его увидит браузер на вкладке, а не о размере превью */
+.branding-preview--icon img {
+    width: 32px;
+    height: 32px;
+}
+.branding-preview img.is-loaded {
+    border-radius: 4px;
+}
+
 @media (max-width: 700px) {
     .map-preview {
         height: 280px;
