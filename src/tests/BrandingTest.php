@@ -497,6 +497,66 @@ final class BrandingTest extends AionTestCase
     }
 
     /**
+     * Сохранение формы брендинга не затирает контакты.
+     *
+     * Разбор инцидента: 19:12:11 в site_settings записались пустыми сразу
+     * три ключа, которые до этого были непустыми - contact_phone,
+     * contact_email и map_address_text. Три ссылки (vk, telegram,
+     * whatsapp) в updated_at не сдвинулись, но это ничего не значит:
+     * MySQL не двигает ON UPDATE CURRENT_TIMESTAMP, если значение не
+     * изменилось, а они и были пустыми. Вывод один - форма ушла целиком,
+     * со всеми полями контактов, и они были пустыми.
+     *
+     * Механизм защиты проверяется здесь: массив site_settings общий для
+     * брендинга и контактов, форма одна, и раньше любая частичная
+     * отправка обнуляла остальные настройки. Отсутствие поля должно
+     * значить «не менялось», а не «очистить».
+     */
+    public function testBrandingSaveDoesNotTouchContacts(): void
+    {
+        $this->loginAsAdmin();
+
+        require_once dirname(__DIR__) . '/modules/site.php';
+        $mysql = connect();
+        $before = [];
+        foreach (['contact_phone', 'contact_email', 'map_address_text'] as $key) {
+            $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $key);
+            $st->execute();
+            $before[$key] = (string) ($st->get_result()->fetch_row()[0] ?? '');
+        }
+
+        // Снимок и засевание: если ключа нет вовсе, тест прошёл бы вхолостую,
+        // потому что отсутствие и пустое значение выглядят одинаково.
+        $seed = [
+            'contact_phone' => '+7 (000) 000-00-00',
+            'contact_email' => 'branding@mail.test',
+            'map_address_text' => 'Адрес для проверки',
+        ];
+        site_setting_save($mysql, $seed);
+
+        try {
+            $this->saveSettings(['site_name' => 'Брендинг без контактов']);
+
+            $mysql = connect();
+            foreach ($seed as $key => $value) {
+                $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $key);
+                $st->execute();
+                $after = (string) ($st->get_result()->fetch_row()[0] ?? '');
+                $this->assertSame(
+                    $value,
+                    $after,
+                    $key . ': форма брендинга не должна затирать контакт, которых в POST не было'
+                );
+            }
+            $mysql->close();
+        } finally {
+            $mysql = connect();
+            site_setting_save($mysql, $before);
+            $mysql->close();
+        }
+    }
+
+    /**
      * @return string содержимое meta description, '' если его нет
      */
     private function metaDescriptionOf(string $html): string
