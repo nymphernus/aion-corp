@@ -1179,6 +1179,88 @@ final class AdminTest extends AionTestCase
     }
 
     /**
+     * 5: пакетная загрузка на вкладке «Изображения».
+     *
+     * Кнопка «Загрузить изображения» отправляет пачку файлов одним
+     * POST. Проверяются три вещи: уникальные файлы сохранились, дубль по
+     * содержимому не плодит копию, а не-картинка отклонена с
+     * сообщением. Имя на диске берётся из имени файла, поэтому ищутся
+     * по slug, а не по uniqid.
+     */
+    public function testBatchUploadSavesFiles(): void
+    {
+        $this->loginAsAdmin();
+
+        $casesDir = dirname(__DIR__) . '/assets/images/cases/';
+        $tag = 'batchprobe' . substr((string) uniqid(), -6);
+
+        // три картинки с разным содержимым и один мусорный файл
+        $paths = [];
+        $payload = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $path = sys_get_temp_dir() . "/{$tag}-{$i}.png";
+            $im = imagecreatetruecolor(80, 80);
+            imagealphablending($im, false);
+            imagesavealpha($im, true);
+            imagefill($im, 0, 0, imagecolorallocatealpha($im, 0, 0, 0, 127));
+            imagefilledrectangle($im, 20, 20, 60, 60, imagecolorallocate($im, $i * 80, 200, 40));
+            imagepng($im, $path);
+            imagedestroy($im);
+            $paths[] = $path;
+            $payload[] = ['name' => basename($path), 'type' => 'image/png', 'tmp_name' => $path];
+        }
+        // дубль первого файла - должен отсеяться дедупликацией
+        $payload[] = ['name' => $tag . '-copy.png', 'type' => 'image/png', 'tmp_name' => $paths[0]];
+
+        $bad = sys_get_temp_dir() . "/{$tag}-bad.png";
+        file_put_contents($bad, 'not an image');
+        $payload[] = ['name' => $tag . '-bad.png', 'type' => 'image/png', 'tmp_name' => $bad];
+
+        try {
+            $page = $this->httpGet('/admin.php?tab=files');
+            $this->assertSame(200, $page['code']);
+
+            $r = $this->httpPostMultipart('/admin.php?tab=files', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'batchUpload' => '1',
+                'files' => $payload,
+            ]);
+
+            $this->assertSame(302, $r['code']);
+            $this->assertStringContainsString(
+                'uploaded=3',
+                $r['location'],
+                'три уникальных файла должны сохраниться, дубль отсеяться'
+            );
+            $this->assertStringContainsString('skipped=2', $r['location'], 'дубль и мусор должны быть отклонены');
+
+            // на диске ровно три файла, все .png
+            $created = glob($casesDir . $tag . '*.png') ?: [];
+            $this->assertCount(3, $created, 'на диске должно появиться ровно три файла');
+            foreach ($created as $file) {
+                $this->assertStringEndsWith('.png', $file, 'JPG на входе обязан сохраниться как PNG');
+                $this->assertFileExists($file);
+            }
+            $this->assertFileDoesNotExist(
+                $casesDir . $tag . '-bad.png',
+                'файл не-картинка не должен появляться в каталоге'
+            );
+        } finally {
+            // Уборка по тегу, а не по списку из тела теста: если тест
+            // упал на проверке Location, до присваивания $created дело
+            // не дошло бы и файлы остались бы в каталоге. А остатки
+            // ломают следующий прогон - картинки у него одинаковые, и
+            // дедупликация назвала бы их дублями.
+            foreach (glob($casesDir . $tag . '*') ?: [] as $file) {
+                @unlink($file);
+            }
+            foreach (array_merge($paths, [$bad]) as $path) {
+                @unlink($path);
+            }
+        }
+    }
+
+    /**
      * 7: return_params не может подсунуть в Location что угодно.
      *
      * Строка приходит от клиента, поэтому собирать из неё адрес как есть

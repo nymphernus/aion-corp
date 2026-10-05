@@ -356,15 +356,29 @@ class AionTestCase extends PhpUnitTestCase
         
         $body = '';
         foreach ($data as $key => $value) {
-            if ($key === 'image_file' && is_array($value)) {
-                $body .= "--{$boundary}\r\n";
-                $body .= "Content-Disposition: form-data; name=\"{$key}\"; filename=\"{$value['name']}\"\r\n";
-                $body .= "Content-Type: {$value['type']}\r\n\r\n";
-                $body .= file_get_contents($value['tmp_name']) . "\r\n";
-            } else {
-                $body .= "--{$boundary}\r\n";
-                $body .= "Content-Disposition: form-data; name=\"{$key}\"\r\n\r\n";
-                $body .= $value . "\r\n";
+            // Файл может прийти как один ['name','type','tmp_name'] или как
+            // список таких массивов под ключом files[] (batch-загрузка).
+            $isFileList = is_array($value) && isset($value[0]) && is_array($value[0]);
+            $parts = $isFileList ? $value : [$value];
+
+            // Список файлов обязан уходить в multipart как name="files[]":
+            // с name="files" PHP не соберёт массив $_FILES['files'], а
+            // запишет один файл, и цикл по count($_FILES['files']['name'])
+            // будет считать символы в имени.
+            $partName = $isFileList ? $key . '[]' : $key;
+
+            foreach ($parts as $part) {
+                $isFile = is_array($part) && isset($part['tmp_name']);
+                if ($isFile) {
+                    $body .= "--{$boundary}\r\n";
+                    $body .= "Content-Disposition: form-data; name=\"{$partName}\"; filename=\"{$part['name']}\"\r\n";
+                    $body .= "Content-Type: {$part['type']}\r\n\r\n";
+                    $body .= file_get_contents($part['tmp_name']) . "\r\n";
+                } else {
+                    $body .= "--{$boundary}\r\n";
+                    $body .= "Content-Disposition: form-data; name=\"{$partName}\"\r\n\r\n";
+                    $body .= $part . "\r\n";
+                }
             }
         }
         $body .= "--{$boundary}--\r\n";

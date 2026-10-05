@@ -44,7 +44,7 @@ $isAdmin = true;
 $tab = $_GET['tab'] ?? '';
 if ($tab === '') {
     // 3.7-f-3: вход из профиля ведёт сразу на список пользователей
-    header('Location: ' . admin_list_url('users', return_params_from_request()));
+    header('Location: ' . admin_list_url('users'));
     exit();
 }
 
@@ -74,79 +74,72 @@ $escapeLike = static function (string $value): string {
 
 // --- Сохранение фильтров при сохранении/удалении (задача 7) ---
 //
-// После любого POST админ возвращался на /admin.php?tab=components без
-// фильтров, и вся таблица сбрасывалась в исходный вид. Фильтры лежат в
-// GET, а форма шлёт POST на адрес без них, поэтому их нужно передать
-// отдельно: разметка вкладки кладёт текущие параметры в скрытое поле
-// return_params, а отсюда они собираются обратно в адрес редиректа.
+// Форма шлёт POST на /admin.php?tab=components БЕЗ фильтров в адресе,
+// поэтому в $_GET на POST-запросе их нет и взять оттуда нельзя.
+// Разметка вкладки кладёт текущие фильтры в скрытое поле
+// return_params, отсюда же они читаются при редиректе. Один и тот же
+// список ключей на обоих концах - иначе пришлось бы гадать, какие
+// параметры вкладка умеет отдавать обратно.
 
-// Белый список параметров по вкладкам. Строка из return_params приходит
-// от клиента, поэтому собирать адрес из неё как есть нельзя: иначе в
-// Location уехало бы что угодно, включая чужой хост. Разрешённые ключи
-// и значения фильтруются, лишнее отбрасывается.
 $listFilterKeys = [
-    'components' => ['cat', 'sock', 'q', 'sort', 'no_image', 'page'],
-    'users' => ['group', 'q', 'page'],
-    'orders' => ['status', 'q', 'page'],
-    'files' => ['filter', 'q', 'page'],
+    'components' => ['page', 'cat', 'sock', 'q', 'sort', 'no_image'],
+    'users' => ['page', 'group', 'q'],
+    'orders' => ['page', 'status', 'q'],
+    'files' => ['page', 'filter', 'q'],
     'settings' => [],
     'dashboard' => [],
 ];
 
-// Значения, которые нельзя пропускать в редирект ни в каком виде:
-// ограничение длины отсекает мусор, а urlencode не даёт инъекцию
-// заголовка через «\r\n».
-function return_params_normalize(string $raw, array $allowedKeys): array
-{
-    $params = [];
-    parse_str($raw, $params);
-    if (!is_array($params)) {
-        return [];
-    }
-
-    $clean = [];
-    foreach ($allowedKeys as $key) {
-        if (!isset($params[$key])) {
-            continue;
-        }
-        $value = $params[$key];
-        if (is_array($value)) {
-            continue;   // cat[]=1 и подобное не имеет смысла
-        }
-        $value = trim((string) $value);
-        if ($value === '' || mb_strlen($value) > 100) {
-            continue;
-        }
-        $clean[$key] = $value;
-    }
-    return $clean;
-}
-
 /**
- * Текущие фильтры: сначала POST-поле return_params (форма сохраняет),
- * при его отсутствии - живые GET-параметры (например, при ошибке,
- * когда форма была отправлена без него).
+ * Строка фильтров из скрытого поля return_params для редиректа.
+ *
+ * Значение приходит от клиента, поэтому оно не подставляется в Location
+ * как есть: остаются только символы, из которых может состоять пара
+ * «ключ=значение». Так в заголовок не попадёт ни перевод строки, ни
+ * чужой адрес.
  */
-function return_params_from_request(): string
+function return_params(): string
 {
+    // $tab тоже должен быть в global: без него переменная видна только
+    // если объявлена в той же области, а тут она живёт в includе - и
+    // PHP ругался «Undefined variable $tab».
     global $listFilterKeys, $tab;
 
-    $raw = $_POST['return_params'] ?? '';
-    if (!is_string($raw) || $raw === '') {
-        $raw = $_SERVER['QUERY_STRING'] ?? '';
+    $raw = (string) ($_POST['return_params'] ?? '');
+    if ($raw === '') {
+        return '';
     }
+
+    $params = [];
+    parse_str($raw, $params);
     $allowed = $listFilterKeys[$tab] ?? [];
 
-    return http_build_query(return_params_normalize((string) $raw, $allowed));
+    $clean = [];
+    foreach ($allowed as $key) {
+        if (!isset($params[$key]) || is_array($params[$key])) {
+            continue;
+        }
+        $value = trim((string) $params[$key]);
+        if ($value !== '') {
+            $clean[$key] = $value;
+        }
+    }
+
+    return http_build_query($clean);
 }
 
 /**
- * Адрес возврата на вкладку с сохранёнными фильтрами и, при желании,
- * сообщением об ошибке.
+ * Адрес возврата на вкладку: активные фильтры и, при желании, код
+ * ошибки. Используется всеми редиректами обработчиков, включая отказы -
+ * после «файл слишком большой» фильтры тоже должны были уцелеть.
  */
-function admin_list_url(string $listTab, string $params, ?string $error = null): string
+function admin_list_url(string $listTab, ?string $error = null): string
 {
+    global $tab;
+
     $url = '/admin.php?tab=' . rawurlencode($listTab);
+
+    $params = $tab === $listTab ? return_params() : '';
     if ($params !== '') {
         $url .= '&' . $params;
     }
@@ -158,15 +151,28 @@ function admin_list_url(string $listTab, string $params, ?string $error = null):
 
 /**
  * Текущие фильтры вкладки для скрытого поля return_params. Источник -
- * живые GET-параметры, дальше тот же белый список.
+ * живой GET текущей страницы (здесь это законно: страницу ещё рендерят).
  */
 function admin_list_query(string $listTab): string
 {
     global $listFilterKeys;
 
     $allowed = $listFilterKeys[$listTab] ?? [];
-    $query = $_SERVER['QUERY_STRING'] ?? '';
-    return http_build_query(return_params_normalize($query, $allowed));
+    $params = [];
+    parse_str($_SERVER['QUERY_STRING'] ?? '', $params);
+
+    $clean = [];
+    foreach ($allowed as $key) {
+        if (!isset($params[$key]) || is_array($params[$key])) {
+            continue;
+        }
+        $value = trim((string) $params[$key]);
+        if ($value !== '') {
+            $clean[$key] = $value;
+        }
+    }
+
+    return http_build_query($clean);
 }
 
 if ($tab === 'components') {
@@ -340,7 +346,7 @@ if ($isAdmin && isset($_POST['deleteComponent'])) {
             csrf_rotate();
             // фильтры сохраняются и здесь: отказ удаления тоже должен
             // вернуть админа на ту же страницу, откуда он пришёл
-            header('Location: ' . admin_list_url('components', return_params_from_request(), 'used') . '&count=' . $usedCount);
+            header('Location: ' . admin_list_url('components', 'used') . '&count=' . $usedCount);
             exit();
         }
 
@@ -349,25 +355,24 @@ if ($isAdmin && isset($_POST['deleteComponent'])) {
     }
 
     csrf_rotate();
-    header('Location: ' . admin_list_url('components', return_params_from_request()));
+    header('Location: ' . admin_list_url('components'));
     exit();
 }
 
 if ($isAdmin && isset($_POST['addComponent'])) {
     csrf_verify();
 
-    // Возврат на ту же страницу списка, откуда пришли. Фильтры приходят
-    // в POST-поле return_params (его кладёт разметка вкладки) - читать
-    // их из $listQuery нельзя: тот собран из $_GET, а форма шлёт POST на
-    // /admin.php?tab=components без фильтров в адресе, поэтому на POST
-    // $listQuery всегда пуст и фильтры терялись бы.
+    // Адрес возврата: текущие фильтры лежат в POST-поле return_params,
+    // которое кладёт разметка вкладки. Из $_GET их взять нельзя - на
+    // POST-запросе там только tab=components.
     //
-    // Все редиректы этого обработчика идут через componentsReturnUrl(),
-    // включая отказы по размеру/MIME: иначе после ошибки «файл слишком
-    // большой» админ возвращался на пустой список.
-    $componentsReturnUrl = static function (?string $error = null): string {
-        return admin_list_url('components', return_params_from_request(), $error);
-    };
+    // Ни одного вывода до header() здесь нет: любое echo или даже
+    // пробел раньше приводили к «headers already sent».
+    $location = '/admin.php?tab=components';
+    $returnParams = return_params();
+    if ($returnParams !== '') {
+        $location .= '&' . $returnParams;
+    }
 
     // 3.7-d: пустой editComponentId = INSERT, заполненный = UPDATE
     $editId = (int) ($_POST['editComponentId'] ?? 0);
@@ -416,87 +421,24 @@ if ($isAdmin && isset($_POST['addComponent'])) {
             $newImagePath = null;
         }
         
-        // Загрузка нового изображения: сжатие через GD-модуль,
-        // дедупликация по MD5 против всех файлов cases/
+        // Загрузка нового изображения: проверки, конвертация в PNG и
+        // дедупликация по MD5 живут в store_case_image(). Общий хелпер
+        // нужен потому, что файлы грузятся ещё и пачкой с вкладки
+        // «Изображения», и две копии правил рано или поздно разошлись бы.
         if (!empty($_FILES['image_file']['name'])) {
-            $file = $_FILES['image_file'];
-            
-            // 1. Ошибки PHP. INI_SIZE означает, что файл не прошёл лимит
-            // php.ini (upload_max_filesize) - для пользователя это та же
-            // "слишком большой", просто отсечённая раньше нашей проверки
-            if ($file['error'] === UPLOAD_ERR_INI_SIZE) {
-                header('Location: ' . $componentsReturnUrl('size'));
+            $stored = store_case_image(
+                $_FILES['image_file'],
+                __DIR__ . '/assets/images/cases/',
+                // slug из имени компонента (не файла!) - имя на диске
+                // всегда итоговое slug.ext
+                slugify_image_name((string) $name)
+            );
+
+            if (!$stored['ok']) {
+                header('Location: ' . $location . '&error=' . rawurlencode((string) $stored['error']));
                 exit();
             }
-            elseif ($file['error'] !== UPLOAD_ERR_OK) {
-                header('Location: ' . $componentsReturnUrl('upload'));
-                exit();
-            }
-            
-            // 2. Размер: до 10 МБ (ini поднят до 10M/12M в Dockerfile)
-            elseif ($file['size'] > 10 * 1024 * 1024) {
-                header('Location: ' . $componentsReturnUrl('size'));
-                exit();
-            }
-            
-            // 3. MIME через finfo
-            else {
-                $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                $mime = finfo_file($finfo, $file['tmp_name']);
-                finfo_close($finfo);
-                
-                $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-                
-                if (!in_array($mime, $allowedMimes, true)) {
-                    header('Location: ' . $componentsReturnUrl('mime'));
-                    exit();
-                }
-                // 4. Проверка что это настоящая картинка
-                elseif (!@getimagesize($file['tmp_name'])) {
-                    header('Location: ' . $componentsReturnUrl('image'));
-                    exit();
-                }
-                else {
-                    // slug из имени компонента (не файла!) - имя файла
-                    // всегда итоговое slug.ext
-                    $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', pathinfo($name, PATHINFO_FILENAME)));
-                    $slug = trim($slug, '-');
-                    if ($slug === '') $slug = 'case';
-                    $slug = substr($slug, 0, 40);
-
-                    $targetDir = __DIR__ . '/assets/images/cases/';
-                    $result = process_uploaded_image($file['tmp_name'], $targetDir, $slug);
-
-                    if ($result === null) {
-                        header('Location: ' . $componentsReturnUrl('save'));
-                        exit();
-                    }
-                    $newImagePath = 'assets/images/cases/' . basename($result['path']);
-
-                    // Дедупликация по MD5 против всех файлов каталога.
-                    // Тот же файл под другим именем не плодит копии: новый
-                    // файл удаляется, путь занимал уже существующий.
-                    $newMd5 = md5_file($result['path']);
-                    $duplicate = null;
-                    foreach (scandir($targetDir) as $name2) {
-                        if ($name2 === '.' || $name2 === '..' || $name2[0] === '.') continue;
-                        // JPG исключён не случайно: в проекте их больше
-                        // нет, формат на выходе у обработчика один - png
-                        // (и gif для анимации).
-                        if (!preg_match('/\.(png|gif)$/i', $name2)) continue;
-                        $path2 = $targetDir . $name2;
-                        if (!is_file($path2) || $path2 === $result['path']) continue;
-                        if (md5_file($path2) === $newMd5) {
-                            $duplicate = $name2;
-                            break;
-                        }
-                    }
-                    if ($duplicate !== null) {
-                        @unlink($result['path']);
-                        $newImagePath = 'assets/images/cases/' . $duplicate;
-                    }
-                }
-            }
+            $newImagePath = 'assets/images/cases/' . basename((string) $stored['path']);
         }
     }
 
@@ -576,7 +518,65 @@ if ($isAdmin && isset($_POST['addComponent'])) {
         $stmt->execute();
         csrf_rotate();
     }
-    header('Location: ' . $componentsReturnUrl());
+    header('Location: ' . $location);
+    exit();
+}
+
+// --- Файловый менеджер: загрузка пачки файлов ---
+// Кнопка «Загрузить изображения» на вкладке «Изображения»: файлы
+// приходят в $_FILES['files'] по одному, привязки к корпусам на этом
+// этапе нет - сначала просто попадают в каталог и в сетку, корпус
+// выбирается отдельно кликом по карточке.
+if ($isAdmin && isset($_POST['batchUpload'])) {
+    csrf_verify();
+
+    $targetDir = __DIR__ . '/assets/images/cases/';
+    $saved = 0;
+    $skipped = 0;
+    $errors = [];
+
+    if (!empty($_FILES['files']['name'][0])) {
+        $count = count($_FILES['files']['name']);
+        for ($i = 0; $i < $count; $i++) {
+            $file = [
+                'name' => (string) $_FILES['files']['name'][$i],
+                'type' => (string) $_FILES['files']['type'][$i],
+                'tmp_name' => (string) $_FILES['files']['tmp_name'][$i],
+                'error' => (int) $_FILES['files']['error'][$i],
+                'size' => (int) $_FILES['files']['size'][$i],
+            ];
+
+            // Имя файла на диске берётся из имени загруженного файла, а не
+            // из uniqid(): админ узнаёт корпус по имени, «upload-68f3c1a2»
+            // ничего не говорит. slugify_image_name() отсекает мусор.
+            $stored = store_case_image($file, $targetDir, slugify_image_name($file['name']));
+
+            if ($stored['ok'] && $stored['duplicate']) {
+                // Такой файл уже был в каталоге: новый удалён, путь
+                // указывает на существующий. В «загружено» он не идёт -
+                // на диске ничего не добавилось.
+                $skipped++;
+                $errors[] = $file['name'] . ' (дубль)';
+            } elseif ($stored['ok']) {
+                $saved++;
+            } else {
+                $skipped++;
+                $errors[] = $file['name'] . ' (' . $stored['error'] . ')';
+            }
+        }
+    }
+
+    csrf_rotate();
+    // Итог - в query: uploaded=сколько сохранилось, skipped/bad - что
+    // отклонено и почему. Список имён обрезан, иначе 30 файлов
+    // превратят адресную строку в мусор.
+    $location = admin_list_url('files');
+    $location .= '&uploaded=' . $saved;
+    if ($skipped > 0) {
+        $location .= '&skipped=' . $skipped;
+        $location .= '&bad=' . rawurlencode(implode(', ', array_slice($errors, 0, 5)));
+    }
+    header('Location: ' . $location);
     exit();
 }
 
@@ -643,7 +643,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     $stmt = db_prepare($mysql, "UPDATE orders SET status = ? WHERE order_id = ?", "si", $status, $orderId);
     $stmt->execute();
     csrf_rotate();
-    header('Location: ' . admin_list_url('orders', return_params_from_request()));
+    header('Location: ' . admin_list_url('orders'));
     exit();
 }
 
@@ -798,7 +798,7 @@ if ($isAdmin && isset($_POST['editOrder'])) {
     }
 
     csrf_rotate();
-    header('Location: ' . admin_list_url('orders', return_params_from_request()));
+    header('Location: ' . admin_list_url('orders'));
     exit();
 }
 
@@ -826,7 +826,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
 
     // ошибки возвращаем на ту же вкладку с сообщением
     $fail = static function (string $code): void {
-        header('Location: ' . admin_list_url('users', return_params_from_request(), $code));
+        header('Location: ' . admin_list_url('users', $code));
         exit();
     };
 
@@ -898,7 +898,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
     }
 
     csrf_rotate();
-    header('Location: ' . admin_list_url('users', return_params_from_request()));
+    header('Location: ' . admin_list_url('users'));
     exit();
 }
 
@@ -940,7 +940,7 @@ if ($isAdmin && isset($_POST['approveEmail'])) {
     }
 
     csrf_rotate();
-    header('Location: ' . admin_list_url('users', return_params_from_request()));
+    header('Location: ' . admin_list_url('users'));
     exit();
 }
 
@@ -962,7 +962,7 @@ if ($isAdmin && isset($_POST['approvePhone'])) {
     }
 
     csrf_rotate();
-    header('Location: ' . admin_list_url('users', return_params_from_request()));
+    header('Location: ' . admin_list_url('users'));
     exit();
 }
 
@@ -975,7 +975,7 @@ if ($isAdmin && isset($_POST['deleteOrder'])) {
         $check = db_prepare($mysql, "SELECT order_id FROM orders WHERE order_id = ?", "i", $orderId);
         $check->execute();
         if (!$check->get_result()->fetch_assoc()) {
-            header('Location: ' . admin_list_url('orders', return_params_from_request(), 'missing-order'));
+            header('Location: ' . admin_list_url('orders', 'missing-order'));
             exit();
         }
 
@@ -984,7 +984,7 @@ if ($isAdmin && isset($_POST['deleteOrder'])) {
     }
 
     csrf_rotate();
-    header('Location: ' . admin_list_url('orders', return_params_from_request()));
+    header('Location: ' . admin_list_url('orders'));
     exit();
 }
 
@@ -1002,7 +1002,7 @@ if ($isAdmin && isset($_POST['deleteUser'])) {
     $stmt->execute();
 
     csrf_rotate();
-    header('Location: ' . admin_list_url('users', return_params_from_request()));
+    header('Location: ' . admin_list_url('users'));
     exit();
 }
 

@@ -99,9 +99,34 @@ function human_size(int $bytes): string {
     return round($bytes / (1024 ** $power), 2) . ' ' . $units[$power];
 }
 
+// Результат загрузки пачки: сколько сохранилось и что не вышло.
+$uploadedCount = isset($_GET['uploaded']) ? (int) $_GET['uploaded'] : null;
+$uploadedBad = isset($_GET['bad']) ? trim((string) $_GET['bad']) : '';
+
 ?>
 
-<h1 class="admin-title">Изображения</h1>
+<div class="files-header">
+    <h1 class="admin-title">Изображения</h1>
+    <div class="files-header__actions">
+        <label class="btn btn--primary">
+            <input type="file" id="filesBatchInput"
+                   name="files[]" multiple
+                   accept="image/jpeg,image/png,image/webp,image/gif"
+                   style="display:none">
+            Загрузить изображения
+        </label>
+    </div>
+</div>
+
+<?php if ($uploadedCount !== null): ?>
+    <div class="alert <?= $uploadedCount > 0 ? 'alert--success' : 'alert--error' ?>">
+        Загружено файлов: <?= $uploadedCount ?><?php
+        if ($uploadedBad !== '') {
+            echo '. Не загружено: ' . escape($uploadedBad);
+        }
+        ?>. Привяжите их к корпусам кликом по картинке.
+    </div>
+<?php endif; ?>
 
 <!-- Сводка -->
 <div class="files-summary">
@@ -265,7 +290,19 @@ $casesWithoutImageList = $astmt->get_result()->fetch_all(MYSQLI_ASSOC);
 <!-- БЛОК 4: скрытая форма привязки. Отправляет confirm-действие -->
 <form id="attachFileForm" method="post" action="/admin.php?tab=files" style="display:none">
     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+    <input type="hidden" name="return_params" value="<?= escape(admin_list_query('files')) ?>">
     <input type="hidden" name="fileUrl" value="">
     <input type="hidden" name="caseId" value="">
     <input type="hidden" name="attachFile" value="1">
+</form>
+
+<!-- Загрузка пачки файлов. Форму отправляет JS: у input multiple
+     нельзя задать FileList из разметки, файлы передаются через FormData.
+     CSRF берётся отсюда же - отдельного токена в форме не нужно, он
+     один на страницу. -->
+<form id="batchUploadForm" method="post" action="/admin.php?tab=files"
+      enctype="multipart/form-data" style="display:none">
+    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+    <input type="hidden" name="return_params" value="<?= escape(admin_list_query('files')) ?>">
+    <input type="hidden" name="batchUpload" value="1">
 </form>

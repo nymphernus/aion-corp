@@ -1568,6 +1568,26 @@ button.profile-nav-item {
 
 /* --- Файловый менеджер (Stage 8) --- */
 
+/* Шапка вкладки: заголовок и кнопка загрузки в одной строке. На узкой
+   колонке кнопка переносится под заголовок, а не сжимается до нечитаемой
+   ширины - колонка админки может быть уже 500px. */
+.files-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.files-header .admin-title {
+    margin: 0;
+}
+.files-header__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .files-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

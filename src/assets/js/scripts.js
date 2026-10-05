@@ -1082,6 +1082,51 @@ document.addEventListener('click', function(e) {
     if (picker) picker.showModal();
 });
 
+// --- Загрузка пачки изображений на вкладке «Изображения» ---
+//
+// Файлы не отправляются обычной отправкой формы: у input[multiple]
+// нельзя задать FileList из разметки, поэтому JS собирает FormData
+// вручную. Пока запрос идёт, кнопка блокируется и показывает
+// «Загрузка…» - иначе повторный клик отправил бы те же файлы дважды.
+document.addEventListener('change', function(e) {
+    var input = e.target;
+    if (!input || input.id !== 'filesBatchInput') return;
+
+    var files = input.files;
+    if (!files || !files.length) return;
+
+    var form = document.getElementById('batchUploadForm');
+    if (!form) return;
+
+    var fd = new FormData();
+    fd.append('csrf_token', form.querySelector('[name="csrf_token"]').value);
+    fd.append('return_params', form.querySelector('[name="return_params"]').value);
+    fd.append('batchUpload', '1');
+    for (var i = 0; i < files.length; i++) {
+        fd.append('files[]', files[i]);
+    }
+
+    var label = input.closest('label');
+    var original = label ? label.textContent.trim() : '';
+    if (label) {
+        label.style.pointerEvents = 'none';
+        label.style.opacity = '0.6';
+        label.textContent = 'Загрузка…';
+    }
+
+    fetch('/admin.php?tab=files', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin'
+    }).then(function() {
+        // Сервер сам редиректит с uploaded=N, поэтому reload уводит на
+        // страницу с итогом и обновлёнными счётчиками.
+        window.location.reload();
+    }).catch(function() {
+        window.location.reload();
+    });
+});
+
 // Выбор файла в сетке модалки: превью + скрытое поле с URL
 document.addEventListener('click', function(e) {
     const item = e.target.closest('[data-action="pick-file"]');

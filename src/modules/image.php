@@ -199,3 +199,105 @@ if (!function_exists('process_uploaded_image')) {
         return ['path' => $target, 'ext' => $ext];
     }
 }
+
+if (!function_exists('slugify_image_name')) {
+    /**
+     * Имя файла из названия компонента: латиница, цифры, дефис.
+     * Не пустой результат обязателен - иначе на диске появился бы файл
+     * без расширения.
+     */
+    function slugify_image_name(string $name): string
+    {
+        $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', pathinfo($name, PATHINFO_FILENAME)));
+        $slug = trim((string) $slug, '-');
+        if ($slug === '') {
+            $slug = 'case';
+        }
+        return substr($slug, 0, 40);
+    }
+}
+
+if (!function_exists('store_case_image')) {
+    /**
+     * Приём одного загруженного файла в каталог корпусов: проверки,
+     * конвертация в PNG, дедупликация по MD5.
+     *
+     * Живёт здесь, а не в admin.php, потому что загрузка идёт из двух
+     * мест - из модалки компонента (один файл) и с вкладки «Изображения»
+     * (пачка файлов). Дублировать правила означало бы рано или поздно
+     * разойтись: сейчас проверки и дедупликация одни и те же.
+     *
+     * @param array{name:string,type:string,tmp_name:string,error:int,size:int} $file
+     * @return array{ok:bool, path:?string, error:?string, duplicate:bool}
+     *         error: size|upload|mime|image|save
+     *         duplicate: тот же файл уже лежал в каталоге, новый удалён,
+     *         путь указывает на существующий. Считать его сохранённым
+     *         нельзя - на диске ничего не добавилось.
+     */
+    function store_case_image(array $file, string $targetDir, string $slug): array
+    {
+        $fail = static fn(string $error): array => [
+            'ok' => false,
+            'path' => null,
+            'error' => $error,
+            'duplicate' => false,
+        ];
+
+        // INI_SIZE - файл не прошёл upload_max_filesize из php.ini. Для
+        // пользователя это тот же «слишком большой», просто отсечённый
+        // раньше нашей проверки.
+        if ($file['error'] === UPLOAD_ERR_INI_SIZE) {
+            return $fail('size');
+        }
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            return $fail('upload');
+        }
+        if ($file['size'] > 10 * 1024 * 1024) {
+            return $fail('size');
+        }
+
+        // MIME по содержимому, а не по заголовку от клиента
+        $mime = detect_image_mime($file['tmp_name']);
+        $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($mime, $allowed, true)) {
+            return $fail('mime');
+        }
+        if (@getimagesize($file['tmp_name']) === false) {
+            return $fail('image');
+        }
+
+        $result = process_uploaded_image($file['tmp_name'], $targetDir, $slug);
+        if ($result === null) {
+            return $fail('save');
+        }
+
+        // Дедупликация по MD5 против остальных файлов каталога: тот же
+        // файл под другим именем не должен плодить копии. JPG в поиске
+        // не участвует - таких файлов в проекте больше нет, на выходе
+        // у обработчика только png (и gif для анимации).
+        $md5 = md5_file($result['path']);
+        foreach (scandir($targetDir) as $name) {
+            if ($name === '.' || $name === '..' || $name[0] === '.') {
+                continue;
+            }
+            if (!preg_match('/\.(png|gif)$/i', $name)) {
+                continue;
+            }
+            $path = $targetDir . $name;
+            if ($path === $result['path'] || !is_file($path)) {
+                continue;
+            }
+            if (md5_file($path) === $md5) {
+                @unlink($result['path']);
+                return [
+                    'ok' => true,
+                    'path' => $path,
+                    'error' => null,
+                    'duplicate' => true,
+                ];
+            }
+        }
+
+        return ['ok' => true, 'path' => $result['path'], 'error' => null, 'duplicate' => false];
+    }
+}
