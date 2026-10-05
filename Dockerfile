@@ -21,8 +21,11 @@ RUN apt-get update && apt-get install -y \
 # Stage 8: лимит загрузки должен проходить целиком (новый максимум 10 МБ).
 # Дефолт upload_max_filesize=2M отсекал бы большие файлы на транспортном
 # уровне с UPLOAD_ERR_INI_SIZE ещё до нашей проверки.
+# memory_limit: GD держит картинку целиком в памяти, и честные 10 МБ JPEG
+# на 4000x3000 при 128M упирались в "Allowed memory size exhausted".
 RUN echo 'upload_max_filesize = 10M' > /usr/local/etc/php/conf.d/uploads.ini \
-    && echo 'post_max_size = 12M' >> /usr/local/etc/php/conf.d/uploads.ini
+    && echo 'post_max_size = 12M' >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo 'memory_limit = 512M' >> /usr/local/etc/php/conf.d/uploads.ini
 
 # Настраиваем Apache для непривилегированного пользователя
 ENV APACHE_RUN_USER=www-data
