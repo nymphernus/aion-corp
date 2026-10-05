@@ -318,7 +318,10 @@ $settings = [
     'site_logo_url' => '/assets/images/logo.png',
     'site_favicon_url' => '/assets/images/favicon.svg',
     'site_favicon_png_url' => '/assets/images/favicon.png',
-    'site_footer_copyright' => '© 2022 Aion Corporation',
+    // Копирайт по умолчанию пустой: пустое значение означает «© год +
+    // полное название», и при смене бренда подвал меняется сам. Иначе в
+    // нём навсегда осталось бы имя прежнего владельца.
+    'site_footer_copyright' => '',
 ];
 foreach ($settings as $key => $value) {
     $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = ?", "s", $key);

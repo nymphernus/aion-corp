@@ -3,16 +3,43 @@
  * Общий подвал: закрытие .wrapper, <footer>, скрипты
  *
  * Переменные (опционально, задаются ДО подключения):
- *   $extraJs — массив дополнительных JS (например ['/assets/js/scripts.js'])
+ *   $extraJs   — массив дополнительных JS (например ['/assets/js/scripts.js'])
+ *   $settings  — site_settings; если не задан, читается здесь
  *
- * Логики здесь нет — только foreach для скриптов.
+ * Stage 9: копирайт собирается из site_settings, а не из разметки.
+ * $settings к этому моменту уже есть - его читает header.php, который
+ * подключается раньше. Собственная попытка чтения здесь нужна только
+ * для случая, когда подвал подключат без шапки.
  */
+
+require_once __DIR__ . '/../modules/site.php';
+
+if (!isset($settings) || !is_array($settings)) {
+    require_once __DIR__ . '/../modules/connect.php';
+    $footerMysql = @connect();
+    $settings = ($footerMysql instanceof mysqli) ? site_settings($footerMysql) : [];
+}
+
+$footerCopyright = site_setting($settings, 'site_footer_copyright', '');
+$siteNameFull = site_setting($settings, 'site_name_full', 'AION CORPORATION');
+
+// Пустая настройка копирайта - не повод показывать «©» без названия.
+if (trim($footerCopyright) === '') {
+    $footerCopyright = '© ' . date('Y') . ' ' . $siteNameFull;
+}
+// Год в копирайте обновляем сам: иначе после смены названия пришлось бы
+// править и год, а он всё равно устаревает сам по себе.
+$footerCopyright = preg_replace(
+    '/(?:©|&copy;)\s*\d{4}/u',
+    '© ' . date('Y'),
+    $footerCopyright
+);
 
 $extraJs = $extraJs ?? [];
 ?>
     </div><!-- /.wrapper -->
     <footer class="footer">
-        <span>© 2022 Aion Corporation</span>
+        <span><?= escape($footerCopyright) ?></span>
         <span>Designed by <a href="https://github.com/nymphernus">Aleksey Schumann</a></span>
     </footer>
 <?php foreach ($extraJs as $js): ?>

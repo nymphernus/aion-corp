@@ -115,7 +115,19 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
                                 <label class="form-label" for="setSiteDescription">Описание</label>
                                 <textarea class="input" name="site_description" id="setSiteDescription"
                                           rows="2" maxlength="300"><?= escape(site_setting($settings, 'site_description')) ?></textarea>
-                                <p class="form-hint">Подпись под названием на главной</p>
+                                <p class="form-hint">Подпись под названием на главной и meta-описание для поисковиков</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="setFooterCopyright">Копирайт в подвале</label>
+                                <input class="input" name="site_footer_copyright" id="setFooterCopyright"
+                                       maxlength="120"
+                                       value="<?= escape(site_setting($settings, 'site_footer_copyright')) ?>"
+                                       placeholder="© 2026 AION CORPORATION">
+                                <p class="form-hint">
+                                    Пусто — подвал соберётся как «© текущий год» плюс
+                                    полное название. Год подставляется сам.
+                                </p>
                             </div>
 
                             <div class="modal-row">

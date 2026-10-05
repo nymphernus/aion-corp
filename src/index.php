@@ -1,5 +1,10 @@
 <?php
-$pageTitle = 'Интернет-магазин персональных компьютеров индивидуальной комплектации AION CORP.';
+// Stage 9: бренд убран из заголовка. Короткий уточняющий текст без
+// названия компании, а само название подставляет header.php из
+// site_settings - так переименование сайта не требует правки кода.
+// Строка собирается как «уточнение — site_name», иначе главная была бы
+// единственной страницей без названия в заголовке.
+$pageTitle = 'Интернет-магазин персональных компьютеров индивидуальной комплектации';
 $extraCss = [];
 $extraJs = ['/assets/js/slider.js', '/assets/js/scripts.js'];
 require __DIR__ . '/partials/header.php';
@@ -149,8 +154,14 @@ $socials = array_filter([
                      #main__container::after в style.css. -->
                 <div class="hero">
                     <div class="hero__content">
-                        <h1 class="hero__title">AION CORPORATION</h1>
-                        <p class="hero__lead">Уникальные компьютеры для игр, стриминга, работы с графикой, видео и большими объёмами данных</p>
+                        <?php // Stage 9: название и описание из site_settings.
+                              // $siteNameFull и $siteDescription определены в
+                              // header.php, подключённом выше, и доступны здесь
+                              // как обычные переменные. ?>
+                        <h1 class="hero__title"><?= escape($siteNameFull) ?></h1>
+<?php if ($siteDescription !== ''): ?>
+                        <p class="hero__lead"><?= escape($siteDescription) ?></p>
+<?php endif; ?>
                         <a class="btn hero__button" href="#configurator">Собрать ПК</a>
                     </div>
                 </div>

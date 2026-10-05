@@ -3,11 +3,16 @@
  * Общий HTML-каркас: <head>, шапка сайта, открытие .wrapper
  *
  * Переменные (опционально, задаются ДО подключения):
- *   $pageTitle — заголовок вкладки (по умолчанию 'AION CORP')
+ *   $pageTitle — заголовок вкладки; если не задан, берётся site_name
  *   $extraCss  — массив дополнительных CSS (например ['/assets/css/profile.css'])
  *   $bodyClass — класс для <body> (по умолчанию '')
+ *   $settings  — готовый массив site_settings; если не задан, читается здесь
  *
- * Бизнес-логики и SQL здесь нет — только чтение $_SESSION.
+ * Stage 9: название, логотип и favicon берутся из site_settings, а не из
+ * разметки. Настройки читаются здесь, а не пробрасываются из каждой
+ * страницы: страниц четыре, и в одной из них поле забыли бы. Один
+ * запрос на страницу, остальные значения отдаёт кэш внутри
+ * site_settings().
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -15,8 +20,23 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../modules/connect.php';
+require_once __DIR__ . '/../modules/site.php';
 
-$pageTitle = $pageTitle ?? 'AION CORP';
+// Настройки читаются до любого вывода. Если БД недоступна, connect()
+// вернёт не mysqli - тогда подставляем штатные значения, чтобы страница
+// отдалась целиком, а не белым экраном из-за fatal в шапке.
+if (!isset($settings) || !is_array($settings)) {
+    $brandMysql = @connect();
+    $settings = ($brandMysql instanceof mysqli) ? site_settings($brandMysql) : [];
+}
+
+$siteName = site_setting($settings, 'site_name', 'AION CORP');
+$siteNameFull = site_setting($settings, 'site_name_full', $siteName);
+$siteDescription = site_setting($settings, 'site_description', '');
+$siteLogo = site_setting($settings, 'site_logo_url', '/assets/images/logo.png');
+$siteFavicon = site_setting($settings, 'site_favicon_url', '/assets/images/favicon.svg');
+$siteFaviconPng = site_setting($settings, 'site_favicon_png_url', '/assets/images/favicon.png');
+
 $extraCss = $extraCss ?? [];
 $bodyClass = $bodyClass ?? '';
 $isLoggedIn = isset($_SESSION['user_id']);
@@ -25,7 +45,25 @@ $isLoggedIn = isset($_SESSION['user_id']);
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title><?= escape($pageTitle) ?></title>
+<?php // Заголовок вкладки. Если страница задала свой, он дополняется
+      // названием сайта («Админ-панель — AION CORP»). Без этого каждая
+      // страница должна была бы знать название компании, и смена бренда
+      // ломала бы их все. Сам бренд при этом не дублируется, если он уже
+      // есть в заголовке страницы.
+      if ($pageTitle === null || $pageTitle === '') {
+          $fullTitle = $siteName;
+      } elseif ($pageTitle === $siteName || str_contains($pageTitle, $siteName)) {
+          $fullTitle = $pageTitle;
+      } else {
+          $fullTitle = $pageTitle . ' — ' . $siteName;
+      } ?>
+    <title><?= escape($fullTitle) ?></title>
+<?php // БАГ 4: описание из site_settings до этого нигде не выводилось, и
+      // поле «Описание» в админке было мёртвым. Идёт и в description
+      // для поисковиков, и в подпись hero на главной. ?>
+<?php if ($siteDescription !== ''): ?>
+    <meta name="description" content="<?= escape($siteDescription) ?>">
+<?php endif; ?>
     <link rel="stylesheet" href="<?= escape(asset_url('/assets/css/base.css')) ?>">
     <link rel="stylesheet" href="<?= escape(asset_url('/assets/css/style.css')) ?>">
 <?php foreach ($extraCss as $css): ?>
@@ -44,14 +82,14 @@ $isLoggedIn = isset($_SESSION['user_id']);
          правильный способ - просто rel="icon". Короткое имя живёт в
          rel ещё с IE, где требовалось указать его для всех прочих
          ссылок на иконку. -->
-    <link rel="icon" href="/assets/images/favicon.svg" type="image/svg+xml">
-    <link rel="alternate icon" href="/assets/images/favicon.png" type="image/png">
+    <link rel="icon" href="<?= escape($siteFavicon) ?>" type="image/svg+xml">
+    <link rel="alternate icon" href="<?= escape($siteFaviconPng) ?>" type="image/png">
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;700&display=swap" rel="stylesheet">
 </head>
 <body<?= $bodyClass !== '' ? ' class="' . escape($bodyClass) . '"' : '' ?>>
     <header class="header">
         <div class="header__inner">
-            <a href="/"><div><img class="logo" src="/assets/images/logo.png" alt="logo"></div></a>
+            <a href="/"><div><img class="logo" src="<?= escape($siteLogo) ?>" alt="<?= escape($siteName) ?>"></div></a>
             <button type="button" class="nav-burger" data-action="menu" aria-label="Меню"><span></span><span></span><span></span></button>
             <div class="nav">
                 <ul>
