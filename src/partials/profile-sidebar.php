@@ -72,13 +72,24 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                              комментария не является элементом. -->
                         <a href="/profile.php?section=info" class="profile-nav-item<?= $activeSection === 'card-info' ? ' active' : '' ?>">Личная информация</a>
                         <a href="/profile.php?section=security" class="profile-nav-item<?= $activeSection === 'card-security' ? ' active' : '' ?>">Безопасность</a>
+                        <!-- 8: «Избранное» у обеих ролей, и это ссылка, а не кнопка.
+                             Раньше пункт был кнопкой внутри if (!$isAdmin): карточка
+                             card-fav в админке не отрисовывалась вовсе, так что
+                             кнопка на странице без цели прятала бы секции, и это
+                             ровно тот баг, ради которого пункты уже переводили на
+                             ссылки (комментарий 5-f-2c-1 выше). У админа кардочка
+                             есть: он сохраняет сборки кнопкой «Сохранить», и без
+                             вкладки удалять их было нечем.
+
+                             «Мои заказы» админу не добавляется: заказы удаляются
+                             через панель управления. -->
+                        <a href="/profile.php?section=fav" class="profile-nav-item<?= $activeSection === 'card-fav' ? ' active' : '' ?>">Избранное</a>
 
 <?php if (!$isAdmin): ?>
-                        <!-- 3.7-f-4-1: заказы и избранное остались кнопками:
-                             они есть только у обычного пользователя и только
-                             на profile.php, где JS-переключение работает -->
+                        <!-- 3.7-f-4-1: заказы остались кнопками: они есть
+                              только у обычного пользователя и только на
+                              profile.php, где JS-переключение работает -->
                         <button type="button" class="profile-nav-item<?= $activeSection === 'card-builds' ? ' active' : '' ?>" data-action="switch" data-target="card-builds">Мои заказы</button>
-                        <button type="button" class="profile-nav-item<?= $activeSection === 'card-fav' ? ' active' : '' ?>" data-action="switch" data-target="card-fav">Избранное</button>
 <?php else: ?>
                         <!-- 3.7-g-2: дашборд вынесен из аккордеона отдельным
                              пунктом - это точка входа, а не раздел -->

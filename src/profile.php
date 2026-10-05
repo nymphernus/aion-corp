@@ -456,9 +456,12 @@ require __DIR__ . '/partials/header.php';
                     $sectionExists = [
                         'card-info' => true,
                         'card-security' => true,
+                        // 8: избранное теперь у обеих ролей: админ сохраняет
+                        // сборки кнопкой «Сохранить» на странице сборки, и
+                        // без этой карточки удалить их ему было нечем.
+                        'card-fav' => true,
                     ];
                     if (!$isAdmin) {
-                        $sectionExists['card-fav'] = true;
                         $sectionExists['card-builds'] = true;
                     }
                     // Секцию, которой на странице нет, показывать нельзя:
@@ -808,7 +811,12 @@ $hasPhone = !empty($userProfile['user_number']);
                             </section>
                             <!-- 3.7-f-4: промежуточная админ-карточка удалена —
      в сайдбаре ссылка на /admin.php, внутри админки свой сайдбар с вкладками -->
-                            <?php if (!$isAdmin): ?>
+                            <!-- 8: карточка рисуется и админу. Раньше была только у
+                                 обычного пользователя, при том что кнопка
+                                 «Сохранить» на странице сборки работала у
+                                 обеих ролей: админ мог сохранить сборку, но
+                                 удалить её не мог - пункта меню не было, а
+                                 карточка отрисовывалась как display:none. -->
                             <section class="card" id="card-fav" data-section<?= $sectionStyle('card-fav') ?>>
                                 <h2 class="page-title">Избранное</h2>
                                             <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
@@ -864,6 +872,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 ?>
                                             </div>
                             </section>
+                            <?php if (!$isAdmin): ?>
                             <section class="card" id="card-builds" data-section<?= $sectionStyle('card-builds') ?>>
                                             <h2 class="page-title">Мои заказы</h2>
                                             <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->

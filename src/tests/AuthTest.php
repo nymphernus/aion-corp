@@ -491,8 +491,10 @@ final class AuthTest extends AionTestCase
         $page = $this->httpGet('/profile.php');
         $this->assertSame(200, $page['code']);
 
+        // 8: порядок изменился - «Избранное» стало ссылкой и переехало вверх,
+        // к остальным ссылкам на секции; «Мои заказы» остаётся после него
         $this->assertSame(
-            ['Личная информация', 'Безопасность', 'Мои заказы', 'Избранное', 'Выйти'],
+            ['Личная информация', 'Безопасность', 'Избранное', 'Мои заказы', 'Выйти'],
             $this->sidebarItems($page['body']),
             'состав пунктов сайдбара обычного пользователя'
         );
@@ -597,8 +599,13 @@ final class AuthTest extends AionTestCase
      * открываются и по ?section=, и по кнопке.
      *
      * Правка перевела на ссылки только те секции, что нужны с любой
-     * страницы. Кнопки заказов и избранного оставлены как были - регресс
-     * по ним ловится здесь.
+     * страницы. Остальное оставлено как было - регресс по ним ловится
+     * здесь.
+     *
+     * 8: «Избранное» переведено на ссылку, потому что секция нужна отовсюду:
+     * админ сохраняет сборки кнопкой «Сохранить», и без вкладки удалять их
+     * было нечем. Ссылка работает из админки, кнопка работала только там,
+     * где секция уже нарисована на странице.
      */
     public function testOrdersAndFavStillOpen(): void
     {
@@ -610,9 +617,15 @@ final class AuthTest extends AionTestCase
         $fav = $this->httpGet('/profile.php?section=fav');
         $this->assertStringContainsString('id="card-fav" data-section>', $fav['body']);
 
-        // кнопки на месте
+        // заказы - по-прежнему кнопка с JS-переключением
         $this->assertStringContainsString('data-target="card-builds"', $orders['body']);
-        $this->assertStringContainsString('data-target="card-fav"', $fav['body']);
+
+        // избранное - теперь тоже ссылка, как и остальные разделы
+        $hrefs = $this->sidebarHrefs($fav['body']);
+        $this->assertContains('/profile.php?section=fav', $hrefs, 
+            'пункт «Избранное» должен быть обычной ссылкой с ?section=fav');
+        $this->assertStringNotContainsString('data-target="card-fav"', $fav['body'],
+            'кнопки с data-target="card-fav" быть не должно — пункт переведён на ссылку');
     }
 
     /**

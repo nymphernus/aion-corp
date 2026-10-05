@@ -172,11 +172,15 @@ final class AdminTest extends AionTestCase
     {
         $this->loginAsAdmin();
 
-        // 6 пунктов: две ссылки на секции профиля, дашборд, аккордеон
-        // панели, настройки и выход. Заказы и избранное админу не рисуются.
+        // 7 пунктов: три ссылки на секции профиля, дашборд, аккордеон
+        // панели, настройки и выход. «Избранное» теперь и у админа, у
+        // него карточка есть: сборки он сохраняет кнопкой «Сохранить»,
+        // и без вкладки удалять их было нечем. Заказов по-прежнему нет:
+        // заказы удаляются через панель управления.
         $expected = [
             'Личная информация',
             'Безопасность',
+            'Избранное',
             'Дашборд',
             'Панель управления',
             'Настройки сайта',
@@ -215,12 +219,18 @@ final class AdminTest extends AionTestCase
      * card-security как часть безопасности аккаунта, - и ключ стал
      * невалидным снова. То есть значение изменилось дважды, и теперь
      * тест снова его ловит.
+     *
+     * 8: ключи orders и fav исключены из мусорных: orders есть в
+     * $sectionMap (это настоящая секция card-builds), a fav стала
+     * настоящей - card-fav теперь рисуется и админу. Проверка откатов
+     * ловит только ключи, которые секцию открыть не могут; ключи,
+     * которые открывают, проверяются соседним assert-группой ниже.
      */
     public function testAdminUnknownSectionsFallBackToInfo(): void
     {
         $this->loginAsAdmin();
 
-        foreach (['orders', 'fav', 'verification', 'карточка', 'email_verified'] as $key) {
+        foreach (['verification', 'карточка', 'email_verified'] as $key) {
             $page = $this->httpGet('/profile.php?section=' . rawurlencode($key));
             $this->assertSame(200, $page['code'], $key);
             $this->assertStringContainsString(
@@ -230,9 +240,19 @@ final class AdminTest extends AionTestCase
             );
         }
 
-        // карточек заказов и избранного у админа на странице просто нет
+        // секция fav теперь настоящая: card-fav у админа отрисован и открывается
+        $page = $this->httpGet('/profile.php?section=fav');
+        $this->assertSame(200, $page['code']);
+        $this->assertStringContainsString('id="card-fav" data-section>', $page['body'], 'у админа должна открыться карточка избранного');
+
+        // карточек заказов у админа на странице по-прежнему нет
         $page = $this->httpGet('/profile.php?section=orders');
         $this->assertStringNotContainsString('id="card-builds"', $page['body']);
+        $this->assertStringContainsString(
+            'id="card-info" data-section>',
+            $page['body'],
+            'section=orders откатывается на info — у админа нет card-builds'
+        );
     }
 
     /**
