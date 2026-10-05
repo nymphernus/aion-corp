@@ -968,21 +968,49 @@ document.addEventListener('click', function(e) {
     document.getElementById('removeImageFlag').value = '1';
 });
 
-// --- Удаление файла через файловый менеджер (Stage 8) ---
-document.addEventListener('click', function(e) {
-    const btn = e.target.closest('[data-action="delete-file"]');
-    if (!btn) return;
-    e.preventDefault();
-    const filename = btn.dataset.file;
+// --- Файловые действия карточки: удаление, архив, восстановление ---
+function submitFileAction(action, filename) {
+    const form = document.getElementById('deleteFileForm');
+    if (!form) return;
+    // один input со значением 1 определяет действие - остальные пустые
+    form.querySelector('[name="archiveFile"]').value = action === 'archive-file' ? '1' : '';
+    form.querySelector('[name="restoreFile"]').value = action === 'restore-file' ? '1' : '';
+    form.querySelector('[name="deleteFile"]').value = action === 'delete-file' ? '1' : '';
+    form.querySelector('[name="filename"]').value = filename;
+    form.submit();
+}
 
-    confirmAction('Удалить файл?', 
-        'Файл ' + filename + ' будет удалён с диска. Если он используется компонентом — ссылка станет битой.',
-        () => {
-            const form = document.getElementById('deleteFileForm');
-            form.querySelector('[name="filename"]').value = filename;
-            form.submit();
+document.addEventListener('click', function(e) {
+    const del = e.target.closest('[data-action="delete-file"]');
+    if (del) {
+        e.preventDefault();
+        // удаление живого файла запрещено кнопкой разметки: сервер тоже
+        // откажет, но пользователь получит понятный alert раньше
+        if (del.dataset.disabled) {
+            alert('Сначала отправьте файл в архив: удаление только оттуда.');
+            return;
         }
-    );
+
+        const filename = del.dataset.file;
+        confirmAction('Удалить файл?',
+            'Файл ' + filename + ' будет удалён с диска безвозвратно.',
+            () => submitFileAction('delete-file', filename));
+        return;
+    }
+
+    const arch = e.target.closest('[data-action="archive-file"]');
+    if (arch) {
+        e.preventDefault();
+        submitFileAction('archive-file', arch.dataset.file);
+        return;
+    }
+
+    const rest = e.target.closest('[data-action="restore-file"]');
+    if (rest) {
+        e.preventDefault();
+        submitFileAction('restore-file', rest.dataset.file);
+        return;
+    }
 });
 
 // --- ДОП-2: kebab-меню карточки файла ---

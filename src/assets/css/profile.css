@@ -1679,6 +1679,14 @@ a.files-stat:hover {
 }
 .dropdown-item--danger { color: var(--error); }
 .dropdown-item--danger:hover { background: rgba(239,68,68,0.08); }
+/* удаление живого файла: сначала архив */
+.dropdown-item.disabled-item {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.dropdown-item.disabled-item:hover {
+    background: none;
+}
 .dropdown-item svg {
     width: 16px;
     height: 16px;

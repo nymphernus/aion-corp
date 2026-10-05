@@ -941,4 +941,69 @@ final class AdminTest extends AionTestCase
         $this->assertStringNotContainsString('error=', $response['location']);
         $this->assertFileDoesNotExist($path);
     }
+
+    /**
+     * 8-финал: полный цикл файловых действий через живой HTTP.
+     *
+     * Файл кладётся в cases/ через общий том, действие - POSTом с одним
+     * включённым флагом (как это делает форма). CSRF берётся заново перед
+     * каждым POST, потому что каждый обработчик его ротирует.
+     */
+    public function testFileArchiveCycle(): void
+    {
+        $this->loginAsAdmin();
+
+        $casesDir = dirname(__DIR__) . '/assets/images/cases/';
+        $archiveDir = $casesDir . '_archive/';
+
+        // действие = имя флага-кнопки в скрытой форме
+        $act = function (string $action, string $file): array {
+            $page = $this->httpGet('/admin.php?tab=files');
+            return $this->httpPost('/admin.php?tab=files', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                $action => '1',
+                'filename' => $file,
+            ]);
+        };
+
+        // 1) orphan уезжает в _archive/
+        $name = 'test-arch-' . uniqid() . '.jpg';
+        file_put_contents($casesDir . $name, str_repeat('X', 100));
+        $r = $act('archiveFile', $name);
+        $this->assertSame(302, $r['code']);
+        $this->assertStringNotContainsString('error=', $r['location']);
+        $this->assertFileDoesNotExist($casesDir . $name);
+        $this->assertFileExists($archiveDir . $name);
+
+        // 2) живой файл удалить нельзя - сначала архив
+        $live = 'test-live-' . uniqid() . '.jpg';
+        file_put_contents($casesDir . $live, 'X');
+        $r = $act('deleteFile', $live);
+        $this->assertSame(302, $r['code']);
+        $this->assertStringContainsString('error=need_archive', $r['location']);
+        $this->assertFileExists($casesDir . $live);
+
+        // 3) удаление из архива работает
+        $r = $act('deleteFile', $name);
+        $this->assertSame(302, $r['code']);
+        $this->assertFileDoesNotExist($archiveDir . $name);
+
+        // 4) восстановление возвращает файл в cases/
+        file_put_contents($archiveDir . $name, 'X');
+        $r = $act('restoreFile', $name);
+        $this->assertSame(302, $r['code']);
+        $this->assertFileExists($casesDir . $name);
+        $this->assertFileDoesNotExist($archiveDir . $name);
+
+        // 5) архивировать привязанный файл нельзя - used
+        $r = $act('archiveFile', 'baa-16.jpg');
+        $this->assertSame(302, $r['code']);
+        $this->assertStringContainsString('error=used', $r['location']);
+        $this->assertFileExists($casesDir . 'baa-16.jpg');
+
+        // уборка
+        @unlink($casesDir . $name);
+        @unlink($casesDir . $live);
+        @unlink($archiveDir . $name);
+    }
 }

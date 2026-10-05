@@ -464,43 +464,69 @@ if ($isAdmin && isset($_POST['addComponent'])) {
     exit();
 }
 
-// --- Удаление файла (Stage 8) ---
-if ($isAdmin && isset($_POST['deleteFile'])) {
+// --- Файловый менеджер: архив, восстановление, удаление (Stage 8-финал) ---
+// Общий разбор filename: basename режет path traversal. Действие определяется
+// кнопкой (archiveFile / restoreFile / deleteFile), каталог - статусом файла.
+$filename = isset($_POST['archiveFile']) || isset($_POST['restoreFile']) || isset($_POST['deleteFile'])
+    ? basename((string) ($_POST['filename'] ?? ''))
+    : '';
+
+if ($isAdmin && $filename !== '' && (isset($_POST['archiveFile']) || isset($_POST['restoreFile']) || isset($_POST['deleteFile']))) {
     csrf_verify();
-    
-    $filename = basename($_POST['filename'] ?? '');  // защита от path traversal
-    if (empty($filename)) {
+
+    $casesDir = __DIR__ . '/assets/images/cases/';
+    $archiveDir = $casesDir . '_archive/';
+    $from = $casesDir . $filename;
+    $archivedPath = $archiveDir . $filename;
+
+    // Файл должен существовать ровно в одном из двух каталогов
+    $inCases = is_file($from);
+    $inArchive = is_file($archivedPath);
+    $isArchive = isset($_POST['archiveFile']);
+    $isRestore = isset($_POST['restoreFile']);
+    $isDelete = isset($_POST['deleteFile']);
+
+    if (($isArchive && $inArchive) || ($isRestore && $inCases)) {
+        // Файл уже там, куда его просят положить - просто редирект
         csrf_rotate();
         header('Location: /admin.php?tab=files');
         exit;
     }
-    
-    // Проверка, что файл не привязан к компоненту. В components.image
-    // встречаются пути и со слешем в начале, и без него - ищем подстроку
-    // с именем каталога + имя файла и сверяем basename, иначе записи
-    // со старым форматом (без слеша) не находятся и файл удалялся бы,
-    // будучи занятым: 302 был бы без error=used.
-    $stmt = db_prepare($mysql, 
-        "SELECT component_id, image FROM components 
-         WHERE image LIKE CONCAT('%assets/images/cases/', ?)",
-        "s", $filename);
-    $stmt->execute();
-    $usedRows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $usedCount = count($usedRows);
-    
-    if ($usedCount > 0) {
-        // Отказ: файл используется
-        csrf_rotate();
-        header('Location: /admin.php?tab=files&error=used');
-        exit;
+
+    if ($isDelete) {
+        // Удалять можно ТОЛЬКО из архива: живой файл сначала отправляется
+        // в архив. Так удаление всегда осознанное и обратимое.
+        if ($inArchive) {
+            unlink($archivedPath);
+        } elseif ($inCases) {
+            header('Location: /admin.php?tab=files&error=need_archive');
+            exit;
+        }
+    } else {
+        // Перенос cases/ <-> _archive/. Архивировать привязанный файл нельзя:
+        // раз ссылка живёт в БД, файл должен остаться доступным по пути.
+        if ($isArchive && $inCases) {
+            $stmt = db_prepare($mysql,
+                "SELECT component_id FROM components 
+                 WHERE image LIKE CONCAT('%assets/images/cases/', ?)",
+                "s", $filename);
+            $stmt->execute();
+            $usedCount = count($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+
+            if ($usedCount > 0) {
+                csrf_rotate();
+                header('Location: /admin.php?tab=files&error=used');
+                exit;
+            }
+            if (!is_dir($archiveDir)) {
+                mkdir($archiveDir, 0775, true);
+            }
+            rename($from, $archivedPath);
+        } elseif ($isRestore && $inArchive) {
+            rename($archivedPath, $from);
+        }
     }
-    
-    // Удаление файла
-    $path = __DIR__ . '/assets/images/cases/' . $filename;
-    if (is_file($path)) {
-        unlink($path);
-    }
-    
+
     csrf_rotate();
     header('Location: /admin.php?tab=files');
     exit;
@@ -964,11 +990,15 @@ if ($tab === 'dashboard') {
         </div>
 <?php require __DIR__ . '/partials/footer.php'; ?>
 
-<!-- Скрытая форма для удаления файла -->
+<!-- Скрытая форма файловых действий (архив/восстановление/удаление).
+     Какое действие выполнить - определяет отправленная кнопка: JS кладёт
+     1 в один из трёх input и обнуляет остальные. -->
 <form id="deleteFileForm" method="post" style="display:none">
     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
     <input type="hidden" name="filename" value="">
-    <input type="hidden" name="deleteFile" value="1">
+    <input type="hidden" name="archiveFile" value="">
+    <input type="hidden" name="restoreFile" value="">
+    <input type="hidden" name="deleteFile" value="">
 </form>
 
 <?php $mysql->close(); ?>
