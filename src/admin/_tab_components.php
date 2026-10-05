@@ -142,10 +142,12 @@ if ($result) {
                                 // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
                                 // (нужно до вывода HTML — там же работает редирект page>N)
 
-                                // 3.7-d: явный список колонок — нужен для data-component (edit)
+                                // 3.7-d: явный список колонок — нужен для data-component (edit).
+                                // FIX-8: image в выборке — иначе превью в edit-модалке пустое
                                 $sql = "SELECT components.component_id, components.component_name, components.component_price,
                                                components.amount, components.category_id, categories.category_name,
                                                components.description, components.manufacturer, components.model,
+                                               components.image,
                                                components.socket_id, components.tdp, components.frequency_mhz,
                                                components.video_core, components.ram_type, components.capacity_gb,
                                                components.memory_type, components.wattage, components.interface,
@@ -172,6 +174,9 @@ if ($result) {
                                             'description' => $row['description'],
                                             'manufacturer' => $row['manufacturer'],
                                             'model' => $row['model'],
+                                            // FIX-8: путь картинки нужен JS для превью
+                                            // в edit-модалке корпуса
+                                            'image' => $row['image'],
                                             'socket_id' => $row['socket_id'],
                                             'tdp' => $row['tdp'],
                                             'frequency_mhz' => $row['frequency_mhz'],

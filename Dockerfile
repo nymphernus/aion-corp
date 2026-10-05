@@ -3,11 +3,26 @@ FROM php:8.1-apache
 # Устанавливаем расширения
 RUN docker-php-ext-install mysqli pdo pdo_mysql opcache
 
-# Stage 8: лимит загрузки изображений 5 МБ должен проходить целиком.
-# Дефолт upload_max_filesize=2M отсекал бы 3-4 МБ файлы на транспортном
-# уровне с UPLOAD_ERR_INI_SIZE ещё до нашей проверки размера.
-RUN echo 'upload_max_filesize = 6M' > /usr/local/etc/php/conf.d/uploads.ini \
-    && echo 'post_max_size = 8M' >> /usr/local/etc/php/conf.d/uploads.ini
+# Stage 8-финал: GD с jpeg/png/webp/freetype для модуля сжатия изображений.
+# Без jpeg-кодека imagejpeg() нет — конвертация webp->jpg невозможна.
+RUN apt-get update && apt-get install -y \
+        libjpeg-dev \
+        libpng-dev \
+        libwebp-dev \
+        libfreetype6-dev \
+    && docker-php-ext-configure gd \
+        --with-jpeg \
+        --with-webp \
+        --with-freetype \
+    && docker-php-ext-install gd \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Stage 8: лимит загрузки должен проходить целиком (новый максимум 10 МБ).
+# Дефолт upload_max_filesize=2M отсекал бы большие файлы на транспортном
+# уровне с UPLOAD_ERR_INI_SIZE ещё до нашей проверки.
+RUN echo 'upload_max_filesize = 10M' > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo 'post_max_size = 12M' >> /usr/local/etc/php/conf.d/uploads.ini
 
 # Настраиваем Apache для непривилегированного пользователя
 ENV APACHE_RUN_USER=www-data
