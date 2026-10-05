@@ -496,6 +496,31 @@ if ($isAdmin && isset($_POST['deleteFile'])) {
     exit;
 }
 
+// --- БЛОК 4: привязка файла к корпусу из файлового менеджера ---
+if ($isAdmin && isset($_POST['attachFile'])) {
+    csrf_verify();
+
+    $fileUrl = trim((string) ($_POST['fileUrl'] ?? ''));
+    $caseId = (int) ($_POST['caseId'] ?? 0);
+
+    // Валидация: путь строго в cases/, без traversal, файл есть на диске.
+    // Привязка возможна только к категории 6 - условие прямо в UPDATE.
+    if (strpos($fileUrl, 'assets/images/cases/') === 0
+        && strpos($fileUrl, '..') === false
+        && $caseId > 0
+        && is_file(__DIR__ . '/assets/images/cases/' . basename($fileUrl))) {
+        $stmt = db_prepare($mysql,
+            "UPDATE components SET image = ?
+             WHERE component_id = ? AND category_id = 6",
+            "si", $fileUrl, $caseId);
+        $stmt->execute();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=files');
+    exit;
+}
+
 if ($isAdmin && isset($_POST['editOrderStatus'])) {
     csrf_verify();
     $status = $_POST['status'] ?? '';

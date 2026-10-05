@@ -1686,6 +1686,32 @@ a.files-stat:hover {
     flex-shrink: 0;
 }
 
+/* БЛОК 4: список корпусов в модалке привязки */
+.case-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+.case-picker-item {
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 14px;
+    transition: 150ms;
+    font-family: inherit;
+    color: var(--text);
+}
+.case-picker-item:hover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+}
+
 /* FIX-4: фильтр в два ряда - селект+поиск, ниже кнопки */
 .admin-filters__row {
     display: flex;

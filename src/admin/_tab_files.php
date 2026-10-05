@@ -240,3 +240,56 @@ function human_size(int $bytes): string {
         </div>
     <?php endforeach; ?>
 </div>
+
+<!--
+    БЛОК 4: модалка привязки файла к корпусу. Список корпусов без
+    картинки собирается ниже; пустой список -> подсказка вместо кнопок.
+-->
+<dialog id="attachCaseModal" class="modal">
+    <div class="modal-form">
+        <h2>Привязать к корпусу</h2>
+        <p class="form-hint">Выберите корпус, к которому привязать файл</p>
+
+<?php
+// Список корпусов без картинки
+$astmt = db_prepare($mysql,
+    "SELECT component_id, component_name
+     FROM components
+     WHERE category_id = 6 AND (image IS NULL OR image = '')
+     ORDER BY component_name", "");
+$astmt->execute();
+$casesWithoutImageList = $astmt->get_result()->fetch_all(MYSQLI_ASSOC);
+?>
+<?php if (empty($casesWithoutImageList)): ?>
+            <div class="alert">
+                Все корпуса уже имеют изображения
+              </div>
+<?php else: ?>
+            <div class="case-picker-list">
+                <?php foreach ($casesWithoutImageList as $c): ?>
+                    <button type="button"
+                            class="case-picker-item"
+                            data-action="attach-file-confirm"
+                            data-case-id="<?= (int) $c['component_id'] ?>">
+                        <?= escape($c['component_name']) ?>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+<?php endif; ?>
+
+        <div class="modal-actions">
+            <div class="modal-actions-right">
+                <button type="button" class="btn btn--secondary"
+                        data-action="close-modal">Отмена</button>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<!-- БЛОК 4: скрытая форма привязки. Отправляет confirm-действие -->
+<form id="attachFileForm" method="post" action="/admin.php?tab=files" style="display:none">
+    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+    <input type="hidden" name="fileUrl" value="">
+    <input type="hidden" name="caseId" value="">
+    <input type="hidden" name="attachFile" value="1">
+</form>

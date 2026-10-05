@@ -1024,6 +1024,33 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// --- БЛОК 4: привязка файла к корпусу из файлового менеджера ---
+let attachContext = { url: '' };
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-action="attach-file"]');
+    if (btn) {
+        e.preventDefault();
+        attachContext.url = btn.dataset.fileUrl;
+        const modal = document.getElementById('attachCaseModal');
+        if (modal) {
+            // Обновить список корпусов без картинки можно простым показом:
+            // список рендерится на сервере при последней загрузке страницы
+            modal.showModal();
+        }
+        return;
+    }
+
+    const caseBtn = e.target.closest('[data-action="attach-file-confirm"]');
+    if (caseBtn) {
+        e.preventDefault();
+        const form = document.getElementById('attachFileForm');
+        form.querySelector('[name="fileUrl"]').value = attachContext.url;
+        form.querySelector('[name="caseId"]').value = caseBtn.dataset.caseId;
+        form.submit();
+    }
+});
+
 // --- БЛОК 3: пикер существующих изображений ---
 // Открытие пикера из модалки корпуса
 document.addEventListener('click', function(e) {
