@@ -1113,4 +1113,107 @@ final class AdminTest extends AionTestCase
         $this->assertStringNotContainsString('в архиве', $page['body']);
         $this->assertStringNotContainsString('need_archive', $page['body']);
     }
+
+    /**
+     * 7: сохранение компонента возвращает на ту же страницу списка.
+     *
+     * Раньше редирект был жёстко '/admin.php?tab=components', поэтому
+     * после сохранения вся таблица сбрасывалась к исходному виду: фильтр
+     * по категории, поиск и сортировка пропадали. Фильтры передаются в
+     * POST-поле return_params, а собираются обратно по белому списку.
+     *
+     * Проверяется и то, что редирект не ломается (никаких Warning и
+     * «headers already sent»): переменная адреса возврата обязана быть
+     * объявлена до строки с header().
+     */
+    public function testSaveComponentKeepsListFilters(): void
+    {
+        $this->loginAsAdmin();
+
+        // берём реальный корпус из списка с фильтром
+        $list = $this->httpGet('/admin.php?tab=components&cat=6&sort=price_asc');
+        $this->assertSame(200, $list['code']);
+        $this->assertMatchesRegularExpression('/data-component=/u', $list['body'], 'список корпусов должен быть непустым');
+
+        preg_match("/data-component='([^']+)'/u", $list['body'], $m);
+        $row = json_decode(html_entity_decode($m[1], ENT_QUOTES, 'UTF-8'), true);
+        $this->assertIsArray($row);
+
+        // разметка обязана нести текущие фильтры в скрытом поле
+        $this->assertStringContainsString(
+            'name="return_params" value="cat=6&amp;sort=price_asc"',
+            $list['body'],
+            'форма сохранения должна передавать активные фильтры'
+        );
+
+        // сохраняем как есть (те же значения) - проверяем адрес возврата
+        $page = $this->httpGet('/admin.php?tab=components&cat=6&sort=price_asc');
+        $r = $this->httpPost('/admin.php?tab=components', [
+            'csrf_token' => $this->extractCsrf($page['body']),
+            'addComponent' => '1',
+            'editComponentId' => (string) $row['id'],
+            'return_params' => 'cat=6&sort=price_asc',
+            'nm' => (string) $row['name'],
+            'pr' => (string) $row['price'],
+            'col' => (string) $row['amount'],
+            'cat' => '6',
+        ]);
+
+        $this->assertSame(302, $r['code']);
+        $this->assertStringContainsString('tab=components', $r['location']);
+        $this->assertStringContainsString(
+            'cat=6',
+            $r['location'],
+            'фильтр по категории должен сохраниться после сохранения'
+        );
+        $this->assertStringContainsString(
+            'sort=price_asc',
+            $r['location'],
+            'сортировка должна сохраниться после сохранения'
+        );
+        $this->assertStringNotContainsString(
+            'Warning',
+            $r['body'],
+            'никаких предупреждений в ответе быть не должно'
+        );
+    }
+
+    /**
+     * 7: return_params не может подсунуть в Location что угодно.
+     *
+     * Строка приходит от клиента, поэтому собирать из неё адрес как есть
+     * нельзя: иначе в редирект уехал бы чужой хост. Проверяются два
+     * отсева - неизвестный ключ и попытка дописать свой параметр.
+     */
+    public function testReturnParamsRejectsForeignKeys(): void
+    {
+        $this->loginAsAdmin();
+
+        $list = $this->httpGet('/admin.php?tab=components&cat=6');
+        preg_match("/data-component='([^']+)'/u", $list['body'], $m);
+        $row = json_decode(html_entity_decode($m[1], ENT_QUOTES, 'UTF-8'), true);
+
+        $page = $this->httpGet('/admin.php?tab=components&cat=6');
+        $r = $this->httpPost('/admin.php?tab=components', [
+            'csrf_token' => $this->extractCsrf($page['body']),
+            'addComponent' => '1',
+            'editComponentId' => (string) $row['id'],
+            // посторонние ключи и попытка открытого редиректа
+            'return_params' => 'cat=6&evil=1&next=https://example.com',
+            'nm' => (string) $row['name'],
+            'pr' => (string) $row['price'],
+            'col' => (string) $row['amount'],
+            'cat' => '6',
+        ]);
+
+        $this->assertSame(302, $r['code']);
+        $this->assertStringContainsString('cat=6', $r['location']);
+        $this->assertStringNotContainsString('evil', $r['location'], 'неизвестный ключ не должен попадать в адрес');
+        $this->assertStringNotContainsString('example.com', $r['location'], 'чужой хост не должен попадать в Location');
+
+        // httpPost возвращает абсолютный URL (Location разворачивается
+        // клиентом), поэтому проверяется именно путь, а не хост
+        $path = (string) parse_url($r['location'], PHP_URL_PATH);
+        $this->assertSame('/admin.php', $path, 'редирект должен вести на admin.php');
+    }
 }

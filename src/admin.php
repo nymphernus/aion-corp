@@ -44,7 +44,7 @@ $isAdmin = true;
 $tab = $_GET['tab'] ?? '';
 if ($tab === '') {
     // 3.7-f-3: вход из профиля ведёт сразу на список пользователей
-    header('Location: /admin.php?tab=users');
+    header('Location: ' . admin_list_url('users', return_params_from_request()));
     exit();
 }
 
@@ -71,6 +71,103 @@ $listOrder = '';  // ORDER BY из белого списка
 $escapeLike = static function (string $value): string {
     return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
 };
+
+// --- Сохранение фильтров при сохранении/удалении (задача 7) ---
+//
+// После любого POST админ возвращался на /admin.php?tab=components без
+// фильтров, и вся таблица сбрасывалась в исходный вид. Фильтры лежат в
+// GET, а форма шлёт POST на адрес без них, поэтому их нужно передать
+// отдельно: разметка вкладки кладёт текущие параметры в скрытое поле
+// return_params, а отсюда они собираются обратно в адрес редиректа.
+
+// Белый список параметров по вкладкам. Строка из return_params приходит
+// от клиента, поэтому собирать адрес из неё как есть нельзя: иначе в
+// Location уехало бы что угодно, включая чужой хост. Разрешённые ключи
+// и значения фильтруются, лишнее отбрасывается.
+$listFilterKeys = [
+    'components' => ['cat', 'sock', 'q', 'sort', 'no_image', 'page'],
+    'users' => ['group', 'q', 'page'],
+    'orders' => ['status', 'q', 'page'],
+    'files' => ['filter', 'q', 'page'],
+    'settings' => [],
+    'dashboard' => [],
+];
+
+// Значения, которые нельзя пропускать в редирект ни в каком виде:
+// ограничение длины отсекает мусор, а urlencode не даёт инъекцию
+// заголовка через «\r\n».
+function return_params_normalize(string $raw, array $allowedKeys): array
+{
+    $params = [];
+    parse_str($raw, $params);
+    if (!is_array($params)) {
+        return [];
+    }
+
+    $clean = [];
+    foreach ($allowedKeys as $key) {
+        if (!isset($params[$key])) {
+            continue;
+        }
+        $value = $params[$key];
+        if (is_array($value)) {
+            continue;   // cat[]=1 и подобное не имеет смысла
+        }
+        $value = trim((string) $value);
+        if ($value === '' || mb_strlen($value) > 100) {
+            continue;
+        }
+        $clean[$key] = $value;
+    }
+    return $clean;
+}
+
+/**
+ * Текущие фильтры: сначала POST-поле return_params (форма сохраняет),
+ * при его отсутствии - живые GET-параметры (например, при ошибке,
+ * когда форма была отправлена без него).
+ */
+function return_params_from_request(): string
+{
+    global $listFilterKeys, $tab;
+
+    $raw = $_POST['return_params'] ?? '';
+    if (!is_string($raw) || $raw === '') {
+        $raw = $_SERVER['QUERY_STRING'] ?? '';
+    }
+    $allowed = $listFilterKeys[$tab] ?? [];
+
+    return http_build_query(return_params_normalize((string) $raw, $allowed));
+}
+
+/**
+ * Адрес возврата на вкладку с сохранёнными фильтрами и, при желании,
+ * сообщением об ошибке.
+ */
+function admin_list_url(string $listTab, string $params, ?string $error = null): string
+{
+    $url = '/admin.php?tab=' . rawurlencode($listTab);
+    if ($params !== '') {
+        $url .= '&' . $params;
+    }
+    if ($error !== null && $error !== '') {
+        $url .= '&error=' . rawurlencode($error);
+    }
+    return $url;
+}
+
+/**
+ * Текущие фильтры вкладки для скрытого поля return_params. Источник -
+ * живые GET-параметры, дальше тот же белый список.
+ */
+function admin_list_query(string $listTab): string
+{
+    global $listFilterKeys;
+
+    $allowed = $listFilterKeys[$listTab] ?? [];
+    $query = $_SERVER['QUERY_STRING'] ?? '';
+    return http_build_query(return_params_normalize($query, $allowed));
+}
 
 if ($tab === 'components') {
     $fCat = (int) ($_GET['cat'] ?? 0);
@@ -241,7 +338,9 @@ if ($isAdmin && isset($_POST['deleteComponent'])) {
 
         if ($usedCount > 0) {
             csrf_rotate();
-            header('Location: /admin.php?tab=components&error=used&count=' . $usedCount);
+            // фильтры сохраняются и здесь: отказ удаления тоже должен
+            // вернуть админа на ту же страницу, откуда он пришёл
+            header('Location: ' . admin_list_url('components', return_params_from_request(), 'used') . '&count=' . $usedCount);
             exit();
         }
 
@@ -250,12 +349,26 @@ if ($isAdmin && isset($_POST['deleteComponent'])) {
     }
 
     csrf_rotate();
-    header('Location: /admin.php?tab=components');
+    header('Location: ' . admin_list_url('components', return_params_from_request()));
     exit();
 }
 
 if ($isAdmin && isset($_POST['addComponent'])) {
     csrf_verify();
+
+    // Возврат на ту же страницу списка, откуда пришли. Фильтры приходят
+    // в POST-поле return_params (его кладёт разметка вкладки) - читать
+    // их из $listQuery нельзя: тот собран из $_GET, а форма шлёт POST на
+    // /admin.php?tab=components без фильтров в адресе, поэтому на POST
+    // $listQuery всегда пуст и фильтры терялись бы.
+    //
+    // Все редиректы этого обработчика идут через componentsReturnUrl(),
+    // включая отказы по размеру/MIME: иначе после ошибки «файл слишком
+    // большой» админ возвращался на пустой список.
+    $componentsReturnUrl = static function (?string $error = null): string {
+        return admin_list_url('components', return_params_from_request(), $error);
+    };
+
     // 3.7-d: пустой editComponentId = INSERT, заполненный = UPDATE
     $editId = (int) ($_POST['editComponentId'] ?? 0);
     $name = $_POST['nm'] ?? '';
@@ -312,17 +425,17 @@ if ($isAdmin && isset($_POST['addComponent'])) {
             // php.ini (upload_max_filesize) - для пользователя это та же
             // "слишком большой", просто отсечённая раньше нашей проверки
             if ($file['error'] === UPLOAD_ERR_INI_SIZE) {
-                header('Location: /admin.php?tab=components&error=size');
+                header('Location: ' . $componentsReturnUrl('size'));
                 exit();
             }
             elseif ($file['error'] !== UPLOAD_ERR_OK) {
-                header('Location: /admin.php?tab=components&error=upload');
+                header('Location: ' . $componentsReturnUrl('upload'));
                 exit();
             }
             
             // 2. Размер: до 10 МБ (ini поднят до 10M/12M в Dockerfile)
             elseif ($file['size'] > 10 * 1024 * 1024) {
-                header('Location: /admin.php?tab=components&error=size');
+                header('Location: ' . $componentsReturnUrl('size'));
                 exit();
             }
             
@@ -335,12 +448,12 @@ if ($isAdmin && isset($_POST['addComponent'])) {
                 $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
                 
                 if (!in_array($mime, $allowedMimes, true)) {
-                    header('Location: /admin.php?tab=components&error=mime');
+                    header('Location: ' . $componentsReturnUrl('mime'));
                     exit();
                 }
                 // 4. Проверка что это настоящая картинка
                 elseif (!@getimagesize($file['tmp_name'])) {
-                    header('Location: /admin.php?tab=components&error=image');
+                    header('Location: ' . $componentsReturnUrl('image'));
                     exit();
                 }
                 else {
@@ -355,7 +468,7 @@ if ($isAdmin && isset($_POST['addComponent'])) {
                     $result = process_uploaded_image($file['tmp_name'], $targetDir, $slug);
 
                     if ($result === null) {
-                        header('Location: /admin.php?tab=components&error=save');
+                        header('Location: ' . $componentsReturnUrl('save'));
                         exit();
                     }
                     $newImagePath = 'assets/images/cases/' . basename($result['path']);
@@ -463,15 +576,15 @@ if ($isAdmin && isset($_POST['addComponent'])) {
         $stmt->execute();
         csrf_rotate();
     }
-    header('Location: /admin.php?tab=components');
+    header('Location: ' . $componentsReturnUrl());
     exit();
 }
 
-// --- Файловый менеджер: удаление (Stage 8-финал) ---
-// Архивации больше нет: файл удаляется с диска напрямую и только если
-// на него не ссылается ни один компонент. basename режет path traversal,
-// поэтому filename вида ../../index.php превращается в index.php и
-// ищется внутри каталога cases/.
+// --- Файловый менеджер: удаление ---
+// Файл удаляется с диска напрямую, привязанный тоже (предупреждение
+// показывает модалка). basename режет path traversal, поэтому filename
+// вида ../../index.php превращается в index.php и ищется внутри
+// каталога cases/.
 $filename = isset($_POST['deleteFile']) ? basename((string) ($_POST['filename'] ?? '')) : '';
 
 if ($isAdmin && $filename !== '') {
@@ -530,7 +643,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     $stmt = db_prepare($mysql, "UPDATE orders SET status = ? WHERE order_id = ?", "si", $status, $orderId);
     $stmt->execute();
     csrf_rotate();
-    header('Location: /admin.php?tab=orders');
+    header('Location: ' . admin_list_url('orders', return_params_from_request()));
     exit();
 }
 
@@ -685,7 +798,7 @@ if ($isAdmin && isset($_POST['editOrder'])) {
     }
 
     csrf_rotate();
-    header('Location: /admin.php?tab=orders');
+    header('Location: ' . admin_list_url('orders', return_params_from_request()));
     exit();
 }
 
@@ -713,7 +826,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
 
     // ошибки возвращаем на ту же вкладку с сообщением
     $fail = static function (string $code): void {
-        header('Location: /admin.php?tab=users&error=' . urlencode($code));
+        header('Location: ' . admin_list_url('users', return_params_from_request(), $code));
         exit();
     };
 
@@ -785,7 +898,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
     }
 
     csrf_rotate();
-    header('Location: /admin.php?tab=users');
+    header('Location: ' . admin_list_url('users', return_params_from_request()));
     exit();
 }
 
@@ -827,7 +940,7 @@ if ($isAdmin && isset($_POST['approveEmail'])) {
     }
 
     csrf_rotate();
-    header('Location: /admin.php?tab=users');
+    header('Location: ' . admin_list_url('users', return_params_from_request()));
     exit();
 }
 
@@ -849,7 +962,7 @@ if ($isAdmin && isset($_POST['approvePhone'])) {
     }
 
     csrf_rotate();
-    header('Location: /admin.php?tab=users');
+    header('Location: ' . admin_list_url('users', return_params_from_request()));
     exit();
 }
 
@@ -862,7 +975,7 @@ if ($isAdmin && isset($_POST['deleteOrder'])) {
         $check = db_prepare($mysql, "SELECT order_id FROM orders WHERE order_id = ?", "i", $orderId);
         $check->execute();
         if (!$check->get_result()->fetch_assoc()) {
-            header('Location: /admin.php?tab=orders&error=missing-order');
+            header('Location: ' . admin_list_url('orders', return_params_from_request(), 'missing-order'));
             exit();
         }
 
@@ -871,7 +984,7 @@ if ($isAdmin && isset($_POST['deleteOrder'])) {
     }
 
     csrf_rotate();
-    header('Location: /admin.php?tab=orders');
+    header('Location: ' . admin_list_url('orders', return_params_from_request()));
     exit();
 }
 
@@ -889,7 +1002,7 @@ if ($isAdmin && isset($_POST['deleteUser'])) {
     $stmt->execute();
 
     csrf_rotate();
-    header('Location: /admin.php?tab=users');
+    header('Location: ' . admin_list_url('users', return_params_from_request()));
     exit();
 }
 

@@ -19,6 +19,10 @@
                 <dialog id="editOrderModal" class="modal">
                     <form method="post" class="modal-form" action="/admin.php?tab=orders">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                        <?php // фильтры списка заказов переживают POST только
+                              // через это поле; ключи фильтруются по
+                              // белому списку на сервере ?>
+                        <input type="hidden" name="return_params" value="<?= escape(admin_list_query('orders')) ?>">
                         <input type="hidden" name="orderId" id="editOrderId" value="">
 
                         <h2>Заказ №<span id="editOrderNumber"></span></h2>
@@ -92,6 +96,7 @@
                 -->
                 <form id="deleteOrderForm" method="post" action="/admin.php?tab=orders" hidden>
                     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="return_params" value="<?= escape(admin_list_query('orders')) ?>">
                     <input type="hidden" name="orderId" id="deleteOrderId" value="">
                     <!-- 3.7-g-4: deleteOrder лежит скрытым input, а не
                          кнопкой: form.submit() не включает имя нажатой

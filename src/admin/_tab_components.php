@@ -222,6 +222,12 @@ if ($result) {
                 <dialog id="addComponentModal" class="modal">
                     <form method="post" class="modal-form" action="/admin.php?tab=components" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                        <?php // Возврат на ту же страницу списка после
+                              // сохранения: фильтры таблицы не переживают
+                              // POST, поэтому их нужно передать отдельно.
+                              // На стороне сервера ключи фильтруются по
+                              // белому списку (admin.php). ?>
+                        <input type="hidden" name="return_params" value="<?= escape(admin_list_query('components')) ?>">
                         <h2 id="modalTitle">Добавить комплектующий</h2>
                         <!-- 3.7-d: пустой = INSERT, заполненный = UPDATE -->
                         <input type="hidden" name="editComponentId" id="editComponentId" value="">
@@ -475,6 +481,7 @@ if ($result) {
                 -->
                 <form id="deleteComponentForm" method="post" action="/admin.php?tab=components" hidden>
                     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="return_params" value="<?= escape(admin_list_query('components')) ?>">
                     <input type="hidden" name="deleteComponentId" id="deleteComponentId" value="">
                     <!-- 3.7-g-4: скрытый input вместо submit-кнопки,
                          потому что форму отправляет form.submit() -->

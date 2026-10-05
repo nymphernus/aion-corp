@@ -25,6 +25,10 @@
                 <dialog id="editUserModal" class="modal modal--wide">
                     <form method="post" class="modal-form modal-form--user" action="/admin.php?tab=users">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                        <?php // фильтры списка пользователей переживают POST
+                              // только через это поле; ключи фильтруются
+                              // по белому списку на сервере ?>
+                        <input type="hidden" name="return_params" value="<?= escape(admin_list_query('users')) ?>">
                         <input type="hidden" name="editUserId" id="editUserId" value="">
 
                         <h2>Пользователь: <span id="editUserLogin"></span></h2>
@@ -239,11 +243,13 @@
                      закладки другого адреса обработчик не нашёлся бы. -->
                 <form id="approveEmailForm" method="post" action="/admin.php?tab=users" hidden>
                     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="return_params" value="<?= escape(admin_list_query('users')) ?>">
                     <input type="hidden" name="userId" value="">
                     <input type="hidden" name="approveEmail" value="1">
                 </form>
                 <form id="approvePhoneForm" method="post" action="/admin.php?tab=users" hidden>
                     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="return_params" value="<?= escape(admin_list_query('users')) ?>">
                     <input type="hidden" name="userId" value="">
                     <input type="hidden" name="approvePhone" value="1">
                 </form>

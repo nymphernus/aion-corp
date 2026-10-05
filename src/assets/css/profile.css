@@ -1712,6 +1712,13 @@ a.files-stat:hover {
 .file-card__delete:focus-visible {
     opacity: 1;
 }
+/* На тач-устройствах hover не существует: иконка осталась бы вечно
+   невидимой, то есть недоступной. Там она показывается всегда. */
+@media (hover: none) {
+    .file-card__delete {
+        opacity: 1;
+    }
+}
 .file-card__delete:hover {
     background: var(--error);
     color: white;
