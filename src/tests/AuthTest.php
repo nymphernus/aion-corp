@@ -307,4 +307,167 @@ final class AuthTest extends AionTestCase
 
         $this->clearLoginAttempts('admin');
     }
+
+    /**
+     * Зарегистрировать пользователя и войти под ним, вернуть логин.
+     *
+     * 5-f-2c: тесты смены пароля работают на своём пользователе, а не на
+     * admin - иначе тест менял бы пароль админа и следующий прогон падал
+     * бы из-за этого.
+     */
+    private function makeLoggedInUser(string $prefix = 'pw_test_'): string
+    {
+        $login = $this->uniqueLogin($prefix);
+        $this->trackCleanup($login);
+
+        $page = $this->httpGet('/profile.php');
+        $r = $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Тестовый',
+            'user_login' => $login,
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(302, $r['code'], 'регистрация тестового пользователя');
+
+        return $login;
+    }
+
+    /**
+     * 5-f-2c: успешная смена пароля, новый работает, старый нет.
+     */
+    public function testChangePasswordWorks(): void
+    {
+        $login = $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php?section=security');
+        $this->assertStringContainsString('id="card-security"', $page['body']);
+
+        $r = $this->httpPost('/profile.php', [
+            'changePassword' => '1',
+            'current_password' => 'password123',
+            'new_password' => 'newpass456',
+            'new_password_confirm' => 'newpass456',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(302, $r['code'], 'успешная смена должна редиректить');
+
+        $after = $this->httpGet('/profile.php?section=security&password_changed=1');
+        $this->assertStringContainsString('alert alert--success', $after['body']);
+        $this->assertStringContainsString('Пароль успешно изменён', $after['body']);
+
+        // новый пароль входит
+        $withNew = $this->loginInFreshSession($login, 'newpass456');
+        $this->assertStringContainsString(
+            'profile-header-login',
+            $withNew['body'],
+            'вход с новым паролем должен работать'
+        );
+
+        // старый - нет. Ответ на оба одинаковый (302 на форму), поэтому
+        // различие видно только по содержимому профиля
+        $withOld = $this->loginInFreshSession($login, 'password123');
+        $this->assertStringNotContainsString(
+            'profile-header-login',
+            $withOld['body'],
+            'старый пароль больше не должен пускать в профиль'
+        );
+    }
+
+    /**
+     * 5-f-2c: неверный текущий пароль отклоняется, пароль не меняется.
+     */
+    public function testChangePasswordRejectsWrongCurrent(): void
+    {
+        $login = $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php?section=security');
+        $r = $this->httpPost('/profile.php', [
+            'changePassword' => '1',
+            'current_password' => 'definitely_wrong',
+            'new_password' => 'newpass456',
+            'new_password_confirm' => 'newpass456',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(200, $r['code'], 'при ошибке редиректа быть не должно');
+        $this->assertStringContainsString('Текущий пароль неверен', $r['body']);
+
+        // пароль прежний: вход работает
+        $ok = $this->loginInFreshSession($login, 'password123');
+        $this->assertStringContainsString('profile-header-login', $ok['body']);
+    }
+
+    /**
+     * 5-f-2c: короткий новый пароль отклоняется.
+     */
+    public function testChangePasswordRejectsShort(): void
+    {
+        $login = $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php?section=security');
+        $r = $this->httpPost('/profile.php', [
+            'changePassword' => '1',
+            'current_password' => 'password123',
+            'new_password' => 'short',
+            'new_password_confirm' => 'short',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(200, $r['code']);
+        $this->assertStringContainsString('Новый пароль должен быть от 8 до 20 символов', $r['body']);
+
+        $ok = $this->loginInFreshSession($login, 'password123');
+        $this->assertStringContainsString('profile-header-login', $ok['body']);
+    }
+
+    /**
+     * 5-f-2c: несовпадение повтора отклоняется.
+     */
+    public function testChangePasswordRejectsMismatch(): void
+    {
+        $login = $this->makeLoggedInUser();
+
+        $page = $this->httpGet('/profile.php?section=security');
+        $r = $this->httpPost('/profile.php', [
+            'changePassword' => '1',
+            'current_password' => 'password123',
+            'new_password' => 'newpass456',
+            'new_password_confirm' => 'otherpass789',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertSame(200, $r['code']);
+        $this->assertStringContainsString('Пароли не совпадают', $r['body']);
+
+        $ok = $this->loginInFreshSession($login, 'password123');
+        $this->assertStringContainsString('profile-header-login', $ok['body']);
+    }
+
+    /**
+     * 5-f-2c: смена пароля без CSRF-токена отклоняется.
+     */
+    public function testChangePasswordRequiresCsrf(): void
+    {
+        $login = $this->makeLoggedInUser();
+
+        $r = $this->httpPost('/profile.php', [
+            'changePassword' => '1',
+            'current_password' => 'password123',
+            'new_password' => 'newpass456',
+            'new_password_confirm' => 'newpass456',
+            'csrf_token' => 'stale-token',
+        ]);
+        $this->assertSame(403, $r['code'], 'без токена смена пароля не должна проходить');
+
+        $ok = $this->loginInFreshSession($login, 'password123');
+        $this->assertStringContainsString('profile-header-login', $ok['body']);
+    }
+
+    /**
+     * 5-f-2c: карточка безопасности не рисуется гостю.
+     */
+    public function testSecurityCardHiddenForGuest(): void
+    {
+        $page = $this->httpGet('/profile.php');
+        $this->assertSame(200, $page['code']);
+        $this->assertStringNotContainsString('id="card-security"', $page['body']);
+        $this->assertStringNotContainsString('name="current_password"', $page['body']);
+    }
 }

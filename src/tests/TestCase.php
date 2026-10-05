@@ -154,4 +154,27 @@ class AionTestCase extends PhpUnitTestCase
             'csrf_token' => $token,
         ]);
     }
+
+    /**
+     * 5-f-2c: войти в чистой сессии и вернуть страницу профиля.
+     *
+     * Отдельная сессия нужна, чтобы проверить, что вход работает, а не то,
+     * что тестовый пользователь ещё не выходил: loginAs переиспользовал бы
+     * текущий cookie-jar, где сессия уже активна, и показал бы профиль даже
+     * с неверным паролем. Здесь jar пересоздаётся.
+     *
+     * @return array{code: int, body: string, location: string}
+     */
+    protected function loginInFreshSession(string $login, string $pass): array
+    {
+        if (is_file($this->jar)) {
+            unlink($this->jar);
+        }
+        $this->jar = tempnam(sys_get_temp_dir(), 'aion_jar_');
+        $this->clearLoginAttempts($login);
+
+        $this->loginAs($login, $pass);
+
+        return $this->httpGet('/profile.php');
+    }
 }

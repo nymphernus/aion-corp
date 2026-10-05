@@ -405,6 +405,34 @@ h1{
     }
 }
 
+/* 5-f-2c: смена пароля. Сетка названа password-form, а не использует
+   общий .form-row: в админке .form-row занят другой раскладкой, и правая
+   колонка нужна именно здесь. На узком экране поля встают в столбик. */
+.password-form {
+    max-width: 640px;
+}
+
+.password-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.password-form .form-row .form-group {
+    margin-bottom: 0;
+}
+
+#card-security {
+    margin-top: 24px;
+}
+
+@media (max-width: 640px) {
+    .password-form .form-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+
 /* 5-f-2: вкладка «Настройки сайта». Классы .modal-row, .modal-actions и
    .modal-actions-right уже использовались модалками пользователя и заказа,
    здесь переиспользованы они, чтобы не плодить вторую сетку. */

@@ -120,6 +120,69 @@ if ($userProfile) {
         exit();
     }
 
+    // 5-f-2c: смена пароля из профиля.
+    //
+    // Проверка текущего пароля обязательна: без неё любой, кто открыл
+    // сессию, мог бы заменить пароль, не зная прежнего. Хеш лежит в
+    // $userProfile - это та же строка из users, что идёт в 5-a.
+    //
+    // Порядок проверок: сначала текущий пароль, потом длина, потом
+    // совпадение с прежним, потом повтор. Так пользователь видит по
+    // одной причине, а не четыре сразу, и первая в списке - самая
+    // вероятная.
+    $passwordError = null;
+    if (isset($_POST['changePassword'])) {
+        csrf_verify();
+
+        $current = (string) ($_POST['current_password'] ?? '');
+        $new     = (string) ($_POST['new_password'] ?? '');
+        $confirm = (string) ($_POST['new_password_confirm'] ?? '');
+
+        $pwErrors = [];
+
+        if (!password_verify($current, (string) $userProfile['user_pass'])) {
+            $pwErrors[] = 'Текущий пароль неверен';
+        }
+
+        // 8-20 - те же границы, что и при регистрации в reg.php
+        if (mb_strlen($new, 'UTF-8') < 8 || mb_strlen($new, 'UTF-8') > 20) {
+            $pwErrors[] = 'Новый пароль должен быть от 8 до 20 символов';
+        }
+
+        if ($new !== '' && $new === $current) {
+            $pwErrors[] = 'Новый пароль совпадает с текущим';
+        }
+
+        if ($new !== $confirm) {
+            $pwErrors[] = 'Пароли не совпадают';
+        }
+
+        if ($pwErrors) {
+            // ошибки показываем на карточке, без редиректа: иначе текст
+            // потерялся бы вместе с POST
+            $passwordError = implode('. ', $pwErrors);
+            // страница уже отрисована ниже по ветке $userProfile, поэтому
+            // $_POST тут недоступен для повторного заполнения полей: поля
+            // намеренно пустые, пароль заново вводить не придётся
+            unset($_POST['current_password'], $_POST['new_password'], $_POST['new_password_confirm']);
+        } else {
+            $hash = password_hash($new, PASSWORD_BCRYPT);
+            $stmt = db_prepare(
+                $mysql,
+                "UPDATE `users` SET `user_pass` = ? WHERE `user_id` = ?",
+                "si",
+                $hash,
+                (int) $userProfile['user_id']
+            );
+            $stmt->execute();
+            $stmt->close();
+
+            csrf_rotate();
+            header('Location: /profile.php?section=card-security&password_changed=1');
+            exit();
+        }
+    }
+
     if (isset($_POST['changeSurname']) && isset($_SESSION['user_login'])) {
         csrf_verify();
         $surname = $_POST['user_surname'] ?? '';
@@ -181,6 +244,12 @@ if ($userProfile) {
 $pageTitle = 'Профиль';
 $extraCss = ['/assets/css/profile.css'];
 $extraJs  = ['/assets/js/scripts.js'];
+
+// 5-f-2c: подтверждение смены пароля. Текст ставится по флагу в
+// адресе, потому что успешный случай заканчивается редиректом - POST там
+// уже недоступен.
+$passwordSuccess = isset($_GET['password_changed']) ? 'Пароль успешно изменён' : null;
+$passwordError   = $passwordError ?? null;
 
 // 5-f-1: сообщение об ошибке приходит cookie error_access, которую ставят
 // validation/auth.php и validation/reg.php. Читать её было некому: страница
@@ -288,14 +357,32 @@ require __DIR__ . '/partials/header.php';
                     // пользователя в админке попасть в «Мои заказы» без кликов.
                     // Значение из GET не идёт в разметку как есть - только по белому
                     // списку, id секции берётся из массива, а не из запроса.
-                    $sectionMap = ['info' => 'card-info', 'orders' => 'card-builds', 'fav' => 'card-fav'];
+                    // 5-f-2c: 'security' добавлен в белый список. id секции берётся из
+                    // этого массива, а не из запроса - значение из GET в
+                    // разметку как не попадает.
+                    $sectionMap = [
+                        'info'     => 'card-info',
+                        'orders'   => 'card-builds',
+                        'fav'      => 'card-fav',
+                        'security' => 'card-security',
+                    ];
                     $sectionKey = (string) ($_GET['section'] ?? 'info');
                     $activeSection = $sectionMap[$sectionKey] ?? 'card-info';
-                    // секции заказов и избранного рисуются только обычному
-                    // пользователю; для админа параметр игнорируется, иначе
-                    // ?section=orders скрыл бы единственную карточку и страница
-                    // осталась бы пустой
-                    if ($isAdmin) {
+                    // 5-f-2c: секции заказов и избранного рисуются только
+                    // обычному пользователю, для админа параметр игнорируется:
+                    // иначе ?section=orders скрыл бы единственную карточку и
+                    // страница осталась бы пустой.
+                    //
+                    // Безопасность - исключение. Раньше здесь стояло без
+                    //условий $activeSection = 'card-info' для всех, и
+                    // карточка безопасности для админа оказывалась
+                    // непроходимой: ?section=security тут же сбрасывался, а
+                    // кнопки в сайдбаре у админа нет, потому что ветка
+                    // !isAdmin её не рисует. Итог был такой: у админа есть
+                    // форма, до которой нельзя добраться. Проверено на
+                    // выводе страницы - у admin карточка всегда со
+                    // style="display:none".
+                    if ($isAdmin && $activeSection !== 'card-security') {
                         $activeSection = 'card-info';
                     }
                     // скрываем секцию, если она не выбранная
@@ -502,6 +589,64 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                 </div>
                                 </div>
                             </section>
+
+                            <!--
+                                5-f-2c: карточка безопасности. Секция своя,
+                                а не блок внутри «Личной информации»: смена
+                                пароля не про анкету, и смешивать их в одной
+                                карточке значило бы держать поля пароля на
+                                одном экране с кнопкой редактирования имени.
+
+                                Видна и админу тоже - пароль у администратора
+                                такой же пользовательский.
+                            -->
+                            <section class="card" id="card-security" data-section<?= $sectionStyle('card-security') ?>>
+                                <h2 class="page-title">Безопасность</h2>
+
+                                <?php // Плашки рисуются только когда есть что
+                                      // показать: пустой alert--error висел бы
+                                      // на каждом заходе в профиль, как это было
+                                      // с ошибками входа в 5-f-1 ?>
+                                <?php if (!empty($passwordError)): ?>
+                                    <div class="alert alert--error"><?= escape($passwordError) ?></div>
+                                <?php endif; ?>
+                                <?php if (!empty($passwordSuccess)): ?>
+                                    <div class="alert alert--success"><?= escape($passwordSuccess) ?></div>
+                                <?php endif; ?>
+
+                                <form method="post" class="password-form">
+                                    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+
+                                    <div class="form-group">
+                                        <label class="form-label" for="currentPassword">Текущий пароль</label>
+                                        <input class="input" type="password" name="current_password"
+                                               id="currentPassword" autocomplete="current-password" required>
+                                    </div>
+
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label class="form-label" for="newPassword">Новый пароль</label>
+                                            <input class="input" type="password" name="new_password"
+                                                   id="newPassword" autocomplete="new-password"
+                                                   minlength="8" maxlength="20" required>
+                                            <p class="form-hint">От 8 до 20 символов</p>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label" for="newPasswordConfirm">Повторите новый пароль</label>
+                                            <input class="input" type="password" name="new_password_confirm"
+                                                   id="newPasswordConfirm" autocomplete="new-password"
+                                                   minlength="8" maxlength="20" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-actions">
+                                        <button type="submit" name="changePassword" class="btn btn--primary">
+                                            Изменить пароль
+                                        </button>
+                                    </div>
+                                </form>
+                            </section>
+
                             <!-- 3.7-f-4: промежуточная админ-карточка удалена —
      в сайдбаре ссылка на /admin.php, внутри админки свой сайдбар с вкладками -->
                             <?php if (!$isAdmin): ?>

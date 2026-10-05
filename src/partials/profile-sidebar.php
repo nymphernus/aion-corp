@@ -39,9 +39,12 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
 
 <?php if (!$isAdmin): ?>
                         <!-- 3.7-f-4-1: для обычного пользователя это вкладки
-                             внутри profile.php, поэтому остаются кнопками -->
+                             внутри profile.php, поэтому остаются кнопками.
+                             5-f-2c: безопасность - третья секция в том же
+                             ряду, что Мои заказы и Избранное -->
                         <button type="button" class="profile-nav-item<?= $activeSection === 'card-builds' ? ' active' : '' ?>" data-action="switch" data-target="card-builds">Мои заказы</button>
                         <button type="button" class="profile-nav-item<?= $activeSection === 'card-fav' ? ' active' : '' ?>" data-action="switch" data-target="card-fav">Избранное</button>
+                        <button type="button" class="profile-nav-item<?= $activeSection === 'card-security' ? ' active' : '' ?>" data-action="switch" data-target="card-security">Безопасность</button>
 <?php else: ?>
                         <!-- 3.7-g-2: дашборд вынесен из аккордеона отдельным
                              пунктом - это точка входа, а не раздел -->
@@ -74,6 +77,19 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                             на этой странице.
                         -->
                         <a href="/admin.php?tab=settings" class="profile-nav-item<?= $activeTab === 'settings' ? ' active' : '' ?>">Настройки сайта</a>
+
+                        <!--
+                            5-f-2c: пароль у администратора такой же
+                            пользовательский, поэтому карточка безопасности
+                            рисуется и ему. Отдельная кнопка именно здесь: у
+                            админа в сайдбаре только «Личная информация» и
+                            пункты админки, кнопки безопасности в этой ветке
+                            нет. Без неё форма была бы недостижима - в прошлой
+                            версии ?section=security сбрасывался в card-info, и
+                            у admin карточка всегда была со
+                            style="display:none".
+                        -->
+                        <button type="button" class="profile-nav-item<?= $activeSection === 'card-security' ? ' active' : '' ?>" data-action="switch" data-target="card-security">Безопасность</button>
 <?php endif; ?>
 
                         <!-- 3.7-g-4: был ссылкой, ушла сразу. Теперь кнопка: выход требует
