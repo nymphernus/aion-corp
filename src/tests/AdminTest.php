@@ -781,4 +781,145 @@ final class AdminTest extends AionTestCase
         $this->assertFileExists($path, "файл {$relative} должен существовать");
         return (string) file_get_contents($path);
     }
+
+    /**
+     * 8: загрузка изображения корпуса отвергает не-изображение.
+     */
+    public function testUploadRejectsNonImage(): void
+    {
+        $this->loginAsAdmin();
+        $page = $this->httpGet('/admin.php?tab=components');
+        $token = $this->extractCsrf($page['body']);
+        
+        // Создаём временный PHP-файл
+        $tmp = tempnam(sys_get_temp_dir(), 'test');
+        file_put_contents($tmp, '<?php echo "hack";');
+        
+        $response = $this->httpPostMultipart('/admin.php?tab=components', [
+            'csrf_token' => $token,
+            'addComponent' => '1',
+            'editComponentId' => '0',
+            'nm' => 'Test Case',
+            'pr' => '1000',
+            'col' => '10',
+            'cat' => '6',  // Корпус
+            'image_file' => [
+                'name' => 'hack.php',
+                'type' => 'text/x-php',
+                'tmp_name' => $tmp,
+                'error' => UPLOAD_ERR_OK,
+            ],
+        ]);
+
+        // 302 на вкладку components с ошибкой mime
+        $this->assertSame(302, $response['code']);
+        $this->assertStringContainsString('error=mime', $response['location']);
+    }
+
+    /**
+     * 8: загрузка изображения корпуса отвергает файл > 5 МБ.
+     */
+    public function testUploadRejectsOversized(): void
+    {
+        $this->loginAsAdmin();
+        $page = $this->httpGet('/admin.php?tab=components');
+        $token = $this->extractCsrf($page['body']);
+        
+        // Создаём временный файл > 5 МБ
+        $tmp = tempnam(sys_get_temp_dir(), 'test');
+        file_put_contents($tmp, str_repeat('A', 5 * 1024 * 1024 + 1));
+        
+        $response = $this->httpPostMultipart('/admin.php?tab=components', [
+            'csrf_token' => $token,
+            'addComponent' => '1',
+            'editComponentId' => '0',
+            'nm' => 'Test Case',
+            'pr' => '1000',
+            'col' => '10',
+            'cat' => '6',  // Корпус
+            'image_file' => [
+                'name' => 'large.jpg',
+                'type' => 'image/jpeg',
+                'tmp_name' => $tmp,
+                'error' => UPLOAD_ERR_OK,
+            ],
+        ]);
+
+        // 302 на вкладку components с ошибкой размера
+        $this->assertSame(302, $response['code']);
+        $this->assertStringContainsString('error=size', $response['location']);
+    }
+
+    /**
+     * 8: файловый менеджер показывает файлы.
+     */
+    public function testFileManagerShowsFiles(): void
+    {
+        $this->loginAsAdmin();
+        $page = $this->httpGet('/admin.php?tab=files');
+        
+        $this->assertSame(200, $page['code']);
+        $this->assertStringContainsString('Изображения', $page['body']);
+        $this->assertStringContainsString('всего файлов', $page['body']);
+        $this->assertStringContainsString('file-card', $page['body']);
+        $this->assertStringContainsString('badge--success', $page['body']);  // используется
+        $this->assertStringContainsString('badge--warning', $page['body']);  // не используется
+    }
+
+    /**
+     * 8: удаление файла отвергает файл, привязанный к компоненту.
+     */
+    public function testDeleteFileRejectsUsed(): void
+    {
+        $this->loginAsAdmin();
+        $page = $this->httpGet('/admin.php?tab=files');
+        $token = $this->extractCsrf($page['body']);
+        
+        // Находим используемый файл
+        $mysql = connect();
+        $stmt = db_prepare($mysql, "SELECT image FROM components WHERE image IS NOT NULL AND category_id = 6 LIMIT 1");
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $mysql->close();
+        $this->assertNotNull($row, 'в базе должен быть корпус с изображением');
+        $filename = basename($row['image']);
+
+        $response = $this->httpPost('/admin.php?tab=files', [
+            'csrf_token' => $token,
+            'deleteFile' => '1',
+            'filename' => $filename,
+        ]);
+
+        // 302 назад на files с ошибкой used
+        $this->assertSame(302, $response['code']);
+        $this->assertStringContainsString('error=used', $response['location']);
+    }
+
+    /**
+     * 8: удаление файла работает для неиспользуемого файла.
+     */
+    public function testDeleteFileWorks(): void
+    {
+        $this->loginAsAdmin();
+        $page = $this->httpGet('/admin.php?tab=files');
+        $token = $this->extractCsrf($page['body']);
+        
+        // Создаём тестовый файл прямо в cases/ (volume монтирует ./src,
+        // поэтому файл виден и тесту, и контейнеру по одному пути)
+        $dir = dirname(__DIR__) . '/assets/images/cases/';
+        $filename = 'test-delete-' . uniqid() . '.jpg';
+        $path = $dir . $filename;
+        file_put_contents($path, 'dummy');
+
+        $response = $this->httpPost('/admin.php?tab=files', [
+            'csrf_token' => $token,
+            'deleteFile' => '1',
+            'filename' => $filename,
+        ]);
+
+        // 302 назад на files без ошибки: файл не привязан, удаление прошло
+        $this->assertSame(302, $response['code']);
+        $this->assertStringNotContainsString('error=', $response['location']);
+        $this->assertFileDoesNotExist($path);
+    }
 }

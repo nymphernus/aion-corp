@@ -335,4 +335,48 @@ class AionTestCase extends PhpUnitTestCase
 
         return $this->httpGet('/profile.php');
     }
+
+    /**
+     * POST-запрос с multipart/form-data.
+     */
+    protected function httpPostMultipart(string $url, array $data): array
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, 'http://localhost:8080' . $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+        curl_setopt($ch, CURLOPT_COOKIEFILE, $this->jar);
+        curl_setopt($ch, CURLOPT_COOKIEJAR, $this->jar);
+        
+        $boundary = uniqid();
+        $headers = [
+            'Content-Type: multipart/form-data; boundary=' . $boundary,
+        ];
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
+        $body = '';
+        foreach ($data as $key => $value) {
+            if ($key === 'image_file' && is_array($value)) {
+                $body .= "--{$boundary}\r\n";
+                $body .= "Content-Disposition: form-data; name=\"{$key}\"; filename=\"{$value['name']}\"\r\n";
+                $body .= "Content-Type: {$value['type']}\r\n\r\n";
+                $body .= file_get_contents($value['tmp_name']) . "\r\n";
+            } else {
+                $body .= "--{$boundary}\r\n";
+                $body .= "Content-Disposition: form-data; name=\"{$key}\"\r\n\r\n";
+                $body .= $value . "\r\n";
+            }
+        }
+        $body .= "--{$boundary}--\r\n";
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        
+        $response = (string) curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $location = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+        curl_close($ch);
+
+        return ['code' => $code, 'body' => $response, 'location' => $location];
+    }
+
+
 }

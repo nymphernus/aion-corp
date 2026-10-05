@@ -48,7 +48,7 @@ if ($tab === '') {
     exit();
 }
 
-$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'dashboard' => true, 'settings' => true];
+$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'files' => true, 'dashboard' => true, 'settings' => true];
 if (!isset($allowedTabs[$tab])) {
     http_response_code(404);
     exit('Раздел не найден');
@@ -192,6 +192,7 @@ if ($tab === 'components') {
 if ($tab !== 'dashboard' && $tab !== 'settings') {
     $countSql = [
         'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $listWhere,
+    'files' => 'SELECT 0',  // файлы считаются в _tab_files.php
         'users' => 'SELECT COUNT(*) FROM users WHERE 1=1' . $listWhere,
         'orders' => 'SELECT COUNT(*) FROM users,assembly,orders
                      WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id'
@@ -249,6 +250,93 @@ if ($isAdmin && isset($_POST['addComponent'])) {
     $price = (int) ($_POST['pr'] ?? 0);
     $amount = (int) ($_POST['col'] ?? 0);
     $categoryId = (int) ($_POST['cat'] ?? 0);
+    
+    // --- Загрузка изображения корпуса (Stage 8) ---
+    // Только для category_id = 6 (Корпус)
+    $newImagePath = null;
+    if ($categoryId === 6) {
+        // Существующий путь (при edit)
+        $stmt = db_prepare($mysql, "SELECT image FROM components WHERE component_id = ?", "i", $editId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        $newImagePath = $row['image'] ?? null;
+        
+        // Удаление изображения
+        if (!empty($_POST['removeImage']) && $_POST['removeImage'] === '1') {
+            $newImagePath = null;
+        }
+        
+        // Загрузка нового изображения
+        if (!empty($_FILES['image_file']['name'])) {
+            $file = $_FILES['image_file'];
+            
+            // 1. Ошибки PHP. INI_SIZE означает, что файл не прошёл лимит
+            // php.ini (upload_max_filesize) - для пользователя это та же
+            // "слишком большой", просто отсечённая раньше нашей проверки
+            if ($file['error'] === UPLOAD_ERR_INI_SIZE) {
+                header('Location: /admin.php?tab=components&error=size');
+                exit();
+            }
+            elseif ($file['error'] !== UPLOAD_ERR_OK) {
+                header('Location: /admin.php?tab=components&error=upload');
+                exit();
+            }
+            
+            // 2. Размер
+            elseif ($file['size'] > 5 * 1024 * 1024) {
+                header('Location: /admin.php?tab=components&error=size');
+                exit();
+            }
+            
+            // 3. MIME через finfo
+            else {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime = finfo_file($finfo, $file['tmp_name']);
+                finfo_close($finfo);
+                
+                $allowedMimes = [
+                    'image/jpeg' => 'jpg',
+                    'image/png'  => 'png',
+                    'image/webp' => 'webp',
+                    'image/gif'  => 'gif',
+                ];
+                
+                if (!isset($allowedMimes[$mime])) {
+                    header('Location: /admin.php?tab=components&error=mime');
+                    exit();
+                }
+                // 4. Проверка что это настоящая картинка
+                elseif (!@getimagesize($file['tmp_name'])) {
+                    header('Location: /admin.php?tab=components&error=image');
+                    exit();
+                }
+                else {
+                    $ext = $allowedMimes[$mime];
+                    
+                    // Генерируем уникальное имя из slug + uniqid
+                    $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', pathinfo($name, PATHINFO_FILENAME)));
+                    $slug = trim($slug, '-');
+                    if ($slug === '') $slug = 'case';
+                    $slug = substr($slug, 0, 40);
+                    
+                    $filename = $slug . '-' . uniqid() . '.' . $ext;
+                    $targetDir = __DIR__ . '/assets/images/cases/';
+                    $targetPath = $targetDir . $filename;
+                    
+                    if (move_uploaded_file($file['tmp_name'], $targetPath)) {
+                        // Единый формат с init.sql и существующими записями:
+                        // без ведущего слеша. Все страницы, где показывается
+                        // картинка, лежат в корне, относительный путь работает
+                        $newImagePath = 'assets/images/cases/' . $filename;
+                    } else {
+                        header('Location: /admin.php?tab=components&error=save');
+                        exit();
+                    }
+                }
+            }
+        }
+    }
 
     // 3.7-c: разрешённые поля по категориям. Скрытые input всё равно
     // уходят в $_POST (залипший tdp от «Процессора» после переключения
@@ -275,6 +363,7 @@ if ($isAdmin && isset($_POST['addComponent'])) {
             'description' => trim($_POST['description'] ?? '') ?: null,
             'manufacturer' => trim($_POST['manufacturer'] ?? '') ?: null,
             'model' => trim($_POST['model'] ?? '') ?: null,
+            'image' => ($categoryId === 6) ? $newImagePath : null,
             'socket_id' => null,
             'tdp' => null,
             'frequency_mhz' => null,
@@ -327,6 +416,48 @@ if ($isAdmin && isset($_POST['addComponent'])) {
     }
     header('Location: /admin.php?tab=components');
     exit();
+}
+
+// --- Удаление файла (Stage 8) ---
+if ($isAdmin && isset($_POST['deleteFile'])) {
+    csrf_verify();
+    
+    $filename = basename($_POST['filename'] ?? '');  // защита от path traversal
+    if (empty($filename)) {
+        csrf_rotate();
+        header('Location: /admin.php?tab=files');
+        exit;
+    }
+    
+    // Проверка, что файл не привязан к компоненту. В components.image
+    // встречаются пути и со слешем в начале, и без него - ищем подстроку
+    // с именем каталога + имя файла и сверяем basename, иначе записи
+    // со старым форматом (без слеша) не находятся и файл удалялся бы,
+    // будучи занятым: 302 был бы без error=used.
+    $stmt = db_prepare($mysql, 
+        "SELECT component_id, image FROM components 
+         WHERE image LIKE CONCAT('%assets/images/cases/', ?)",
+        "s", $filename);
+    $stmt->execute();
+    $usedRows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $usedCount = count($usedRows);
+    
+    if ($usedCount > 0) {
+        // Отказ: файл используется
+        csrf_rotate();
+        header('Location: /admin.php?tab=files&error=used');
+        exit;
+    }
+    
+    // Удаление файла
+    $path = __DIR__ . '/assets/images/cases/' . $filename;
+    if (is_file($path)) {
+        unlink($path);
+    }
+    
+    csrf_rotate();
+    header('Location: /admin.php?tab=files');
+    exit;
 }
 
 if ($isAdmin && isset($_POST['editOrderStatus'])) {
@@ -738,6 +869,8 @@ if ($tab === 'dashboard') {
     require __DIR__ . '/admin/_tab_dashboard.php';
 } elseif ($tab === 'components') {
     require __DIR__ . '/admin/_tab_components.php';
+} elseif ($tab === 'files') {
+    require __DIR__ . '/admin/_tab_files.php';
 } elseif ($tab === 'orders') {
     require __DIR__ . '/admin/_tab_orders.php';
 } elseif ($tab === 'users') {
@@ -759,5 +892,12 @@ if ($tab === 'dashboard') {
             </div>
         </div>
 <?php require __DIR__ . '/partials/footer.php'; ?>
+
+<!-- Скрытая форма для удаления файла -->
+<form id="deleteFileForm" method="post" style="display:none">
+    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+    <input type="hidden" name="filename" value="">
+    <input type="hidden" name="deleteFile" value="1">
+</form>
 
 <?php $mysql->close(); ?>

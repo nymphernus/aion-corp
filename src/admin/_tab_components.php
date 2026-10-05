@@ -14,6 +14,19 @@ if (!defined('ADMIN_CONTEXT')) {
     exit;
 }
 
+// Обработка ошибок загрузки изображения
+$uploadErrors = [
+    'upload' => 'Ошибка загрузки файла',
+    'size'   => 'Файл слишком большой (макс 5 МБ)',
+    'mime'   => 'Недопустимый тип файла',
+    'image'  => 'Файл не является изображением',
+    'save'   => 'Не удалось сохранить файл',
+];
+$error = $_GET['error'] ?? '';
+if (isset($uploadErrors[$error])) {
+    echo '<div class="alert alert--error">' . htmlspecialchars($uploadErrors[$error]) . '</div>';
+}
+
 $catRows = [];
 $sql = "SELECT * FROM categories ORDER BY `categories`.`category_id` ASC";
 $stmt = db_prepare($mysql, $sql);
@@ -202,7 +215,7 @@ if ($result) {
                     остальные — NULL (скрытые input всё равно отправляются).
                 -->
                 <dialog id="addComponentModal" class="modal">
-                    <form method="post" class="modal-form" action="/admin.php?tab=components">
+                    <form method="post" class="modal-form" action="/admin.php?tab=components" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                         <h2 id="modalTitle">Добавить комплектующий</h2>
                         <!-- 3.7-d: пустой = INSERT, заполненный = UPDATE -->
@@ -232,6 +245,45 @@ if ($result) {
                                 }
 ?>
                                 </select>
+                            </div>
+                        </div>
+
+                        <!-- Изображение корпуса (только для category_id = 6) -->
+                        <div class="field-group" data-cat="6">
+                            <label class="form-label">Изображение корпуса</label>
+                            
+                            <div class="image-upload" id="imageUploadBlock">
+                                <!-- Текущее превью -->
+                                <div class="image-upload__preview" id="imagePreview">
+                                    <img src="" alt="" id="imagePreviewImg" 
+                                         style="display:none">
+                                    <div class="image-upload__placeholder" 
+                                         id="imagePreviewPlaceholder">
+                                        Нет изображения
+                                    </div>
+                                </div>
+                                
+                                <div class="image-upload__actions">
+                                    <label class="btn btn--secondary btn--sm">
+                                        <input type="file" name="image_file" 
+                                               id="imageFileInput"
+                                               accept="image/jpeg,image/png,image/webp,image/gif"
+                                               style="display:none">
+                                        Выбрать файл
+                                    </label>
+                                    <button type="button" 
+                                            class="btn btn--ghost btn--sm"
+                                            data-action="remove-component-image"
+                                            id="removeImageBtn" hidden>
+                                        Удалить изображение
+                                    </button>
+                                </div>
+                                
+                                <input type="hidden" name="removeImage" id="removeImageFlag" value="0">
+                                
+                                <p class="form-hint">
+                                    JPG, PNG, WebP, GIF. До 5 МБ.
+                                </p>
                             </div>
                         </div>
 

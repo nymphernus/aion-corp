@@ -102,6 +102,7 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
         'users' => ['/admin.php?tab=users', 'Пользователи'],
         'orders' => ['/admin.php?tab=orders', 'Заказы'],
         'components' => ['/admin.php?tab=components', 'Комплектующие'],
+        'files' => ['/admin.php?tab=files', 'Изображения'],
     ];
     foreach ($adminLinks as $key => [$href, $label]):
 ?>

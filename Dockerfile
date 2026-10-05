@@ -3,6 +3,12 @@ FROM php:8.1-apache
 # Устанавливаем расширения
 RUN docker-php-ext-install mysqli pdo pdo_mysql opcache
 
+# Stage 8: лимит загрузки изображений 5 МБ должен проходить целиком.
+# Дефолт upload_max_filesize=2M отсекал бы 3-4 МБ файлы на транспортном
+# уровне с UPLOAD_ERR_INI_SIZE ещё до нашей проверки размера.
+RUN echo 'upload_max_filesize = 6M' > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo 'post_max_size = 8M' >> /usr/local/etc/php/conf.d/uploads.ini
+
 # Настраиваем Apache для непривилегированного пользователя
 ENV APACHE_RUN_USER=www-data
 ENV APACHE_RUN_GROUP=www-data

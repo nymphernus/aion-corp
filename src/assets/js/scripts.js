@@ -294,6 +294,26 @@ document.addEventListener('click', function(e) {
         delBtn.dataset.name = data.name ?? '';
     }
 
+    // --- Загрузка изображения (Stage 8) ---
+    // Показать текущее изображение при редактировании
+    var imgPreview = document.getElementById('imagePreviewImg');
+    var placeholder = document.getElementById('imagePreviewPlaceholder');
+    var removeBtn = document.getElementById('removeImageBtn');
+    
+    if (data.image) {
+        imgPreview.src = data.image;
+        imgPreview.style.display = 'block';
+        placeholder.style.display = 'none';
+        removeBtn.hidden = false;
+    } else {
+        imgPreview.src = '';
+        imgPreview.style.display = 'none';
+        placeholder.style.display = 'block';
+        removeBtn.hidden = true;
+    }
+    document.getElementById('removeImageFlag').value = '0';
+    document.getElementById('imageFileInput').value = '';
+
     // change на категории уже отправлен выше: он и перестроил селект
     // форм-фактора, и показал релевантные группы полей
 
@@ -906,4 +926,61 @@ document.addEventListener('click', function(e) {
     e.preventDefault();
 
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// --- Загрузка изображения в модалке компонента (Stage 8) ---
+
+// Показ выбранного файла в превью (до отправки)
+document.addEventListener('change', function(e) {
+    if (e.target.id !== 'imageFileInput') return;
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const img = document.getElementById('imagePreviewImg');
+    const placeholder = document.getElementById('imagePreviewPlaceholder');
+    const removeBtn = document.getElementById('removeImageBtn');
+    
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        img.src = ev.target.result;
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+        removeBtn.hidden = false;
+        document.getElementById('removeImageFlag').value = '0';
+    };
+    reader.readAsDataURL(file);
+});
+
+// Удаление изображения
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[data-action="remove-component-image"]')) return;
+    
+    const img = document.getElementById('imagePreviewImg');
+    const placeholder = document.getElementById('imagePreviewPlaceholder');
+    const removeBtn = document.getElementById('removeImageBtn');
+    const input = document.getElementById('imageFileInput');
+    
+    img.src = '';
+    img.style.display = 'none';
+    placeholder.style.display = 'block';
+    removeBtn.hidden = true;
+    input.value = '';
+    document.getElementById('removeImageFlag').value = '1';
+});
+
+// --- Удаление файла через файловый менеджер (Stage 8) ---
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-action="delete-file"]');
+    if (!btn) return;
+    e.preventDefault();
+    const filename = btn.dataset.file;
+    
+    confirmAction('Удалить файл?', 
+        'Файл ' + filename + ' будет удалён с диска. Если он используется компонентом — ссылка станет битой.',
+        () => {
+            const form = document.getElementById('deleteFileForm');
+            form.querySelector('[name="filename"]').value = filename;
+            form.submit();
+        }
+    );
 });
