@@ -192,7 +192,11 @@ foreach ($buildCards as $buildCard) {
     $description = trim((string) ($component['description'] ?? ''));
     // Ключ незнакомый - иконки не будет. Раньше тот же случай тихо
     // отдавал битый src, и в карточке зияла пустая рамка.
-    $iconSvg = icon($icon, 36, 'comp-card__icon-svg');
+    // 28px, а не 36: duotone в 48x48 держит детали и в 24px, но в 36
+    // иконка занимала бы две трети рамки 56x56 и читалась как картинка
+    // ради картинки. 28 - верхняя граница, на которой подложка и
+    // сплошная деталь ещё различимы.
+    $iconSvg = icon($icon, 28, 'comp-card__icon-svg');
     ?>
                 <div class="comp-card">
                     <div class="comp-card__icon">
@@ -233,7 +237,7 @@ if (!empty($assemb['os'])) {
     ?>
                 <div class="comp-card">
                     <div class="comp-card__icon">
-<?= icon('os', 36, 'comp-card__icon-svg') ?>
+<?= icon('os', 28, 'comp-card__icon-svg') ?>
                     </div>
                     <div class="comp-card__body">
                         <div class="comp-card__category">Операционная система</div>

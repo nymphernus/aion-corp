@@ -78,7 +78,7 @@ final class IconsTest extends AionTestCase
             );
 
             // высота не задаётся CSS-потолком, а viewBox есть у всех
-            $this->assertStringContainsString('viewBox="0 0 24 24"', $m[0], "у иконки «{$key}» должен быть viewBox");
+            $this->assertStringContainsString('viewBox="0 0 48 48"', $m[0], "у иконки «{$key}» должен быть viewBox 0 0 48 48");
         }
 
         $first = $openingTags[self::REQUIRED[0]];
@@ -89,6 +89,121 @@ final class IconsTest extends AionTestCase
                 "открывающий тег иконки «{$key}» отличается от остальных"
             );
         }
+    }
+
+    /**
+     * 7.5: структура duotone выдержана у каждой иконки.
+     *
+     * Duotone - это не «нарисовано три фигуры», а три слоя с
+     * фиксированной ролью:
+     *
+     * - подложка opacity 0.15 ровно одна: она держит форму на тёмном
+     *   фоне и отделяет иконку от фона карточки;
+     * - выделенная деталь opacity 0.8 есть обязательно: то, что делает
+     *   компонент собой. Иконка, где это просто контур, выглядит как
+     *   контурная;
+     * - заливки без stroke="none" быть не должно: подложка и деталь
+     *   наследуют обводку из оболочки и обвели бы себя контуром,
+     *   получился бы двойной контур вместо duotone.
+     *
+     * Проверяется разбором DOM, а не поиском подстроки opacity: иначе
+     * «0.15» нашлось бы и в числе, и в комментарии.
+     */
+    public function testIconsFollowDuotoneStructure(): void
+    {
+        require_once dirname(__DIR__) . '/modules/icons.php';
+
+        foreach (self::REQUIRED as $key) {
+            $xpath = new DOMXPath($this->loadDom(icon($key)));
+
+            $this->assertSame(
+                1,
+                $xpath->query('//*[@opacity="0.15"]')->length,
+                "у иконки «{$key}» должна быть ровно одна подложка с opacity 0.15"
+            );
+            $this->assertGreaterThanOrEqual(
+                1,
+                $xpath->query('//*[@opacity="0.8"]')->length,
+                "у иконки «{$key}» должна быть выделенная деталь с opacity 0.8"
+            );
+
+            // любая заливка обязана явно гасить обводку
+            foreach ($xpath->query('//*[@opacity]') as $filled) {
+                $this->assertSame(
+                    'none',
+                    $filled->getAttribute('stroke'),
+                    "залитая фигура в «{$key}» должна иметь stroke=\"none\""
+                );
+                $this->assertSame(
+                    'currentColor',
+                    $filled->getAttribute('fill'),
+                    "залитая фигура в «{$key}» должна заливаться currentColor"
+                );
+            }
+        }
+    }
+
+    /**
+     * 7.5: нет деталей меньше пикселя.
+     *
+     * Мерная проверка, рождённая замером. Первая версия иконок несла
+     * круглые детали радиусом 0.7-0.8 и отверстия крепления радиусом 1.
+     * При отображении 28px сетка 48 сжимается вдвое, и такие кружки не
+     * давали ни одного пикселя: на мерной карте они были рябью, а не
+     * деталями. Порог 1.2 взят из той же арифметики - меньше половины
+     * пикселя при отображении 28px.
+     *
+     * Проверяется не на глаз, потому что глазом в вёрстке это и не
+     * видно: кружок есть в коде, на экране его нет, и выглядит это как
+     * «иконка грязновата».
+     */
+    public function testNoSubPixelDetails(): void
+    {
+        require_once dirname(__DIR__) . '/modules/icons.php';
+
+        foreach (self::REQUIRED as $key) {
+            $xpath = new DOMXPath($this->loadDom(icon($key)));
+
+            foreach (['circle', 'ellipse'] as $shape) {
+                foreach ($xpath->query("//{$shape}") as $node) {
+                    foreach (['r', 'rx', 'ry'] as $attr) {
+                        $value = $node->getAttribute($attr);
+                        if ($value === '') {
+                            continue;
+                        }
+                        $this->assertGreaterThanOrEqual(
+                            1.2,
+                            (float) $value,
+                            "в «{$key}» {$shape} имеет {$attr}={$value}: при 28px деталь меньше пикселя"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 7.5: размер по умолчанию 28.
+     *
+     * Значение зашито в сигнатуру функции и дублируется в assembly.php
+     * двумя вызовами. Если их развести, карточки начнут показывать
+     * иконки разного размера - и это заметно, потому что рядом стоят
+     * карточки одного компонента.
+     */
+    public function testDefaultSizeIs28(): void
+    {
+        require_once dirname(__DIR__) . '/modules/icons.php';
+
+        $this->assertStringContainsString('width="28" height="28"', icon('cpu'));
+        $this->assertStringContainsString('width="28" height="28"', icon('cpu', 28));
+
+        $assembly = file_get_contents(dirname(__DIR__) . '/assembly.php');
+        $this->assertIsString($assembly, 'не удалось прочитать assembly.php');
+        $this->assertStringNotContainsString(
+            "icon('os', 36",
+            $assembly,
+            'размер иконки на странице сборки должен совпадать с умолчанием'
+        );
     }
 
     /**
