@@ -5,7 +5,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: aion_bd
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-shop_db}
     ports:
       - "127.0.0.1:3306:3306"
     volumes:
@@ -36,7 +36,12 @@ services:
       DB_HOST: db
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
-      DB_NAME: aion_bd
+      # Имя базы берётся из .env, а не пишется здесь дважды: раньше
+      # MYSQL_DATABASE и DB_NAME были захардкожены по отдельности, и
+      # смена имени в .env не давала ничего - compose читал своё
+      # значение. Теперь источник один, и переименование базы сводится
+      # к правке одной строки в .env.
+      DB_NAME: ${MYSQL_DATABASE:-shop_db}
       ADMIN_LOGIN: ${ADMIN_LOGIN:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # 5-d-3: непустое значение включает счётчик запросов к базе,

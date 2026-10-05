@@ -62,7 +62,7 @@ UPDATE users SET user_pass = '<хеш>' WHERE user_login = 'admin';
 Удалить администратора:
 
 ```bash
-docker compose exec db mysql -uadmin -p aion_bd -e "DELETE FROM users WHERE user_login = 'admin';"
+docker compose exec db mysql -uadmin -p shop_db -e "DELETE FROM users WHERE user_login = 'admin';"
 ```
 
 Создать админа вручную, минуя `.env`:
@@ -82,18 +82,44 @@ docker compose exec -it php php /var/www/html/scripts/create_admin.php
 | `MYSQL_ROOT_PASSWORD` | пароль root в MySQL | `root_password_change_me` |
 | `MYSQL_USER` | пользователь приложения | `admin` |
 | `MYSQL_PASSWORD` | пароль пользователя | `db_password_change_me` |
+| `MYSQL_DATABASE` | имя базы данных | `shop_db` |
 | `ADMIN_LOGIN` | логин администратора | `admin` |
 | `ADMIN_PASSWORD` | пароль администратора | `change_me_at_least_8_chars` |
 | `DEBUG_SQL_COUNT` | непустое значение включает счётчик SQL-запросов | пусто, выключено |
 
-Имя базы и хост **не** задаются через `.env` — они зашиты в `docker-compose.yml`:
+Имя базы задаётся **одной** переменной `MYSQL_DATABASE` — `docker-compose.yml`
+передаёт её и mysql-сервису (`MYSQL_DATABASE`), и приложению (`DB_NAME`).
+Отдельной строки `DB_NAME` в `.env` намеренно нет: раньше обе были
+захардкожены в `docker-compose.yml` по отдельности, из-за чего правка
+`.env` ничего не меняла и базу пришлось бы переименовать в двух местах.
 
 | Параметр | Значение | Где используется |
 |---|---|---|
-| имя базы | `aion_bd` | `MYSQL_DATABASE` у `db`, `DB_NAME` у `php` |
+| имя базы | `${MYSQL_DATABASE:-shop_db}` | `MYSQL_DATABASE` у `db`, `DB_NAME` у `php` |
 | хост БД | `db` | `DB_HOST` у `php` |
 
-> При запуске **без** Docker нужно задать `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` вручную — в `.env.example` этих переменных нет, и без них приложение вернёт 500.
+`connect.php` читает `MYSQL_DATABASE`, затем `DB_NAME`, и только потом
+падает на дефолт `shop_db` — то есть приложение работает и когда задана
+только одна из переменных.
+
+> При запуске **без** Docker нужно задать `MYSQL_DATABASE` (или `DB_NAME`),
+> `DB_HOST`, `DB_USER`, `DB_PASSWORD` вручную — в `.env.example` есть только
+> `MYSQL_DATABASE`, а без остальных переменных приложение вернёт 500.
+
+Переименование базы на уже существующем томе требует двух шагов — MySQL
+создаёт базу и выдаёт права только при первом `up`, когда переменная
+`MYSQL_DATABASE` ещё совпадает с текущим именем:
+
+```bash
+docker compose exec -T db mysql -uroot -p'ПАРОЛЬ' \
+  -e "CREATE DATABASE shop_db CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+docker compose exec -T db mysql -uroot -p'ПАРОЛЬ' \
+  -e "GRANT ALL PRIVILEGES ON shop_db.* TO 'admin'@'%'; FLUSH PRIVILEGES"
+```
+
+Без `GRANT` приложение падает с `Access denied for user 'admin'@'%' to
+database 'shop_db'`. Данные переносятся дампом внутри контейнера (см.
+`AGENT.md`) — иначе русский текст проходит через кодировку консоли.
 
 ### Счётчик SQL-запросов
 
