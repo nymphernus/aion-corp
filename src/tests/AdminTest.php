@@ -1390,7 +1390,6 @@ final class AdminTest extends AionTestCase
                 'csrf_token' => $this->extractCsrf($page['body']),
                 'saveSettings' => '1',
                 'site_name' => 'TEST CORP',
-                'site_name_full' => 'AION CORPORATION',
                 'site_logo_url' => $before['site_logo_url'],
                 'site_favicon_url' => $before['site_favicon_url'],
                 'site_favicon_png_url' => $before['site_favicon_png_url'],
@@ -1431,8 +1430,7 @@ final class AdminTest extends AionTestCase
             $r2 = $this->httpPostMultipart('/admin.php?tab=settings', [
                 'csrf_token' => $this->extractCsrf($page2['body']),
                 'saveSettings' => '1',
-                'site_name' => 'AION CORP',
-                'site_name_full' => 'AION CORPORATION',
+                'site_name' => 'Aion Corporation',
                 'site_logo_url' => $logoUrl,
                 'site_favicon_url' => $before['site_favicon_url'],
                 'site_favicon_png_url' => $before['site_favicon_png_url'],
