@@ -581,10 +581,12 @@ if ($isAdmin && isset($_POST['batchUpload'])) {
 }
 
 // --- Файловый менеджер: удаление ---
-// Файл удаляется с диска напрямую, привязанный тоже (предупреждение
-// показывает модалка). basename режет path traversal, поэтому filename
-// вида ../../index.php превращается в index.php и ищется внутри
-// каталога cases/.
+// Файл удаляется с диска, а привязки к нему обнуляются: иначе в
+// components.image остаётся путь в несуществующий файл, корпус
+// числится привязанным, превью в модалке битое, а счётчик
+// «привязано к компонентам» врёт. basename режет path traversal,
+// поэтому filename вида ../../index.php превращается в index.php и
+// ищется внутри каталога cases/.
 $filename = isset($_POST['deleteFile']) ? basename((string) ($_POST['filename'] ?? '')) : '';
 
 if ($isAdmin && $filename !== '') {
@@ -592,21 +594,43 @@ if ($isAdmin && $filename !== '') {
 
     $path = __DIR__ . '/assets/images/cases/' . $filename;
 
+    // Привязки ищутся по имени файла, а не по полному пути: в базе путь
+    // может лежать и со слешем, и без. Так же считается и «используется»
+    // в списке файлов.
+    $bound = db_prepare($mysql,
+        "SELECT component_id, image FROM components
+         WHERE image IS NOT NULL
+           AND image LIKE '%assets/images/cases/%'
+           AND SUBSTRING_INDEX(image, '/', -1) = ?",
+        "s", $filename);
+    $bound->execute();
+    $bindings = $bound->get_result()->fetch_all(MYSQLI_ASSOC);
+    $affected = count($bindings);
+
+    // Файл снимается с диска ПЕРВЫМ, и только потом обнуляются привязки.
+    // Так порядок неважен для целостности: если unlink не сработал,
+    // привязки не тронуты и состояние осталось прежним. Обратный порядок
+    // оставил бы корпус без картинки при картинке на диске, если бы файл
+    // не удалился.
+    $removed = false;
     if (is_file($path)) {
-        // Привязанный файл удалить МОЖНО - решение администратора.
-        // Раньше сервер отказывал (error=used), из-за чего привязанную
-        // картинку нельзя было убрать совсем. Теперь предупреждение
-        // живёт в модалке на клиенте, а сервер только считает привязки,
-        // чтобы показать их имена, и удаляет.
-        //
-        // components.image при этом НЕ обнуляется: ссылка остаётся
-        // битой ровно так, как её оставил админ, - молча чинить её
-        // значило бы подменять его решение.
-        unlink($path);
+        $removed = unlink($path);
+        if (!$removed) {
+            header('Location: /admin.php?tab=files&error=undelete');
+            exit;
+        }
+    }
+
+    // Обнуляем привязки, даже если файла уже не было на диске: иначе
+    // корпус навсегда числился бы привязанным к пустоте - ровно то
+    // состояние, которое здесь чинится.
+    foreach ($bindings as $b) {
+        $clear = db_prepare($mysql, "UPDATE components SET image = NULL WHERE component_id = ?", "i", $b['component_id']);
+        $clear->execute();
     }
 
     csrf_rotate();
-    header('Location: /admin.php?tab=files');
+    header('Location: /admin.php?tab=files&unlinked=' . $affected . ($removed ? '&deleted=1' : ''));
     exit;
 }
 

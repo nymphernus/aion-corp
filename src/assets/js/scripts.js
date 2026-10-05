@@ -1038,8 +1038,8 @@ document.addEventListener('click', function(e) {
         const names = usedBy
             .map(function(c) { return '• ' + c.name; })
             .join('\n');
-        message += '\n\nВНИМАНИЕ: файл используется в компонентах:\n' + names
-            + '\n\nПосле удаления картинки у этих компонентов будут битыми.';
+        message += '\n\nВНИМАНИЕ: файл привязан к компонентам:\n' + names
+            + '\n\nПривязки будут сняты, и эти корпуса останутся без картинки.';
     }
 
     confirmAction('Удалить файл?', message, function() {

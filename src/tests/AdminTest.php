@@ -898,33 +898,38 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 8: привязанный файл удалить МОЖНО, решение за администратором.
+     * 8: удаление файла снимает привязки.
      *
-     * Раньше сервер отказывал (error=used) и привязанную картинку нельзя
-     * было убрать совсем. Теперь файл удаляется, а components.image
-     * остаётся как был - обнулять его молча значило бы подменять решение
-     * админа. Предупреждение с перечислением компонентов показывает
-     * модалка на клиенте (проверяется ниже по data-used-by).
+     * Багрепорт: «после удаления изображения привязка всё ещё остаётся,
+     * хотя должна полностью пропадать, и корпус должен отображаться как
+     * непривязанный». Причина была в обработчике: он делал unlink() и
+     * компоненты.image не трогал, поэтому в базе оставался путь в
+     * несуществующий файл, превью было битым, а счётчик «привязано к
+     * компонентам» врал.
      *
-     * Фикстура своя: тест создаёт файл и корпус с привязкой, потому что
-     * демо-данные могут отсутствовать (SEED_DATA=0), а боевые файлы
-     * трогать нельзя - прошлый вариант теста архивировал реальный
-     * baa-16.jpg, когда привязок ещё не было.
+     * Здесь проверяется полный сценарий на двух корпусах с общим
+     * файлом: файл удалён с диска, оба корпуса получили image = NULL,
+     * в редиректе видно число снятых привязок.
+     *
+     * Фикстура своя: боевые картинки тест не трогает.
      */
-    public function testDeleteFileAllowsUsedFile(): void
+    public function testDeleteFileClearsBindings(): void
     {
         $this->loginAsAdmin();
 
         $casesDir = dirname(__DIR__) . '/assets/images/cases/';
-        $filename = 'test-used-' . uniqid() . '.png';
+        $filename = 'test-unlink-' . uniqid() . '.png';
         $path = $casesDir . $filename;
         file_put_contents($path, 'X');
 
-        // корпус с привязкой к этому файлу
+        // два корпуса на одном файле - чтобы проверить, что снимаются все
+        $ids = [];
         $mysql = connect();
-        $stmt = db_prepare($mysql, "INSERT INTO components (component_name, category_id, component_price, amount, image) VALUES (?, 6, 1000, 1, ?)", "ss", 'Test Used Case', 'assets/images/cases/' . $filename);
-        $stmt->execute();
-        $componentId = (int) $stmt->insert_id;
+        foreach (['Test Unlink A', 'Test Unlink B'] as $name) {
+            $stmt = db_prepare($mysql, "INSERT INTO components (component_name, category_id, component_price, amount, image) VALUES (?, 6, 1000, 1, ?)", "ss", $name, 'assets/images/cases/' . $filename);
+            $stmt->execute();
+            $ids[] = (int) $stmt->insert_id;
+        }
         $mysql->close();
 
         try {
@@ -934,27 +939,87 @@ final class AdminTest extends AionTestCase
                 'deleteFile' => '1',
                 'filename' => $filename,
             ]);
+
             $this->assertSame(302, $response['code']);
             $this->assertStringNotContainsString('error=', $response['location']);
-            $this->assertFileDoesNotExist($path, 'привязанный файл тоже должен удаляться');
+            $this->assertStringContainsString(
+                'unlinked=2',
+                $response['location'],
+                'редирект должен сообщать, сколько привязок снято'
+            );
+            $this->assertFileDoesNotExist($path, 'файл должен исчезнуть с диска');
 
-            // привязка в базе осталась: сервер её не чистил
             $mysql = connect();
-            $check = db_prepare($mysql, "SELECT image FROM components WHERE component_id = ?", "i", $componentId);
+            $check = db_prepare($mysql, "SELECT component_id, image FROM components WHERE component_id IN (?, ?)", "ii", $ids[0], $ids[1]);
+            $check->execute();
+            $rows = $check->get_result()->fetch_all(MYSQLI_ASSOC);
+            $mysql->close();
+
+            $this->assertCount(2, $rows);
+            foreach ($rows as $row) {
+                $this->assertNull(
+                    $row['image'],
+                    'привязка должна пропасть: корпус должен стать непривязанным'
+                );
+            }
+
+            // файл больше не должен показываться как используемый
+            $page2 = $this->httpGet('/admin.php?tab=files');
+            $this->assertStringNotContainsString($filename, $page2['body'], 'файл не должен остаться в списке');
+        } finally {
+            $mysql = connect();
+            foreach ($ids as $id) {
+                db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $id)->execute();
+            }
+            $mysql->close();
+            @unlink($path);
+        }
+    }
+
+    /**
+     * 8: удаление файла, которого уже нет на диске, тоже снимает привязки.
+     *
+     * Случай реальный: файл мог быть снесён вручную или прошлым
+     * удалением, а привязки остались. Без очистки корпус навсегда числился
+     * бы привязанным к пустоте.
+     */
+    public function testDeleteFileClearsBindingsWhenFileAlreadyGone(): void
+    {
+        $this->loginAsAdmin();
+
+        $casesDir = dirname(__DIR__) . '/assets/images/cases/';
+        $filename = 'test-gone-' . uniqid() . '.png';
+        // файла на диске нет - только привязка в базе
+
+        $mysql = connect();
+        $stmt = db_prepare($mysql, "INSERT INTO components (component_name, category_id, component_price, amount, image) VALUES (?, 6, 1000, 1, ?)", "ss", 'Test Gone Case', 'assets/images/cases/' . $filename);
+        $stmt->execute();
+        $id = (int) $stmt->insert_id;
+        $mysql->close();
+
+        try {
+            $this->assertFileDoesNotExist($casesDir . $filename);
+
+            $page = $this->httpGet('/admin.php?tab=files');
+            $r = $this->httpPost('/admin.php?tab=files', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'deleteFile' => '1',
+                'filename' => $filename,
+            ]);
+            $this->assertSame(302, $r['code']);
+            $this->assertStringContainsString('unlinked=1', $r['location']);
+
+            $mysql = connect();
+            $check = db_prepare($mysql, "SELECT image FROM components WHERE component_id = ?", "i", $id);
             $check->execute();
             $row = $check->get_result()->fetch_assoc();
             $mysql->close();
-            $this->assertSame(
-                'assets/images/cases/' . $filename,
-                $row['image'],
-                'components.image не должен обнуляться молча'
-            );
+            $this->assertNull($row['image'], 'привязка к несуществующему файлу должна сниматься');
         } finally {
             $mysql = connect();
-            $del = db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $componentId);
-            $del->execute();
+            db_prepare($mysql, "DELETE FROM components WHERE component_id = ?", "i", $id)->execute();
             $mysql->close();
-            @unlink($path);
+            @unlink($casesDir . $filename);
         }
     }
 
