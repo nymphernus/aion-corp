@@ -121,7 +121,7 @@ if ($result) {
 
                         <button type="submit" class="btn btn--primary">Применить</button>
 
-<?php if ((int) ($_GET['cat'] ?? 0) > 0 || (int) ($_GET['sock'] ?? 0) > 0 || trim((string) ($_GET['q'] ?? '')) !== '' || trim((string) ($_GET['sort'] ?? '')) !== ''): ?>
+<?php if ((int) ($_GET['cat'] ?? 0) > 0 || (int) ($_GET['sock'] ?? 0) > 0 || trim((string) ($_GET['q'] ?? '')) !== '' || trim((string) ($_GET['sort'] ?? '')) !== '' || isset($_GET['no_image'])): ?>
                         <a href="?tab=components" class="btn btn--ghost">Сбросить</a>
 <?php endif; ?>
                     </form>

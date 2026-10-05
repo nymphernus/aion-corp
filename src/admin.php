@@ -99,6 +99,14 @@ if ($tab === 'components') {
         $listTypes .= 's';
     }
 
+    // FIX-3: только корпуса без картинки (ссылка из файлового менеджера).
+    // Признак - флаг без значения: ?tab=components&cat=6&no_image=1
+    if (isset($_GET['no_image'])) {
+        $listWhere .= " AND (components.image IS NULL OR components.image = '')";
+        // флаг остаётся в ссылках пагинации - иначе со страницы 2 он терялся
+        $qs_no_image = true;
+    }
+
     // 3.7-f-3-11: сортировка только из белого списка, $_GET в SQL не идёт
     $sortWhitelist = [
         'price_asc' => 'components.component_price ASC',
@@ -122,6 +130,10 @@ if ($tab === 'components') {
     }
     if (isset($sortWhitelist[$sort])) {
         $qs[] = 'sort=' . $sort;
+    }
+    // FIX-3: флаг переносится в пагинацию, если проставлен выше
+    if (!empty($qs_no_image)) {
+        $qs[] = 'no_image=1';
     }
     $listQuery = implode('&', $qs);
 } elseif ($tab === 'orders') {

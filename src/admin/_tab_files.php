@@ -84,6 +84,14 @@ $totalFiles = count($files);
 $orphanFiles = $totalFiles - $usedFiles;
 $totalSizeHuman = human_size($totalSize);
 
+// FIX-3: сколько корпусов осталось без картинки. Пустая строка и NULL
+// равнозначны: писать '' в поле никто не должен, но подстраховаться стоит.
+$stmt = db_prepare($mysql,
+    "SELECT COUNT(*) FROM components
+     WHERE category_id = 6 AND (image IS NULL OR image = '')", "");
+$stmt->execute();
+$casesWithoutImage = (int) $stmt->get_result()->fetch_row()[0];
+
 // --- Хелпер для форматирования размера ---
 function human_size(int $bytes): string {
     $units = ['Б', 'КБ', 'МБ', 'ГБ'];
@@ -113,6 +121,12 @@ function human_size(int $bytes): string {
         <span class="files-stat__value"><?= $totalSizeHuman ?></span>
         <span class="files-stat__label">общий размер</span>
     </div>
+    <!-- FIX-3: счётчик кликабельный - ведёт к отфильтрованному списку -->
+    <a href="/admin.php?tab=components&cat=6&no_image=1"
+       class="files-stat files-stat--warning">
+        <span class="files-stat__value"><?= $casesWithoutImage ?></span>
+        <span class="files-stat__label">корпусов без картинки</span>
+    </a>
 </div>
 
 <!-- Фильтр -->

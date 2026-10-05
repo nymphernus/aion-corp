@@ -1560,6 +1560,16 @@ button.profile-nav-item {
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
+/* FIX-3: счётчик корпусов без картинки - акцентная ссылка на filtered список */
+.files-stat--warning .files-stat__value {
+    color: var(--warning);
+}
+a.files-stat {
+    text-decoration: none;
+}
+a.files-stat:hover {
+    border-color: var(--warning);
+}
 
 .files-grid {
     display: grid;
