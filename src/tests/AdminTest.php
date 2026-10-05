@@ -208,12 +208,16 @@ final class AdminTest extends AionTestCase
     /**
      * 5-f-2c-1: секции, которых у админа на странице нет, откатываются на
      * info, а не оставляют пустую страницу.
+     * 7: ключ verification убран из списка. Карточка верификации теперь
+     * есть и рисуется админу тоже, поэтому ?section=verification открывает
+     * именно её. Раньше откат был правильным - карточки просто не
+     * существовало, - и проверка на мусорный ключ была в списке.
      */
     public function testAdminUnknownSectionsFallBackToInfo(): void
     {
         $this->loginAsAdmin();
 
-        foreach (['orders', 'fav', 'verification', 'карточка'] as $key) {
+        foreach (['orders', 'fav', 'карточка', 'email_verified'] as $key) {
             $page = $this->httpGet('/profile.php?section=' . rawurlencode($key));
             $this->assertSame(200, $page['code'], $key);
             $this->assertStringContainsString(
@@ -226,5 +230,27 @@ final class AdminTest extends AionTestCase
         // карточек заказов и избранного у админа на странице просто нет
         $page = $this->httpGet('/profile.php?section=orders');
         $this->assertStringNotContainsString('id="card-builds"', $page['body']);
+    }
+
+    /**
+     * 7: карточка верификации доступна и администратору - подтвердить свои
+     * собственные контакты он вправе так же, как любой пользователь.
+     *
+     * Специально отдельным тестом: в списке мусорных ключейverification
+     * больше не числится, и если карточку убрать у админа, ни один тест
+     * этого не заметит - просто страница молча откатится на личную
+     * информацию.
+     */
+    public function testAdminCanOpenVerificationCard(): void
+    {
+        $this->loginAsAdmin();
+
+        $page = $this->httpGet('/profile.php?section=verification');
+        $this->assertSame(200, $page['code']);
+        $this->assertStringContainsString('id="card-verification" data-section>', $page['body']);
+        $this->assertStringContainsString(
+            'id="card-info" data-section style="display:none;"',
+            $page['body']
+        );
     }
 }

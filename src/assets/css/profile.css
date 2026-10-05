@@ -1223,3 +1223,62 @@ button.profile-nav-item {
     justify-content: flex-end;
     margin-top: 12px;
 }
+
+/* 7: карточка верификации контактов.
+
+   flex-wrap нужен не для узких экранов, а для длинных контактов:
+   user_email до 50 символов и в одну колонку с бейджем не влезает,
+   строка переносится и статус уезжает на вторую. На мобильном то же
+   самое происходит из-за брейкпоинта ниже. */
+.verify-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.verify-row:last-child {
+    border-bottom: none;
+}
+
+.verify-row__label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.verify-row__value {
+    font-size: 15px;
+    color: var(--text);
+    word-break: break-word;
+}
+
+.verify-row__status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Формы заявки внутри .verify-row__status. Без этого правила форма
+   занимала бы всю ширину строки и растягивала бейдж: form по
+   умолчанию блочный элемент, а .verify-row__status - flex, поэтому
+   без display: inline-flex форма вела бы себя как отдельная колонка. */
+.verify-form {
+    display: inline-flex;
+    margin: 0;
+}
+
+/* На узком экране статус встаёт под контакт, а не рядом с ним:
+   «Подтвердить email» на 320px в строку с адресом не помещается. */
+@media (max-width: 640px) {
+    .verify-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}

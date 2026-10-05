@@ -189,6 +189,66 @@ if ($userProfile) {
         }
     }
 
+    // 7: заявка на верификацию контактов.
+    //
+    // Реальной отправки кода нет и не планируется на этом этапе: кнопка
+    // просто ставит флаг заявки, а подтверждает администратор вручную в
+    // модалке пользователя.
+    //
+    // Заявку принимает только у того, у кого контакт вообще заполнен.
+    // Подтверждать нечего - показывать кнопку при пустом user_email
+    // незачем, и администратору потом пришлось бы подтверждать пустоту.
+    //
+    // Повторную заявку не принимаем: если requested уже стоит, UPDATE не
+    // выполняется. Иначе можно было бы спамить кнопкой, которая по ТЗ
+    // и так исчезает после первого нажатия, а здесь ещё и гонкой между
+    // двумя вкладками.
+    //
+    // Кто именно заявку оставил - не различаем. Для будущей отправки
+    // кода понадобится метка времени, но сейчас её незачем тащить в
+    // схему: единственный потребитель, администратор, смотрит на флаг.
+    if (isset($_POST['requestEmailVerification'])) {
+        csrf_verify();
+
+        if (!empty($userProfile['user_email'])
+            && empty($userProfile['email_verified'])
+            && empty($userProfile['email_verification_requested'])) {
+            $stmt = db_prepare(
+                $mysql,
+                "UPDATE `users` SET `email_verification_requested` = 1 WHERE `user_id` = ?",
+                "i",
+                (int) $userProfile['user_id']
+            );
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        csrf_rotate();
+        header('Location: /profile.php?section=verification');
+        exit();
+    }
+
+    if (isset($_POST['requestPhoneVerification'])) {
+        csrf_verify();
+
+        if (!empty($userProfile['user_number'])
+            && empty($userProfile['phone_verified'])
+            && empty($userProfile['phone_verification_requested'])) {
+            $stmt = db_prepare(
+                $mysql,
+                "UPDATE `users` SET `phone_verification_requested` = 1 WHERE `user_id` = ?",
+                "i",
+                (int) $userProfile['user_id']
+            );
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        csrf_rotate();
+        header('Location: /profile.php?section=verification');
+        exit();
+    }
+
     if (isset($_POST['changeSurname']) && isset($_SESSION['user_login'])) {
         csrf_verify();
         $surname = $_POST['user_surname'] ?? '';
@@ -371,11 +431,10 @@ require __DIR__ . '/partials/header.php';
                         'orders'   => 'card-builds',
                         'fav'      => 'card-fav',
                         'security' => 'card-security',
-                        // 5-f-2c-1: верификация добавляется в Stage 7, ключ
-                        // заведён заранее, чтобы пункт сайдбара не вёл в
-                        // 404 до того, как появится карточка. Если карточки
-                        // нет, $sectionStyle прячет только её, а страница
-                        // остаётся непустой - см. проверку ниже
+                        // 7: карточка верификации. Ключ был заведён в
+                        // 5-f-2c-1, пока карточки не существовало, и
+                        // ?section=verification честно откатывался на info.
+                        // Теперь карточка есть, и ключ стал рабочим.
                         'verification' => 'card-verification',
                     ];
                     $sectionKey = (string) ($_GET['section'] ?? 'info');
@@ -383,8 +442,10 @@ require __DIR__ . '/partials/header.php';
 
                     // 5-f-2c-1: какие секции реально есть на этой странице.
                     // Заказы и избранное рисуются только обычному
-                    // пользователю, но карточка безопасности есть у обоих -
-                    // пароль у администратора такой же пользовательский.
+                    // пользователю, но карточки безопасности и верификации
+                    // есть у обоих: пароль у администратора такой же
+                    // пользовательский, и подтвердить свои контакты он тоже
+                    // вправе.
                     //
                     // Порядок важен: сначала список существующих секций, и
                     // только потом сверка с GET. Наоборот получалось так, что
@@ -394,7 +455,11 @@ require __DIR__ . '/partials/header.php';
                     // которого правка и делалась. Проверено на выводе: при
                     // ?section=security карточка оставалась со
                     // style="display:none".
-                    $sectionExists = ['card-info' => true, 'card-security' => true];
+                    $sectionExists = [
+                        'card-info' => true,
+                        'card-security' => true,
+                        'card-verification' => true,
+                    ];
                     if (!$isAdmin) {
                         $sectionExists['card-fav'] = true;
                         $sectionExists['card-builds'] = true;
@@ -402,10 +467,7 @@ require __DIR__ . '/partials/header.php';
                     // Секцию, которой на странице нет, показывать нельзя:
                     // иначе страница осталась бы пустой. Сверяем по факту
                     // наличия карточки, а не по белому списку - список и
-                    // разметка могут разойтись, а здесь источник один.
-                    // 'verification' в списке ниже не добавлена намеренно:
-                    // карточка появится в Stage 7, до тех пор
-                    // ?section=verification честно откатывается на info
+                    // разметка могут разойтись, а здесь источник один
                     if (!isset($sectionExists[$activeSection])) {
                         $activeSection = 'card-info';
                     }
@@ -665,6 +727,82 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         </button>
                                     </div>
                                 </form>
+                            </section>
+
+<?php
+// 7: карточка верификации.
+//
+// Собственного PHP-блока, в отличие от остальных карточек, здесь
+// почти нет: вся разметка выводится из флагов. Проверки идут от
+// наличия контакта, потому что подтверждать нечего, если контакта
+// нет, - и по ТЗ кнопка в этом случае не показывается вовсе.
+//
+// Три состояния на контакт: подтверждён, ждёт подтверждения,
+// не подтверждён. Четвёртое - «Не указан» - это не состояние
+// верификации, а отсутствие самого контакта, поэтому оно проверяется
+// первым.
+//
+// Кнопки заявки две, и обе лежат в своих verify-row__status, а не в
+// общем блоке: у email и телефона состояния независимы, открыли один -
+// второй остался закрытым.
+// Формы отдельные и без action: браузер по умолчанию отправит POST
+// на текущий адрес, то есть на /profile.php, где эти обработчики и
+// живут. action не указан намеренно - абсолютный путь пришлось бы
+// дублировать в двух местах.
+$hasEmail = !empty($userProfile['user_email']);
+$hasPhone = !empty($userProfile['user_number']);
+?>
+                            <section class="card" id="card-verification" data-section<?= $sectionStyle('card-verification') ?>>
+                                <h2 class="page-title">Верификация</h2>
+                                <p class="form-hint">Подтвердите email и телефон — администратор верифицирует аккаунт после вашей заявки</p>
+
+                                <div class="verify-row">
+                                    <div class="verify-row__info">
+                                        <div class="verify-row__label">Email</div>
+                                        <div class="verify-row__value"><?= $hasEmail ? escape($userProfile['user_email']) : 'Не указан' ?></div>
+                                    </div>
+                                    <div class="verify-row__status">
+<?php if (!$hasEmail): ?>
+                                        <span class="badge">Не указан</span>
+<?php elseif (!empty($userProfile['email_verified'])): ?>
+                                        <span class="badge badge--success">Подтверждён</span>
+<?php elseif (!empty($userProfile['email_verification_requested'])): ?>
+                                        <span class="badge badge--warning">Ожидает подтверждения</span>
+<?php else: ?>
+                                        <span class="badge">Не подтверждён</span>
+                                        <form method="post" class="verify-form">
+                                            <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                                            <button type="submit" name="requestEmailVerification" class="btn btn--primary btn--sm">
+                                                Подтвердить email
+                                            </button>
+                                        </form>
+<?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <div class="verify-row">
+                                    <div class="verify-row__info">
+                                        <div class="verify-row__label">Телефон</div>
+                                        <div class="verify-row__value"><?= $hasPhone ? escape($userProfile['user_number']) : 'Не указан' ?></div>
+                                    </div>
+                                    <div class="verify-row__status">
+<?php if (!$hasPhone): ?>
+                                        <span class="badge">Не указан</span>
+<?php elseif (!empty($userProfile['phone_verified'])): ?>
+                                        <span class="badge badge--success">Подтверждён</span>
+<?php elseif (!empty($userProfile['phone_verification_requested'])): ?>
+                                        <span class="badge badge--warning">Ожидает подтверждения</span>
+<?php else: ?>
+                                        <span class="badge">Не подтверждён</span>
+                                        <form method="post" class="verify-form">
+                                            <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                                            <button type="submit" name="requestPhoneVerification" class="btn btn--primary btn--sm">
+                                                Подтвердить телефон
+                                            </button>
+                                        </form>
+<?php endif; ?>
+                                    </div>
+                                </div>
                             </section>
 
                             <!-- 3.7-f-4: промежуточная админ-карточка удалена —
