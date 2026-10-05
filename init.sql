@@ -272,6 +272,14 @@ CREATE TABLE `users` (
   `user_house` varchar(20) DEFAULT NULL,
   `user_apartment` varchar(20) DEFAULT NULL,
   `user_postal_code` varchar(10) DEFAULT NULL,
+  -- 7: заготовка верификации контактов. Пока без реальной отправки кода:
+  -- пользователь жмёт «Подтвердить email», администратор подтверждает
+  -- вручную в модалке пользователя. Заявка и результат хранятся рядом,
+  -- чтобы состояние «ждёт» и «подтверждён» отличались.
+  `email_verification_requested` tinyint(1) NOT NULL DEFAULT '0',
+  `phone_verification_requested` tinyint(1) NOT NULL DEFAULT '0',
+  `email_verified` tinyint(1) NOT NULL DEFAULT '0',
+  `phone_verified` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `user_id` (`user_id`),
   KEY `user_login` (`user_login`)
