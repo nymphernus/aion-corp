@@ -161,17 +161,24 @@ require __DIR__ . '/partials/header.php';
 // Карточки компонентов собираются списком, а не двенадцатью копиями
 // разметки. Компонента может не быть - тогда карточка не выводится вовсе,
 // раньше для этого были разные условия в разных местах файла.
+// Второй элемент - ключ иконки из modules/icons.php, а не файл. Раньше
+// здесь лежали имена png, и карточки оперативной памяти и SSD ссылались
+// на configurator-4 и configurator-9: одна и та же картинка на два
+// разных компонента. С ключами иконка выбирается по назначению.
+//
+// configurator-10.png не использовался ни в одной карточке - десятой
+// позиции в списке просто не было, файл был лишним.
 $buildCards = [
-    ['Процессор', 'configurator-1.png', $cpu],
-    ['Материнская плата', 'configurator-2.png', $motherboard],
-    ['Видеокарта', 'configurator-3.png', $gpu],
-    ['Оперативная память', 'configurator-4.png', $ram],
-    ['Блок питания', 'configurator-5.png', $power_supply],
-    ['Корпус', 'configurator-6.png', $case],
-    ['Кулер', 'configurator-7.png', $cooler],
-    ['Накопитель SSD', 'configurator-9.png', $ssd],
-    ['Накопитель SSD 2', 'configurator-9.png', $ssd2],
-    ['Жёсткий диск', 'configurator-8.png', $hdd],
+    ['Процессор', 'cpu', $cpu],
+    ['Материнская плата', 'mb', $motherboard],
+    ['Видеокарта', 'gpu', $gpu],
+    ['Оперативная память', 'ram', $ram],
+    ['Блок питания', 'psu', $power_supply],
+    ['Корпус', 'case', $case],
+    ['Кулер', 'cooler', $cooler],
+    ['Накопитель SSD', 'ssd', $ssd],
+    ['Накопитель SSD 2', 'ssd', $ssd2],
+    ['Жёсткий диск', 'hdd', $hdd],
 ];
 
 foreach ($buildCards as $buildCard) {
@@ -183,10 +190,13 @@ foreach ($buildCards as $buildCard) {
     $pairs = component_specs($component, $socketTypes);
     $brief = component_brief($component, $pairs);
     $description = trim((string) ($component['description'] ?? ''));
+    // Ключ незнакомый - иконки не будет. Раньше тот же случай тихо
+    // отдавал битый src, и в карточке зияла пустая рамка.
+    $iconSvg = icon($icon, 36, 'comp-card__icon-svg');
     ?>
                 <div class="comp-card">
                     <div class="comp-card__icon">
-                        <img src="/assets/images/cfg-icons/<?= escape($icon) ?>" alt="">
+<?= $iconSvg !== '' ? $iconSvg : '<span class="comp-card__icon-missing"></span>' ?>
                     </div>
                     <div class="comp-card__body">
                         <div class="comp-card__category"><?= escape($label) ?></div>
@@ -223,7 +233,7 @@ if (!empty($assemb['os'])) {
     ?>
                 <div class="comp-card">
                     <div class="comp-card__icon">
-                        <img src="/assets/images/cfg-icons/configurator-11.png" alt="">
+<?= icon('os', 36, 'comp-card__icon-svg') ?>
                     </div>
                     <div class="comp-card__body">
                         <div class="comp-card__category">Операционная система</div>
