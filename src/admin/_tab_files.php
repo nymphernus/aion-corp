@@ -129,7 +129,7 @@ function human_size(int $bytes): string {
     </a>
 </div>
 
-<!-- Фильтр (FIX-4: селект+поиск в одном ряду, кнопки отдельной строкой) -->
+<!-- Фильтр (FIX-6: всё в один ряд) -->
 <div class="admin-filters">
     <form method="get" class="admin-filters__form">
         <input type="hidden" name="tab" value="files">
@@ -142,13 +142,11 @@ function human_size(int $bytes): string {
             <input type="search" name="q" class="input"
                    placeholder="Поиск по имени"
                    value="<?= escape($query) ?>">
-        </div>
-        <div class="admin-filters__actions">
             <button type="submit" class="btn btn--primary">Применить</button>
             <?php if ($filter !== '' || $query !== ''): ?>
                 <a href="?tab=files" class="btn btn--ghost">Сбросить</a>
             <?php endif; ?>
-            <span class="files-filter-found">Найдено: <?= count($filteredFiles) ?></span>
+            <span class="admin-filters__found">Найдено: <?= count($filteredFiles) ?></span>
         </div>
     </form>
 </div>
