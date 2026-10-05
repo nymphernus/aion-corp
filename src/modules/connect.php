@@ -19,6 +19,10 @@ require_once __DIR__ . '/ui.php';
 // подключения connect.php, но полагаться на это в разметке - значит
 // завязать её на порядок require, который никто не проверяет.
 require_once __DIR__ . '/icons.php';
+// Stage 8-финал: сжатие изображений при загрузке. Функции требуются
+// обработчику в admin.php, который подключает connect.php, но не должен
+// знать про порядок require внутри модулей.
+require_once __DIR__ . '/image.php';
 
 if (!function_exists('connect')) {
     function connect(): mysqli
