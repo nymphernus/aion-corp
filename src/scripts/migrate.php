@@ -291,6 +291,15 @@ foreach ($sockets as $id => $type) {
 
 // 5-f-2: настройки сайта. Недостающие ключи вставляются, существующие
 // значения не перетираются: админ мог уже вписать реальные контакты.
+//
+// Stage 9: брендинг. Название сайта, описание и картинки бренда
+// вынесены из шаблонов в настройки, чтобы проект можно было переиспользовать
+// как шаблон. Значения ниже - дефолты демо-проекта, их правит админ на
+// вкладке «Настройки сайта».
+//
+// Фавиконов два: svg для современных браузеров и png для старых, которые
+// svg не понимают. Одним ключом не обойтись - старый браузер показал бы
+// иконку браузера по умолчанию.
 $settings = [
     'map_address_text' => 'Москва, ул. Победы, д. 15',
     'map_lat' => '55.7558',
@@ -302,6 +311,14 @@ $settings = [
     'contact_vk' => '',
     'contact_telegram' => '',
     'contact_whatsapp' => '',
+    // Stage 9: брендинг
+    'site_name' => 'AION CORP',
+    'site_name_full' => 'AION CORPORATION',
+    'site_description' => 'Уникальные компьютеры для игр, стриминга, работы с графикой, видео и большими объёмами данных',
+    'site_logo_url' => '/assets/images/logo.png',
+    'site_favicon_url' => '/assets/images/favicon.svg',
+    'site_favicon_png_url' => '/assets/images/favicon.png',
+    'site_footer_copyright' => '© 2022 Aion Corporation',
 ];
 foreach ($settings as $key => $value) {
     $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = ?", "s", $key);
