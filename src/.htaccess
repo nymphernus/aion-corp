@@ -4,14 +4,17 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
 
 # 5-f-2: карта переехала с Google Maps на OpenStreetMap, внешних iframe
 # больше нет.
-#   img-src     - тайлы OSM; data: нужен для вывода data:image из canvas
-#                 и для служебных картинок Leaflet, которые отдаёт свой
-#                 css как url(images/marker-icon.png) - это тот же 'self'.
+#   img-src     - тайлы OSM. Зеркало tile.openstreetmap.de тоже нужно:
+#                 замерено, основной хост отвечает 2,2 с, зеркало 0,5 с,
+#                 и в admin-settings.js есть переключение на него при
+#                 таймауте. Без него в CSP зеркало упало бы с ошибкой
+#                 и переключение оказалось бы бессмысленным.
+#                 data: нужен для вывода data:image из canvas, служебные
+#                 картинки Leaflet приходят с того же 'self'.
 #   connect-src - Nominatim: из браузера админа уходит запрос координат.
-#                 Тайлы OSM под connect-src не попадают, их грузит img-src.
-#   script-src  - остаётся 'self': Leaflet и html2canvas лежат в репозитории,
-#                 внешних скриптов нет.
+#                 Тайлы под connect-src не попадают, их грузит img-src.
+#   script-src  - 'self': Leaflet лежит в репозитории, внешних скриптов нет.
 #   frame-src   - 'none': встраивать iframe на сайте нечем и не нужно.
 # Убраны maps.gstatic.com, *.googleapis.com, *.ggpht.com и frame-src на
 # Google: после ухода с Google Maps они больше не нужны.
-Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self' https://nominatim.openstreetmap.org; frame-src 'none';"
+Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org https://tile.openstreetmap.de; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self' https://nominatim.openstreetmap.org; frame-src 'none';"

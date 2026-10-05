@@ -54,10 +54,6 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
         'users' => ['/admin.php?tab=users', 'Пользователи'],
         'orders' => ['/admin.php?tab=orders', 'Заказы'],
         'components' => ['/admin.php?tab=components', 'Комплектующие'],
-        // 5-f-2: контакты и снимок карты. Ключ в $adminTabs не добавлен
-        // намеренно: этот раздел не про заказы и комплектующие, и в
-        // заголовке аккордеона подсветка ему не нужна
-        'settings' => ['/admin.php?tab=settings', 'Настройки сайта'],
     ];
     foreach ($adminLinks as $key => [$href, $label]):
 ?>
@@ -65,6 +61,19 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
 <?php endforeach; ?>
                             </div>
                         </details>
+
+                        <!--
+                            5-f-2b: «Настройки сайта» вынесено из аккордеона
+                            отдельным пунктом, по соседству с «Дашбордом». Раздел
+                            не про заказы и комплектующие, а держать его среди
+                            них было вдвое неудобнее: он ещё и закрывался вместе
+                            с ними, то есть после перехода в него аккордеон
+                            выглядел свёрнутым, а раздел открытым.
+                            По той же причине ключа settings нет в $adminTabs -
+                            иначе заголовок «Панель управления» подсвечивался бы
+                            на этой странице.
+                        -->
+                        <a href="/admin.php?tab=settings" class="profile-nav-item<?= $activeTab === 'settings' ? ' active' : '' ?>">Настройки сайта</a>
 <?php endif; ?>
 
                         <!-- 3.7-g-4: был ссылкой, ушла сразу. Теперь кнопка: выход требует

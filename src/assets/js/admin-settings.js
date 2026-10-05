@@ -15,6 +15,16 @@
 
     var _map = null;
     var _tileLayer = null;
+
+    // 5-f-2b: тайлы. Основной хост openstreetmap.org, при таймауте один раз
+    // переключаемся на зеркало, и дальше работаем уже с ним: зеркало
+    // хранится отдельно, а не в TILE_URL, иначе при следующей неудаче
+    // основного хоста счётчик сбросился бы и мы по второму разу ждали бы
+    // таймаут на заведомо мёртвом адресе.
+    var TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    var TILE_MIRROR = 'https://tile.openstreetmap.de/{z}/{x}/{y}.png';
+    var TILE_TIMEOUT_MS = 8000;
+    var tileHostIsMirror = false;
     // Сколько ждём тайлы перед снимком. Тайлы грузятся асинхронно, и
     // фиксированная пауза означала бы пустые дыры в карте на медленной
     // сети, поэтому считаем реальные события загрузки, а ждём не дольше
@@ -59,7 +69,7 @@
      * loaded = true, у ещё грузящегося loading = true. Плюс потолок по
      * времени, чтобы кнопка не висла, если тайл не придёт.
      */
-    function waitForTiles(layer, timeoutMs) {
+    function waitForTiles(layer, timeoutMs, onTimeout) {
         return new Promise(function (resolve) {
             if (!layer || !layer._tiles) {
                 setTimeout(resolve, 400);
@@ -69,10 +79,11 @@
             var done = false;
             var timer = null;
 
-            function finish() {
+            function finish(timedOut) {
                 if (done) return;
                 done = true;
                 clearInterval(timer);
+                if (timedOut && onTimeout) onTimeout();
                 resolve();
             }
 
@@ -87,11 +98,26 @@
             }
 
             timer = setInterval(function () {
-                if (pendingCount() === 0) finish();
+                if (pendingCount() === 0) finish(false);
             }, 120);
 
-            setTimeout(finish, timeoutMs || TILE_TIMEOUT_MS);
+            setTimeout(function () { finish(true); }, timeoutMs || TILE_TIMEOUT_MS);
         });
+    }
+
+    /**
+     * 5-f-2b: переключиться на зеркало тайлов и показать его на карте.
+     *
+     * Нужен на случай, если основной хост не отвечает: в этом городе идёт
+     * перебор, и если и зеркало окажется недоступно, увидит это админ.
+     * Состояние переключения хранится в tileHostIsMirror, чтобы следующий
+     * поиск адреса не пытался снова ждать основной хост.
+     */
+    function switchToMirror() {
+        tileHostIsMirror = true;
+        if (_map && _tileLayer) {
+            _tileLayer.setUrl(TILE_MIRROR);
+        }
     }
 
     async function geocodeAndPreview() {
@@ -139,6 +165,9 @@
 
             status('Найдено: ' + data[0].display_name);
 
+            // 5-f-2b: каждый новый поиск адреса начинается с основного хоста,
+            // даже если прошлый ушёл на зеркало: вдруг блокировка сняли
+            tileHostIsMirror = false;
             if (_map) {
                 _map.remove();
                 _map = null;
@@ -158,14 +187,18 @@
                 boxZoom: false,
                 keyboard: false,
                 zoomControl: false,
-                // атрибуция OSM обязательна по условиям использования,
-                // и на снимке она тоже должна быть видна
-                attributionControl: true
+                // 5-f-2b: панель атрибуции убрана. В снимок попадал и флаг
+                // Leaflet, и подпись поверх картинки. Условия OpenStreetMap
+                // требуют указания источника на публикуемой карте, поэтому
+                // подпись не выкинута совсем: её рисует composeSnapshot
+                // прямо на canvas, см. функцию ниже.
+                attributionControl: false
             });
 
-            _tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            _tileLayer = L.tileLayer(tileHostIsMirror ? TILE_MIRROR : TILE_URL, {
                 maxZoom: 19,
-                attribution: '© OpenStreetMap',
+                // attributionControl выключен выше, подпись рисуется вручную
+                attribution: '',
                 // 5-f-2: без crossOrigin у тайлов нет атрибута
                 // crossorigin, и html2canvas не может загрузить их в своём
                 // клоне - снимок выходил пустым: маркер и подпись рисовались,
@@ -269,13 +302,25 @@
 
         try {
             await afterMapSettled(_map);
-            await waitForTiles(_tileLayer, TILE_TIMEOUT_MS);
+            // 5-f-2b: если основной хост не ответил за отведённое время,
+            // переходим на зеркало и даём ему столько же времени. Админ об
+            // этом узнает из строки статуса, молчаливого подмены не будет.
+            var usedMirror = false;
+            await waitForTiles(_tileLayer, TILE_TIMEOUT_MS, function () {
+                if (tileHostIsMirror) return;
+                usedMirror = true;
+                switchToMirror();
+            });
+            if (usedMirror) {
+                status('Основной сервер тайлов не ответил, пробую зеркало...');
+                await waitForTiles(_tileLayer, TILE_TIMEOUT_MS);
+            }
 
             status('Рисую снимок...');
 
             var snap = composeSnapshot(container);
             if (snap.drawn === 0) {
-                status('Не удалось прочитать тайлы карты');
+                status('Не удалось прочитать тайлы карты: ни основной сервер, ни зеркало не отдали картинку');
                 return;
             }
 

@@ -63,9 +63,6 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
                             <input class="input" type="url" name="contact_whatsapp" id="setWhatsapp"
                                    value="<?= escape(site_setting($settings, 'contact_whatsapp')) ?>"
                                    placeholder="https://wa.me/79999999999">
-                            <p class="form-hint">
-                                Ссылка должна начинаться с http:// или https:// — иначе она не сохранится.
-                            </p>
                         </div>
 
                         <div class="form-group">
