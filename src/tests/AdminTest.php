@@ -206,18 +206,21 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c-1: секции, которых у админа на странице нет, откатываются на
-     * info, а не оставляют пустую страницу.
-     * 7: ключ verification убран из списка. Карточка верификации теперь
-     * есть и рисуется админу тоже, поэтому ?section=verification открывает
-     * именно её. Раньше откат был правильным - карточки просто не
-     * существовало, - и проверка на мусорный ключ была в списке.
+     * 5-f-2c-1: секции, которых на странице нет, откатываются на info,
+     * а не оставляют пустую страницу.
+     *
+     * 7: ключ verification вернулся в список. Он был заведён, пока
+     * верификация была отдельной карточкой, и проверка на мусорный ключ
+     * тогда была в списке. Потом карточку убрали - блок переехал внутрь
+     * card-security как часть безопасности аккаунта, - и ключ стал
+     * невалидным снова. То есть значение изменилось дважды, и теперь
+     * тест снова его ловит.
      */
     public function testAdminUnknownSectionsFallBackToInfo(): void
     {
         $this->loginAsAdmin();
 
-        foreach (['orders', 'fav', 'карточка', 'email_verified'] as $key) {
+        foreach (['orders', 'fav', 'verification', 'карточка', 'email_verified'] as $key) {
             $page = $this->httpGet('/profile.php?section=' . rawurlencode($key));
             $this->assertSame(200, $page['code'], $key);
             $this->assertStringContainsString(
@@ -233,24 +236,48 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * 7: карточка верификации доступна и администратору - подтвердить свои
-     * собственные контакты он вправе так же, как любой пользователь.
+     * 7: блок верификации живёт внутри карточки «Безопасность», и админу
+     * он тоже доступен - подтвердить собственные контакты он вправе так
+     * же, как любой пользователь.
      *
-     * Специально отдельным тестом: в списке мусорных ключейverification
-     * больше не числится, и если карточку убрать у админа, ни один тест
-     * этого не заметит - просто страница молча откатится на личную
-     * информацию.
+     * Отдельным тестом, потому что отката на info тут не видно: блок
+     * нарисован на той же странице, что и форма смены пароля, и если его
+     * убрать у админа, то исчезнут только кнопки заявки - а на это нет
+     * других тестов.
      */
-    public function testAdminCanOpenVerificationCard(): void
+    public function testAdminSeesVerificationInsideSecurityCard(): void
     {
         $this->loginAsAdmin();
 
-        $page = $this->httpGet('/profile.php?section=verification');
+        $page = $this->httpGet('/profile.php?section=security');
         $this->assertSame(200, $page['code']);
-        $this->assertStringContainsString('id="card-verification" data-section>', $page['body']);
-        $this->assertStringContainsString(
-            'id="card-info" data-section style="display:none;"',
-            $page['body']
+
+        $this->assertStringContainsString('id="card-security" data-section>', $page['body']);
+        $this->assertStringContainsString('Верификация контактов', $page['body']);
+        $this->assertStringContainsString('card-divider', $page['body']);
+        $this->assertStringContainsString('class="card-subtitle"', $page['body']);
+
+        // обе строки на месте, и обе с «Не указан»: у админа контактов нет
+        $this->assertSame(
+            2,
+            $this->xpathCount($page['body'], '//section[@id="card-security"]//div[@class="verify-row"]'),
+            'в карточке безопасности должно быть две строки верификации'
         );
+        $this->assertSame(
+            2,
+            substr_count($page['body'], '>Не указан</span>'),
+            'у админа оба контакта пусты, значит оба бейджа «Не указан»'
+        );
+        $this->assertSame(
+            0,
+            $this->xpathCount(
+                $page['body'],
+                '//section[@id="card-security"]//button[@name="requestEmailVerification"]'
+            ),
+            'при пустом email кнопки заявки быть не должно'
+        );
+
+        // отдельной карточки больше нет
+        $this->assertStringNotContainsString('id="card-verification"', $page['body']);
     }
 }
