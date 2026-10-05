@@ -253,49 +253,43 @@ if ($result) {
                             </div>
                         </div>
 
-                        <!-- Изображение корпуса (только для category_id = 6) -->
+                        <!-- Изображение корпуса (только для category_id = 6).
+                             FIX-7: сама картинка (плейсхолдер) - кнопка, клик
+                             открывает модалку выбора: загрузка или сетка
+                             загруженных файлов. -->
                         <div class="field-group" data-cat="6">
                             <label class="form-label">Изображение корпуса</label>
-                            
-                            <div class="image-upload" id="imageUploadBlock">
-                                <!-- Текущее превью -->
-                                <div class="image-upload__preview" id="imagePreview">
-                                    <img src="" alt="" id="imagePreviewImg" 
-                                         style="display:none">
-                                    <div class="image-upload__placeholder" 
-                                         id="imagePreviewPlaceholder">
-                                        Нет изображения
-                                    </div>
+
+                            <button type="button"
+                                    class="image-picker-trigger"
+                                    data-action="open-image-picker"
+                                    id="imagePickerTrigger">
+                                <img src="" alt="" id="imagePreviewImg"
+                                     class="image-picker-trigger__img">
+                                <div class="image-picker-trigger__placeholder"
+                                     id="imagePreviewPlaceholder">
+                                    <svg width="32" height="32" viewBox="0 0 24 24"
+                                         fill="none" stroke="currentColor" stroke-width="2"
+                                         stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                        <path d="M12 3v6m3-3H9"></path>
+                                    </svg>
+                                    Нажмите, чтобы выбрать изображение
                                 </div>
-                                
-                                <div class="image-upload__actions">
-                                    <label class="btn btn--secondary btn--sm">
-                                        <input type="file" name="image_file" 
-                                               id="imageFileInput"
-                                               accept="image/jpeg,image/png,image/webp,image/gif"
-                                               style="display:none">
-                                        Выбрать файл
-                                    </label>
-                                    <!-- БЛОК 3: выбор из уже загруженных файлов cases/ -->
-                                    <button type="button"
-                                            class="btn btn--ghost btn--sm"
-                                            data-action="open-file-picker">
-                                        Выбрать из загруженных
-                                    </button>
-                                    <button type="button" 
-                                            class="btn btn--ghost btn--sm"
-                                            data-action="remove-component-image"
-                                            id="removeImageBtn" hidden>
-                                        Удалить изображение
-                                    </button>
-                                </div>
-                                
-                                <input type="hidden" name="removeImage" id="removeImageFlag" value="0">
-                                
-                                <p class="form-hint">
-                                    JPG, PNG, WebP, GIF. До 10 МБ. Сжимается автоматически: JPEG/PNG без прозрачности → JPG, PNG с прозрачностью остаётся PNG, GIF-анимация сохраняется.
-                                </p>
-                            </div>
+                            </button>
+
+                            <input type="file" name="image_file" id="imageFileInput"
+                                   accept="image/jpeg,image/png,image/webp,image/gif"
+                                   style="display:none">
+
+                            <input type="hidden" name="image_selected_url" id="imageSelectedUrl" value="">
+                            <input type="hidden" name="removeImage" id="removeImageFlag" value="0">
+
+                            <p class="form-hint">
+                                JPG, PNG, WebP, GIF. До 10 МБ. Сжимается автоматически: JPEG/PNG без прозрачности → JPG, PNG с прозрачностью остаётся PNG, GIF-анимация сохраняется.
+                            </p>
                         </div>
 
                         <!-- Всегда видны: опциональные идентификаторы -->
@@ -487,13 +481,31 @@ if ($result) {
                     <input type="hidden" name="deleteComponent" value="1">
                 </form>
 
-                <!-- БЛОК 3: пикер существующих файлов cases/ для модалки корпуса.
-                     Сортировка по ДОП-3: непривязанные файлы сверху, внутри
+                <!-- FIX-7 (БЛОК 3): единая модалка выбора изображения корпуса.
+                     Две секции: загрузка нового файла и сетка загруженных.
+                     Сортировка сетки по ДОП-3: непривязанные сверху, внутри
                      групп - натуральный порядок по имени. -->
                 <dialog id="filePickerModal" class="modal modal--wide">
                     <div class="modal-form">
-                        <h2>Выбрать изображение</h2>
+                        <h2>Изображение корпуса</h2>
 
+                        <!-- Секция 1: загрузка нового файла -->
+                        <div class="image-picker-upload">
+                            <label class="btn btn--primary">
+                                <input type="file" name="image_file"
+                                       id="pickerFileInput"
+                                       accept="image/jpeg,image/png,image/webp,image/gif"
+                                       style="display:none">
+                                Загрузить новый файл
+                            </label>
+                            <span class="image-picker-upload__hint">
+                                JPG, PNG, WebP, GIF до 10 МБ
+                            </span>
+                        </div>
+
+                        <div class="image-picker-divider">или выберите из загруженных</div>
+
+                        <!-- Секция 2: сетка загруженных файлов -->
                         <div class="file-picker-grid" id="filePickerGrid">
 <?php
                         // Сбор файлов + флаг привязки. Привязка может храниться
@@ -543,6 +555,10 @@ if ($result) {
 
                         <div class="modal-actions">
                             <div class="modal-actions-right">
+                                <button type="button" class="btn btn--ghost"
+                                        data-action="remove-image-from-picker">
+                                    Убрать изображение
+                                </button>
                                 <button type="button" class="btn btn--secondary"
                                         data-action="close-modal">Отмена</button>
                             </div>

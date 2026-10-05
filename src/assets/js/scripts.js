@@ -294,23 +294,22 @@ document.addEventListener('click', function(e) {
         delBtn.dataset.name = data.name ?? '';
     }
 
-    // --- Загрузка изображения (Stage 8) ---
-    // Показать текущее изображение при редактировании
+    // --- Изображение корпуса (Stage 8 / FIX-8): превью в edit-режиме.
+    // Картинка-кнопка (FIX-7) переключается классом has-image
     var imgPreview = document.getElementById('imagePreviewImg');
-    var placeholder = document.getElementById('imagePreviewPlaceholder');
-    var removeBtn = document.getElementById('removeImageBtn');
+    var trigger = document.getElementById('imagePickerTrigger');
     
     if (data.image) {
+        trigger.classList.add('has-image');
         imgPreview.src = data.image;
-        imgPreview.style.display = 'block';
-        placeholder.style.display = 'none';
-        removeBtn.hidden = false;
     } else {
+        trigger.classList.remove('has-image');
         imgPreview.src = '';
-        imgPreview.style.display = 'none';
-        placeholder.style.display = 'block';
-        removeBtn.hidden = true;
     }
+    // скрытый выбор сбрасываем: картинка приходит от текущей записи, а не
+    // от прошлого выбора в пикере
+    var selUrl = document.getElementById('imageSelectedUrl');
+    if (selUrl) selUrl.value = '';
     document.getElementById('removeImageFlag').value = '0';
     document.getElementById('imageFileInput').value = '';
 
@@ -928,44 +927,54 @@ document.addEventListener('click', function(e) {
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
-// --- Загрузка изображения в модалке компонента (Stage 8) ---
+// --- Изображение корпуса (Stage 8 / FIX-7): превью-кнопка ---
 
-// Показ выбранного файла в превью (до отправки)
+// Применение выбранного источника к триггеру модалки компонента
+function applyImageToTrigger(src) {
+    const img = document.getElementById('imagePreviewImg');
+    const trigger = document.getElementById('imagePickerTrigger');
+    if (!img || !trigger) return;
+
+    if (src) {
+        trigger.classList.add('has-image');
+        img.src = src;
+    } else {
+        trigger.classList.remove('has-image');
+        img.src = '';
+    }
+}
+
+// Файл выбран в модалке: превью через FileReader, url-выбор сбрасывается.
+// Файл и выбор из загруженных не должны срабатывать одновременно.
 document.addEventListener('change', function(e) {
-    if (e.target.id !== 'imageFileInput') return;
+    if (e.target.id !== 'pickerFileInput') return;
     const file = e.target.files[0];
     if (!file) return;
-    
-    const img = document.getElementById('imagePreviewImg');
-    const placeholder = document.getElementById('imagePreviewPlaceholder');
-    const removeBtn = document.getElementById('removeImageBtn');
-    
+
     const reader = new FileReader();
     reader.onload = function(ev) {
-        img.src = ev.target.result;
-        img.style.display = 'block';
-        placeholder.style.display = 'none';
-        removeBtn.hidden = false;
+        applyImageToTrigger(ev.target.result);
+        const selUrl = document.getElementById('imageSelectedUrl');
+        if (selUrl) selUrl.value = '';
         document.getElementById('removeImageFlag').value = '0';
     };
     reader.readAsDataURL(file);
 });
 
-// Удаление изображения
+// «Убрать изображение» из модалки выбора
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('[data-action="remove-component-image"]')) return;
-    
-    const img = document.getElementById('imagePreviewImg');
-    const placeholder = document.getElementById('imagePreviewPlaceholder');
-    const removeBtn = document.getElementById('removeImageBtn');
+    if (!e.target.closest('[data-action="remove-image-from-picker"]')) return;
+    e.preventDefault();
+
     const input = document.getElementById('imageFileInput');
-    
-    img.src = '';
-    img.style.display = 'none';
-    placeholder.style.display = 'block';
-    removeBtn.hidden = true;
-    input.value = '';
+    const selUrl = document.getElementById('imageSelectedUrl');
+
+    applyImageToTrigger(null);
+    if (input) input.value = '';
+    if (selUrl) selUrl.value = '';
     document.getElementById('removeImageFlag').value = '1';
+
+    document.getElementById('filePickerModal').close();
 });
 
 // --- Файловые действия карточки: удаление, архив, восстановление ---
@@ -1079,16 +1088,15 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// --- БЛОК 3: пикер существующих изображений ---
-// Открытие пикера из модалки корпуса
+// --- FIX-7: открытие модалки выбора картинкой-кнопкой ---
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('[data-action="open-file-picker"]')) return;
+    if (!e.target.closest('[data-action="open-image-picker"]')) return;
     e.preventDefault();
     const picker = document.getElementById('filePickerModal');
     if (picker) picker.showModal();
 });
 
-// Выбор файла в пикере: превью в основной модалке + скрытое поле с URL
+// Выбор файла в сетке модалки: превью + скрытое поле с URL
 document.addEventListener('click', function(e) {
     const item = e.target.closest('[data-action="pick-file"]');
     if (!item) return;
@@ -1096,17 +1104,9 @@ document.addEventListener('click', function(e) {
 
     const url = item.dataset.url;
 
-    const img = document.getElementById('imagePreviewImg');
-    const placeholder = document.getElementById('imagePreviewPlaceholder');
-    const removeBtn = document.getElementById('removeImageBtn');
-    if (!img) return;
+    applyImageToTrigger(url);
 
-    img.src = url;
-    img.style.display = 'block';
-    placeholder.style.display = 'none';
-    removeBtn.hidden = false;
-
-    // URL уходит в hidden- поле формы (иначе сервер о выборе не узнает)
+    // URL уходит в hidden-поле формы (иначе сервер о выборе не узнает)
     let hidden = document.getElementById('imageSelectedUrl');
     if (!hidden) {
         hidden = document.createElement('input');
@@ -1119,7 +1119,7 @@ document.addEventListener('click', function(e) {
 
     // Файловый ввод сбрасываем: файл vs выбор существующего не должны
     // срабатывать одновременно
-    document.getElementById('imageFileInput').value = '';
+    document.getElementById('pickerFileInput').value = '';
     document.getElementById('removeImageFlag').value = '0';
 
     document.getElementById('filePickerModal').close();
