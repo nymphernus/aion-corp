@@ -237,6 +237,7 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                                         </div>
                                     </div>
 
+                                </div>
                                     <div class="favicon-section favicon-section--actions">
                                         <button type="button" class="btn btn--primary btn--sm" id="faviconGenerate"
                                                 data-action="generate-favicon">Сгенерировать</button>
@@ -259,22 +260,21 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
 <?php // Проверка через помощники модуля, а не путём от __DIR__: файл лежит в
       // src/admin/, и __DIR__ . '/../../assets' указал бы выше веб-рута.
       if ($faviconIsCustom && favicon_has_generated()): ?>
-                                        <button type="button" class="btn btn--ghost btn--sm"
+                                        <button type="button" class="btn btn--secondary btn--sm"
                                                 data-action="use-favicon-variant" data-variant="generated"
-                                                title="Показать сгенерированную иконку. Загруженная сохранится">
-                                            → Сгенерированная
+                                                title="Вернуть сгенерированную иконку. Загруженная сохранится">
+                                            Сгенерированная
                                         </button>
 <?php endif; ?>
 <?php if (!$faviconIsCustom && favicon_has_custom()): ?>
-                                        <button type="button" class="btn btn--ghost btn--sm"
+                                        <button type="button" class="btn btn--secondary btn--sm"
                                                 data-action="use-favicon-variant" data-variant="custom"
-                                                title="Показать загруженную иконку. Сгенерированная сохранится">
-                                            → Загруженная
+                                                title="Вернуть загруженную иконку. Сгенерированная сохранится">
+                                            Загруженная
                                         </button>
 <?php endif; ?>
                                     </div>
                                 </div>
-                            </div>
 
 <?php if ($faviconIsCustom): ?>
                             <p class="form-hint">
