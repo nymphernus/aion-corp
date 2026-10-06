@@ -21,6 +21,7 @@ final class BrandingTest extends AionTestCase
         'site_name',
         'site_founded_year',
         'site_description',
+        'site_home_title',
         'site_logo_url',
         'site_favicon_png_url',
     ];
@@ -516,6 +517,69 @@ final class BrandingTest extends AionTestCase
             'поля site_name_full больше не должно быть'
         );
     }
+
+    /**
+     * Заголовок главной задаётся в site_settings, а не в коде.
+     *
+     * Проверяется и форма, и результат: значение из настройки должно
+     * попасть в <title> главной. Раньше строка лежала в index.php, и
+     * чтобы сменить заголовок вкладки, надо было править код и
+     * redeploy-ить.
+     */
+    public function testHomeTitleComesFromSettings(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        try {
+            $page = $this->httpGet('/admin.php?tab=settings');
+            $this->assertSame(
+                1,
+                preg_match('#<input class="input" type="text" name="site_home_title"[^>]*>#', $page['body'], $m),
+                'в настройках должно быть поле заголовка главной'
+            );
+            $this->assertStringContainsString('maxlength="200"', $m[0], 'у поля должен быть maxlength');
+
+            $this->httpPost('/admin.php?tab=settings', [
+                'saveSettings' => '1',
+                'site_home_title' => 'Магазин ПК',
+                'csrf_token' => $this->extractCsrf($page['body']),
+            ]);
+
+            $home = $this->httpGet('/');
+            $this->assertSame(200, $home['code']);
+            // Название дописывает header.php, поэтому сверяем весь
+            // заголовок, а не часть: иначе проверка прошла бы и при
+            // захардкоженном тексте, если бы тот начинался так же.
+            $this->assertSame(
+                'Магазин ПК — ' . trim((string) $snap['site_name']),
+                $this->titleOf($home['body']),
+                'главная должна взять заголовок из site_settings и дополнить его названием'
+            );
+
+            // Очистка поля возвращает дефолтный текст, а не пустую
+            // вкладку: site_setting() отдаёт дефолт и на пустом значении,
+            // не только на отсутствующем ключе. Проверяем явно - иначе
+            // при поломке вкладка осталась бы с молчаливым дефолтом.
+            $page2 = $this->httpGet('/admin.php?tab=settings');
+            $this->httpPost('/admin.php?tab=settings', [
+                'saveSettings' => '1',
+                'site_home_title' => '',
+                'csrf_token' => $this->extractCsrf($page2['body']),
+            ]);
+
+            $cleared = $this->httpGet('/');
+            $this->assertSame(
+                'Интернет-магазин персональных компьютеров индивидуальной комплектации — '
+                    . trim((string) $snap['site_name']),
+                $this->titleOf($cleared['body']),
+                'после очистки поля заголовок должен стать дефолтным'
+            );
+        } finally {
+            $this->restore($snap);
+        }
+    }
+
 
     /**
      * Сохранение формы брендинга не затирает контакты.

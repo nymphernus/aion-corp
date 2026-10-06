@@ -705,7 +705,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
         'contact_phone', 'contact_email',
         'contact_vk', 'contact_telegram', 'contact_whatsapp',
         'map_address_text',
-        'site_name', 'site_description', 'site_founded_year',
+        'site_name', 'site_description', 'site_founded_year', 'site_home_title',
         'site_logo_url', 'site_favicon_png_url',
         'favicon_letter', 'favicon_bg', 'favicon_text', 'favicon_auto_color',
         // Служебный флаг, см. ветку favicon_upload ниже: только код его

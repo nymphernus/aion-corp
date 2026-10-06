@@ -141,6 +141,14 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                                 </div>
                             </div>
 
+                            <div class="form-group">
+                                <label class="form-label" for="setHomeTitle">Заголовок главной страницы</label>
+                                <input class="input" type="text" name="site_home_title" id="setHomeTitle"
+                                       maxlength="200"
+                                       value="<?= escape(site_setting($settings, 'site_home_title', 'Интернет-магазин персональных компьютеров индивидуальной комплектации')) ?>">
+                                <p class="form-hint">Заголовок вкладки браузера на главной. К нему автоматически добавляется «Название сайта» — здесь его писать не нужно, иначе при переименовании останется старое</p>
+                            </div>
+
                             <div class="modal-row">
                                 <div class="form-group">
                                     <label class="form-label" for="setSiteDescription">Описание</label>
