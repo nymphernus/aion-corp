@@ -7,7 +7,7 @@
  * предыдущий компонент, из-за чего корпус получал до 56% остатка и итог
  * сильно зависел от порядка выборки.
  *
- * 3.6.3-c-2: games - вклад в видеокарту, work - в процессор, universal -
+ * games - вклад в видеокарту, work - в процессор, universal -
  * баланс.
  */
 function cfg_percentages($preference)
@@ -123,7 +123,7 @@ function cfg_pick($mysql, $limit, $where, $types = '', $params = [])
  * чем слишком широкий список, - такой случай просто окажется без
  * подходящего корпуса и уйдёт в откат.
  *
- * 5-e-3.
+ * .
  *
  * @return array<string, string[]>
  */
@@ -234,7 +234,7 @@ function configure($budget, $preference = 'universal', $osChoice = 'none')
             [$cpu['socket_id']]
         );
 
-        // 5-e-3: память должна совпадать с платой по типу. Раньше
+        // память должна совпадать с платой по типу. Раньше
         // ограничения не было, и в сборку попадало DDR4 к плате DDR5.
         // Если у платы тип не заполнен, фильтр не применяется.
         $ramWhere = 'category_id = 4';
@@ -250,7 +250,7 @@ function configure($budget, $preference = 'universal', $osChoice = 'none')
 
         $power_supply = cfg_pick($mysql, $limit['psu'], 'category_id = 5');
 
-        // 5-e-3: корпус должен принимать форм-фактор платы.
+        // корпус должен принимать форм-фактор платы.
         $caseWhere = 'category_id = 6';
         $caseTypes = '';
         $caseParams = [];
@@ -290,7 +290,7 @@ function configure($budget, $preference = 'universal', $osChoice = 'none')
             }
         }
 
-        // 5-c: имена сокетов берутся из таблицы sockets, а не из карты в коде.
+        // имена сокетов берутся из таблицы sockets, а не из карты в коде.
 // Карта покрывала три сокета из семи, и для LGA1851 с AM5 фильтр по
 // сокету просто не применялся.
 $socketMap = socket_types($mysql);

@@ -6,7 +6,7 @@
  *   $extraJs   — массив дополнительных JS (например ['/assets/js/scripts.js'])
  *   $settings  — site_settings; если не задан, читается здесь
  *
- * Stage 9: копирайт собирается из site_settings, а не из разметки.
+ * копирайт собирается из site_settings, а не из разметки.
  * Это «© {site_founded_year} {site_name}».
  * $settings к этому моменту уже есть - его читает header.php, который
  * подключается раньше. Собственная попытка чтения здесь нужна только
@@ -44,7 +44,7 @@ $extraJs = $extraJs ?? [];
     <script src="<?= escape(asset_url($js)) ?>"></script>
 <?php endforeach; ?>
 <?php
-// 5-d-3: счётчик запросов к базе. Показывается только если переменная
+// счётчик запросов к базе. Показывается только если переменная
 // DEBUG_SQL_COUNT задана и непуста, в обычной работе блока нет.
 if (getenv('DEBUG_SQL_COUNT') !== false && getenv('DEBUG_SQL_COUNT') !== '' && isset($GLOBALS['db_prepare_calls'])) {
     echo "\n<!-- db_prepare calls: " . (int) $GLOBALS['db_prepare_calls'] . " -->\n";

@@ -108,7 +108,7 @@ $totalFiles = count($files);
 $orphanFiles = $totalFiles - $usedFiles;
 $totalSizeHuman = human_size($totalSize);
 
-// FIX-3: сколько корпусов осталось без картинки. Пустая строка и NULL
+// сколько корпусов осталось без картинки. Пустая строка и NULL
 // равнозначны: писать '' в поле никто не должен, но подстраховаться стоит.
 $stmt = db_prepare($mysql,
     "SELECT COUNT(*) FROM components
@@ -170,7 +170,7 @@ $uploadedBad = isset($_GET['bad']) ? trim((string) $_GET['bad']) : '';
         <span class="files-stat__value"><?= $totalSizeHuman ?></span>
         <span class="files-stat__label">общий размер</span>
     </div>
-    <!-- FIX-3: счётчик кликабельный - ведёт к отфильтрованному списку -->
+    <!-- счётчик кликабельный - ведёт к отфильтрованному списку -->
     <a href="/admin.php?tab=components&cat=6&no_image=1"
        class="files-stat files-stat--warning">
         <span class="files-stat__value"><?= $casesWithoutImage ?></span>
@@ -178,7 +178,7 @@ $uploadedBad = isset($_GET['bad']) ? trim((string) $_GET['bad']) : '';
     </a>
 </div>
 
-<!-- Фильтр (FIX-6: всё в один ряд) -->
+<!-- Фильтр (всё в один ряд) -->
 <div class="admin-filters">
     <form method="get" class="admin-filters__form">
         <input type="hidden" name="tab" value="files">

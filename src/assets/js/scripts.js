@@ -88,7 +88,7 @@ document.addEventListener('click', function(e) {
         var nav = document.querySelector('.nav');
         if (nav) nav.classList.toggle('nav--open');
     } else if (action === 'toggle-password') {
-        // 5-f-4: показать/скрыть пароль.
+        // показать/скрыть пароль.
         //
         // Кнопка объявлена type="button", поэтому submit не происходит и
         // полагаться только на preventDefault не приходится: на старых iOS
@@ -127,7 +127,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 5-f-4: клик по кнопке не должен забирать фокус у поля до того, как
+// клик по кнопке не должен забирать фокус у поля до того, как
 // отработает обработчик выше. Без этого каретка мигает: поле теряет
 // фокус на кнопку и тут же получает его обратно.
 document.addEventListener('mousedown', function(e) {
@@ -135,7 +135,7 @@ document.addEventListener('mousedown', function(e) {
     if (pwToggle) e.preventDefault();
 });
 
-// 3.7-f-3-12: пересборка селекта форм-фактора под категорию.
+// пересборка селекта форм-фактора под категорию.
 // Значение, которого нет в новом списке (старые данные вроде M.2 или
 // mATX), сохраняем отдельной опцией - иначе оно молча потерялось бы
 // при сохранении.
@@ -193,7 +193,7 @@ function rebuildFormFactors(modal, catId, desiredValue) {
     }
 }
 
-// 3.7-c: показ/скрытие групп полей модалки по выбранной категории.
+// показ/скрытие групп полей модалки по выбранной категории.
 // Группы (.field-group) описаны атрибутом data-cat — списком category_id.
 document.addEventListener('change', function(e) {
     if (e.target.matches('#addComponentModal select[name="cat"]')) {
@@ -223,7 +223,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 3.7-f-1/2: открытие edit-модалки кликом по строке таблицы.
+// 2: открытие edit-модалки кликом по строке таблицы.
 // Клик по ссылке или кнопке внутри строки игнорируем.
 document.addEventListener('click', function(e) {
     var tr = e.target.closest ? e.target.closest('tr[data-component]') : null;
@@ -275,7 +275,7 @@ document.addEventListener('click', function(e) {
     setVal('rpm', data.rpm);
     setVal('cooler_type', data.cooler_type);
 
-    // 3.7-f-3-12: сначала пересборка селекта форм-фактора под категорию,
+    // сначала пересборка селекта форм-фактора под категорию,
     // и только потом значение - установка .value для отсутствующей опции
     // обнуляет select, и прежнее значение (например M.2) потерялось бы
     var catSelect = modal.querySelector('[name="cat"]');
@@ -286,7 +286,7 @@ document.addEventListener('click', function(e) {
     // списке категории, оно добавляется как «прежнее значение»
     rebuildFormFactors(modal, catSelect ? catSelect.value : '', data.form_factor ?? '');
 
-    // 3.7-f-2: кнопка удаления видима только в edit-режиме
+    // кнопка удаления видима только в edit-режиме
     var delBtn = modal.querySelector('#modalDeleteBtn');
     if (delBtn) {
         delBtn.hidden = false;
@@ -294,8 +294,8 @@ document.addEventListener('click', function(e) {
         delBtn.dataset.name = data.name ?? '';
     }
 
-    // --- Изображение корпуса (Stage 8 / FIX-8): превью в edit-режиме.
-    // Картинка-кнопка (FIX-7) переключается классом has-image
+    // --- Изображение корпуса : превью в edit-режиме.
+    // Картинка-кнопка  переключается классом has-image
     var imgPreview = document.getElementById('imagePreviewImg');
     var trigger = document.getElementById('imagePickerTrigger');
     
@@ -319,7 +319,7 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
-// 3.7-f-3-3/3-10: фильтр «Сокет» показывается только для CPU / платы /
+// 3-10: фильтр «Сокет» показывается только для CPU / платы /
 // кулера. Сервер уже прячет его при отрисовке, здесь синхронизация при
 // смене категории без перезагрузки.
 document.addEventListener('change', function(e) {
@@ -333,7 +333,7 @@ document.addEventListener('change', function(e) {
     wrap.style.display = relevant ? '' : 'none';
 });
 
-// 3.7-f-4b-2: строка с data-href переходит по ссылке.
+// строка с data-href переходит по ссылке.
 // Клик по кнопке/ссылке/полю внутри строки переход не запускает —
 // отдельный stopPropagation не нужен, CSP не любит onclick.
 document.addEventListener('click', function(e) {
@@ -346,7 +346,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 3.7-f-2-6: клик по фону вокруг открытой модалки закрывает её.
+// клик по фону вокруг открытой модалки закрывает её.
 // Нативное поведение dialog: клик по самому элементу (мимо содержимого)
 // попадает сюда с e.target === modal. Регистрируется на верхнем уровне,
 // иначе обработчик жил бы внутри другого и не существовал бы на части
@@ -359,7 +359,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 3.7-f-4-2: единый открыватель модалки пользователя.
+// единый открыватель модалки пользователя.
 // Используется и из таблицы пользователей, и из модалки заказа.
 function openUserModal(data) {
     var modal = document.getElementById('editUserModal');
@@ -375,11 +375,11 @@ function openUserModal(data) {
     if (loginSpan) loginSpan.textContent = data.login ?? '';
     uSet('#editUserNameRO', data.login);
     uSet('#editUserName', data.name);
-    // 3.7-f-4c-3: фамилия не обязательна, пустое значение тоже валидно
+    // фамилия не обязательна, пустое значение тоже валидно
     uSet('#editUserSurname', data.surname);
-    // 3.7-g-6: дата регистрации только для чтения, в POST не уходит
+    // дата регистрации только для чтения, в POST не уходит
     uSet('#editUserRegdate', data.regdate);
-    // 3.7-i-2: адрес разбит на поля. Значения кладутся как есть, с маркерами
+    // адрес разбит на поля. Значения кладутся как есть, с маркерами
     // вроде «ул.» поле нормализуется при сохранении, поэтому подсказки в
     // placeholder об этом напоминают.
     uSet('#editUserPostalCode', data.postal_code);
@@ -388,7 +388,7 @@ function openUserModal(data) {
     uSet('#editUserStreet', data.street);
     uSet('#editUserHouse', data.house);
     uSet('#editUserApartment', data.apartment);
-    // FIX-2: legacy-строка user_address в модалку больше не выводится -
+    // legacy-строка user_address в модалку больше не выводится -
     // шесть адресных полей единственный источник правды
     uSet('#editUserNumber', data.number);
     uSet('#editUserGroup', data.group);
@@ -405,7 +405,7 @@ function openUserModal(data) {
     modal.showModal();
 }
 
-// 3.7-f-4-2: из модалки заказа — кнопка покупателя открывает его модалку.
+// из модалки заказа — кнопка покупателя открывает его модалку.
 // Данные берём из data-row заказа (без AJAX): сервер отдаёт логин,
 // группу, адрес и телефон покупателя вместе со строкой заказа.
 document.addEventListener('click', function(e) {
@@ -428,7 +428,7 @@ document.addEventListener('click', function(e) {
     openUserModal(data);
 });
 
-// 3.7-f-4b-3: открыватель read-only модалки заказа в профиле.
+// открыватель read-only модалки заказа в профиле.
 // Модалка ничего не отправляет — только показывает данные строки.
 function openUserOrderModal(data) {
     var modal = document.getElementById('userOrderModal');
@@ -444,7 +444,7 @@ function openUserOrderModal(data) {
 
     setText('#userOrderNumber', data.order_id);
     setText('#userOrderAssembly', data.assembly_name);
-    // 3.7-f-4c-5: ссылка на саму сборку открывается в новой вкладке
+    // ссылка на саму сборку открывается в новой вкладке
     var asmLink = modal.querySelector('#userOrderAssemblyLink');
     if (asmLink) {
         asmLink.href = '/assembly.php?id=' + encodeURIComponent(data.assembly_id ?? '');
@@ -465,7 +465,7 @@ function openUserOrderModal(data) {
     modal.showModal();
 }
 
-// 3.7-h-1: клик по строке заказа — модалка с деталями и сменой статуса
+// клик по строке заказа — модалка с деталями и сменой статуса
 document.addEventListener('click', function(e) {
     var tr = e.target.closest ? e.target.closest('tr[data-row]') : null;
     if (!tr) return;
@@ -479,13 +479,13 @@ document.addEventListener('click', function(e) {
         return;
     }
 
-    // 3.7-h-2: строка пользователя открывает свою модалку
+    // строка пользователя открывает свою модалку
     if (data.modal === 'user') {
         openUserModal(data);
         return;
     }
 
-    // 3.7-f-4b-3: строка заказа в профиле пользователя — только просмотр
+    // строка заказа в профиле пользователя — только просмотр
     if (data.modal === 'user-order') {
         openUserOrderModal(data);
         return;
@@ -500,7 +500,7 @@ document.addEventListener('click', function(e) {
             ? 'Не указан' : String(value);
     };
 
-    // 3.7-f-3-2: покупатель — кнопка (откроет модалку пользователя в f-4),
+    // покупатель — кнопка (откроет модалку пользователя в f-4),
     // сборка — ссылка-кнопка в новой вкладке
     var label = function(id, value) {
         var el = modal.querySelector(id);
@@ -511,7 +511,7 @@ document.addEventListener('click', function(e) {
     modal.querySelector('#editOrderId').value = data.id;
     text('#editOrderNumber', data.id);
     label('#editOrderBuyerName', data.buyer);
-    // 3.7-f-4-2: кладём данные покупателя прямо на кнопку, чтобы переход
+    // кладём данные покупателя прямо на кнопку, чтобы переход
     // в его модалку работал без AJAX
     var buyerBtn = modal.querySelector('#editOrderBuyerBtn');
     if (buyerBtn) {
@@ -519,12 +519,12 @@ document.addEventListener('click', function(e) {
         buyerBtn.dataset.user = JSON.stringify({
             id: data.user_id ?? '',
             name: data.user_name ?? data.buyer ?? '',
-            // 3.7-f-4c-3: фамилия покупателя нужна его же модалке
+            // фамилия покупателя нужна его же модалке
             surname: data.user_surname ?? '',
             login: data.user_login ?? '',
             group: data.user_group ?? 'user',
             number: data.user_number ?? '',
-            // 3.7-i-2: разбитый адрес покупателя. FIX-2: legacy-строка
+            // разбитый адрес покупателя. legacy-строка
             // address сюда больше не передаётся - её нигде не читают
             postal_code: data.user_postal_code ?? '',
             region: data.user_region ?? '',
@@ -543,13 +543,13 @@ document.addEventListener('click', function(e) {
             email_verification_requested: data.user_email_verification_requested ?? 0,
             phone_verified: data.user_phone_verified ?? 0,
             phone_verification_requested: data.user_phone_verification_requested ?? 0,
-            // 3.7-g-7: без этого ключа поле «Дата регистрации» в модалке
+            // без этого ключа поле «Дата регистрации» в модалке
             // покупателя оставалось пустым при переходе из заказа
             regdate: data.user_regdate ?? '',
         });
     }
-    // 3.7-i-4: адрес собирается из шести полей.
-    // FIX-2: fallback на legacy user_address убран - если новых полей
+    // адрес собирается из шести полей.
+    // fallback на legacy user_address убран - если новых полей
     // нет, адрес считается незаполненным.
     var addrParts = [
         data.user_postal_code,
@@ -578,7 +578,7 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
-// 3.7-g-4: единое подтверждение действия.
+// единое подтверждение действия.
 //
 // Колбэк хранится в переменной, кнопки слушает делегированный
 // обработчик ниже. Планировалось клонировать кнопку «Подтвердить»
@@ -618,7 +618,7 @@ document.addEventListener('click', function (e) {
         return;
     }
 
-    // 3.7-g-4: выход из аккаунта требует подтверждения
+    // выход из аккаунта требует подтверждения
     if (e.target.closest('[data-action="logout-confirm"]')) {
         e.preventDefault();
         window.confirmAction('Выйти из аккаунта?', 'Придётся снова вводить логин и пароль.', function () {
@@ -627,7 +627,7 @@ document.addEventListener('click', function (e) {
         return;
     }
 
-    // 3.7-g-4: удаление заказа из модалки заказа
+    // удаление заказа из модалки заказа
     var orderDel = e.target.closest('[data-action="delete-order"]');
     if (orderDel) {
         e.preventDefault();
@@ -647,7 +647,7 @@ document.addEventListener('click', function (e) {
         return;
     }
 
-    // 3.7-g-4: удаление из избранного, форма лежит в строке таблицы
+    // удаление из избранного, форма лежит в строке таблицы
     var favDel = e.target.closest('[data-action="delete-favorite"]');
     if (favDel) {
         e.preventDefault();
@@ -661,7 +661,7 @@ document.addEventListener('click', function (e) {
         return;
     }
 
-    // 3.7-g-4: удаление пользователя вместо отдельной модалки
+    // удаление пользователя вместо отдельной модалки
     var userDel = e.target.closest('[data-action="open-delete-user-modal"]');
     if (userDel) {
         e.preventDefault();
@@ -678,7 +678,7 @@ document.addEventListener('click', function (e) {
         return;
     }
 
-    // 3.7-g-4: удаление комплектующего вместо отдельной модалки
+    // удаление комплектующего вместо отдельной модалки
     var compDel = e.target.closest('[data-action="open-delete-modal"]');
     if (compDel) {
         e.preventDefault();
@@ -696,13 +696,13 @@ document.addEventListener('click', function (e) {
     }
 });
 
-// 3.7-g-4: закрытие по Escape тоже сбрасывает колбэк, иначе он остался
+// закрытие по Escape тоже сбрасывает колбэк, иначе он остался
 // бы висеть до следующего открытия модалки
 document.addEventListener('close', function (e) {
     if (e.target && e.target.id === 'confirmModal') confirmCallback = null;
 }, true);
 
-// 3.7-d: «+ Добавить» после edit — выйти из режима редактирования
+// «+ Добавить» после edit — выйти из режима редактирования
 document.addEventListener('click', function(e) {
     var openBtn = e.target.closest('[data-action="open-modal"]');
     if (!openBtn) return;
@@ -714,7 +714,7 @@ document.addEventListener('click', function(e) {
     modal.querySelector('#modalSubmit').textContent = 'Добавить';
     modal.querySelector('form').reset();
 
-    // 3.7-f-2: в add-режиме удаления нет
+    // в add-режиме удаления нет
     var delBtn = modal.querySelector('#modalDeleteBtn');
     if (delBtn) delBtn.hidden = true;
 
@@ -725,7 +725,7 @@ document.addEventListener('click', function(e) {
     // showModal вызывается в существующем обработчике open-modal
 });
 
-/* 3.6.3-c-2: пресет задаёт и бюджет, и приоритет.
+/* пресет задаёт и бюджет, и приоритет.
    Раньше пресет и переключатель «Что важнее?» показывали одни и те же
    слова - «Игры» и «Работа» были видны дважды, и выбор оставался
    противоречивым. Теперь клик по пресету переключает и режим.
@@ -826,7 +826,7 @@ function fillVerificationBlock(modal, data) {
         }
     };
 
-    // 3.7-f-4-2: у order-пути ключи с префиксом user_, у таблицы
+    // у order-пути ключи с префиксом user_, у таблицы
     // пользователей - без него. Поэтому читаем оба.
     var pick = function (shortKey, longKey) {
         var v = data[shortKey];
@@ -927,7 +927,7 @@ document.addEventListener('click', function(e) {
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
-// --- Изображение корпуса (Stage 8 / FIX-7): превью-кнопка ---
+// --- Изображение корпуса : превью-кнопка ---
 
 // Применение выбранного источника к триггеру модалки компонента
 function applyImageToTrigger(src) {
@@ -1116,7 +1116,7 @@ document.addEventListener('input', function(e) {
     filterAttachCases(e.target.value);
 });
 
-// --- FIX-7: открытие модалки выбора картинкой-кнопкой ---
+// --- открытие модалки выбора картинкой-кнопкой ---
 document.addEventListener('click', function(e) {
     if (!e.target.closest('[data-action="open-image-picker"]')) return;
     e.preventDefault();

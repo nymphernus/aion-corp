@@ -1,6 +1,6 @@
 <?php
 /**
- * Единый сайдбар для profile.php и admin.php (Stage 3.7-f-4-1).
+ * Единый сайдбар для profile.php и admin.php.
  *
  * Ожидает:
  *   $activeTab   — 'profile' | 'dashboard' | 'users' | 'orders' | 'components'
@@ -19,10 +19,10 @@ $userName = $userProfile['user_name'] ?? ($_SESSION['user_name'] ?? '');
 $userLogin = $userProfile['user_login'] ?? ($_SESSION['user_login'] ?? '');
 $userInitial = mb_strtoupper(mb_substr((string) $userName, 0, 1, 'UTF-8'), 'UTF-8');
 
-// 3.7-g-2: дашборд убран из $adminTabs, он лежит рядом с аккордеоном
+// дашборд убран из $adminTabs, он лежит рядом с аккордеоном
 // отдельным пунктом. Иначе на дашборде подсвечивалось бы и «Панель
 // управления» в summary, и «Дашборд» в подпунктах.
-// FIX-5: files в списке, иначе на вкладке «Изображения» аккордеон
+// files в списке, иначе на вкладке «Изображения» аккордеон
 // рендерится закрытым и подпункт «Изображения» скрывается.
 $adminTabs = ['users', 'orders', 'components', 'files'];
 $isAdminSection = in_array($activeTab, $adminTabs, true);
@@ -37,7 +37,7 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                     </div>
 
                     <nav class="profile-nav">
-                        <!-- 5-f-2c-1: пункты секций профиля ведут обычными
+                        <!-- пункты секций профиля ведут обычными
                              ссылками с ?section=, а не кнопками с JS.
 
                              Кнопка работала только там, где секция уже
@@ -88,12 +88,12 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                         <a href="/profile.php?section=fav" class="profile-nav-item<?= $activeSection === 'card-fav' ? ' active' : '' ?>">Избранное</a>
 
 <?php if (!$isAdmin): ?>
-                        <!-- 3.7-f-4-1: заказы остались кнопками: они есть
+                        <!-- заказы остались кнопками: они есть
                               только у обычного пользователя и только на
                               profile.php, где JS-переключение работает -->
                         <button type="button" class="profile-nav-item<?= $activeSection === 'card-builds' ? ' active' : '' ?>" data-action="switch" data-target="card-builds">Мои заказы</button>
 <?php else: ?>
-                        <!-- 3.7-g-2: дашборд вынесен из аккордеона отдельным
+                        <!-- дашборд вынесен из аккордеона отдельным
                              пунктом - это точка входа, а не раздел -->
                         <a href="/admin.php?tab=dashboard" class="profile-nav-item<?= $activeTab === 'dashboard' ? ' active' : '' ?>">Дашборд</a>
                         <details class="profile-nav-group"<?= $isAdminSection ? ' open' : '' ?>>
@@ -114,7 +114,7 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                         </details>
 
                         <!--
-                            5-f-2b: «Настройки сайта» вынесено из аккордеона
+                            «Настройки сайта» вынесено из аккордеона
                             отдельным пунктом, по соседству с «Дашбордом». Раздел
                             не про заказы и комплектующие, а держать его среди
                             них было вдвое неудобнее: он ещё и закрывался вместе
@@ -127,7 +127,7 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                         <a href="/admin.php?tab=settings" class="profile-nav-item<?= $activeTab === 'settings' ? ' active' : '' ?>">Настройки сайта</a>
 <?php endif; ?>
 
-                        <!-- 3.7-g-4: был ссылкой, ушла сразу. Теперь кнопка: выход требует
+                        <!-- был ссылкой, ушла сразу. Теперь кнопка: выход требует
                              подтверждения через общую #confirmModal -->
                         <button type="button" class="profile-nav-item profile-nav-exit" data-action="logout-confirm">Выйти</button>
                     </nav>

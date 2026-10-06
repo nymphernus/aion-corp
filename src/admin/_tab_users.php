@@ -5,7 +5,7 @@
  * Подключается только из admin.php (admin.php?tab=users).
  * Прямой запрос к файлу → 404.
  *
- * 3.7-f-3: переведено с legacy-разметки .assemblyTable на .table из
+ * переведено с legacy-разметки .assemblyTable на .table из
  * base.css — таблица тянется на всю ширину карточки.
  * Имена POST-полей (csrf_token, userId, deleteUser) не менялись.
  */
@@ -18,8 +18,8 @@ if (!defined('ADMIN_CONTEXT')) {
                 <section class="card admin-panel">
                     <h1 class="page-title">Управление пользователями</h1>
 
-                    <!-- 3.7-f-4-3: фильтр по группе и поиск по имени/логину
-                         (3.7-f-4b-4: сортировка убрана) -->
+                    <!-- фильтр по группе и поиск по имени/логину
+                         (сортировка убрана) -->
                     <form method="get" class="admin-filters">
                         <input type="hidden" name="tab" value="users">
 
@@ -43,11 +43,11 @@ if (!defined('ADMIN_CONTEXT')) {
 <?php endif; ?>
                     </form>
 <?php
-                    // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
-                    // 3.7-f-3-11: user_email добавлен для модалки пользователя
-                    // 3.7-f-4-3: $listWhere/$listOrder приходят из admin.php
-                    // 3.7-i-2: шесть адресных колонок нужны модалке
-                    // 3.7-g-6: user_regdate показывается в модалке read-only
+                    // $page/$pages/$offset/$total/$perPage считает admin.php
+                    // user_email добавлен для модалки пользователя
+                    // $listWhere/$listOrder приходят из admin.php
+                    // шесть адресных колонок нужны модалке
+                    // user_regdate показывается в модалке read-only
                     $sql = "SELECT user_id, user_name, user_surname, user_login, user_group,
                                    user_address, user_number, user_email, user_regdate,
                                    user_postal_code, user_region, user_city,
@@ -74,13 +74,13 @@ if (!defined('ADMIN_CONTEXT')) {
                         </tr></thead><tbody>";
                     if ($result) {
                         while ($row = $result->fetch_array()) {
-                            // 3.7-i-3: адрес берём из разбитых полей.
-                        // FIX-2: fallback на legacy убран - новые поля
+                            // адрес берём из разбитых полей.
+                        // fallback на legacy убран - новые поля
                         // единственный источник правды.
                         $addr = trim((string) ($row['user_city'] ?? ''));
                         $shortAddress = $addr !== '' ? $addr : 'Не указан';
 
-                        // 3.7-h-2: данные строки для модалки пользователя
+                        // данные строки для модалки пользователя
                         $rowData = json_encode([
                             'modal' => 'user',
                             'id' => $row['user_id'],
@@ -99,11 +99,11 @@ if (!defined('ADMIN_CONTEXT')) {
                             'email_verification_requested' => (int) $row['email_verification_requested'],
                             'phone_verified' => (int) $row['phone_verified'],
                             'phone_verification_requested' => (int) $row['phone_verification_requested'],
-                            // 3.7-g-6: показывается в модалке только на чтение
+                            // показывается в модалке только на чтение
                             'regdate' => isset($row['user_regdate'])
                                 ? date('d.m.Y', strtotime((string) $row['user_regdate']))
                                 : '',
-                            // 3.7-i-2: адрес разбит на поля, address остаётся
+                            // адрес разбит на поля, address остаётся
                             // legacy-строкой для показа в модалке
                             'postal_code' => $row['user_postal_code'],
                             'region' => $row['user_region'],
@@ -126,14 +126,14 @@ if (!defined('ADMIN_CONTEXT')) {
 ?>
                 </section>
 
-                <!-- 3.7-h-2: ошибки валидации при сохранении профиля -->
+                <!-- ошибки валидации при сохранении профиля -->
 <?php if (isset($_GET['error'])): ?>
 <?php
                     $userErrors = [
                         'name' => 'Имя должно быть от 2 до 20 символов.',
-                        // 3.7-f-4c-3
+                        // 
                         'surname' => 'Фамилия не должна быть длиннее 30 символов.',
-                        // 3.7-i-2: адресные поля
+                        // адресные поля
                         'city' => 'Город не должен быть длиннее 100 символов.',
                         'region' => 'Регион не должен быть длиннее 100 символов.',
                         'street' => 'Улица не должна быть длиннее 150 символов.',
@@ -149,6 +149,6 @@ if (!defined('ADMIN_CONTEXT')) {
                 <div class="alert alert--error"><?= escape($userErrors[$_GET['error']] ?? 'Не удалось сохранить изменения.') ?></div>
 <?php endif; ?>
 
-                <!-- 3.7-f-4-2: модалки пользователя и подтверждения удаления
+                <!-- модалки пользователя и подтверждения удаления
                      вынесены в partials/admin-user-modal.php и подключаются из admin.php,
                      чтобы быть доступными и на вкладке заказов -->

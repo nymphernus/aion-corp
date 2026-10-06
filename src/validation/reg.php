@@ -73,7 +73,7 @@ if (!empty($errors)) {
     $_SESSION['old_name'] = $name;
     $_SESSION['old_surname'] = $surname;
     $_SESSION['old_email'] = $email;
-    // 5-f-1: error_access общий для входа и регистрации, поэтому
+    // error_access общий для входа и регистрации, поэтому
     // отдельной меткой говорим profile.php, что сообщение из регистрации:
     // форма входа свёрнута, и ошибка внутри неё была бы не видна
     setcookie('error_from', 'reg', [
@@ -147,7 +147,7 @@ if ($takenLogin || $takenEmail) {
     $_SESSION['old_name'] = $name;
     $_SESSION['old_surname'] = $surname;
     $_SESSION['old_email'] = $email;
-    // 5-f-1: см. выше - метка источника сообщения
+    // см. выше - метка источника сообщения
     setcookie('error_from', 'reg', [
         'expires' => time() + 60,
         'path' => '/profile.php',

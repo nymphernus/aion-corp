@@ -1,6 +1,6 @@
 <?php
 /**
- * Модалка заказа админ-панели (Stage 3.7-g-3).
+ * Модалка заказа админ-панели .
  *
  * Подключается из admin.php, а не из _tab_orders.php: с 3.7-g-3 её
  * открывает не только таблица заказов, но и блок «Последние заказы»
@@ -12,7 +12,7 @@
  */
 ?>
                 <!--
-                    3.7-h-1: модалка заказа — детали, смена статуса,
+                    модалка заказа — детали, смена статуса,
                     ссылки на профиль покупателя и на сборку.
                     Отправляет name="editOrder" (обработчик в admin.php).
                 -->
@@ -31,7 +31,7 @@
                             <h3>Информация о покупателе</h3>
                             <div class="form-group">
                                 <label class="form-label" for="editOrderBuyerBtn">Покупатель</label>
-                                <!-- 3.7-f-3-2: кнопка вместо ссылки, клик открывает
+                                <!-- кнопка вместо ссылки, клик открывает
                                      модалку пользователя -->
                                 <button type="button" class="btn btn--secondary btn--sm"
                                         id="editOrderBuyerBtn" data-action="open-user-from-order" data-user-id="">
@@ -52,7 +52,7 @@
                             <h3>Информация о сборке</h3>
                             <div class="form-group">
                                 <label class="form-label" for="editOrderAssemblyBtn">Сборка</label>
-                                <!-- 3.7-f-3-2: остаётся <a>, но оформлен кнопкой и
+                                <!-- остаётся <a>, но оформлен кнопкой и
                                      открывается в новой вкладке -->
                                 <a href="#" id="editOrderAssemblyBtn" target="_blank" rel="noopener"
                                    class="btn btn--secondary btn--sm"><span id="editOrderAssemblyName"></span></a>
@@ -91,14 +91,14 @@
                 </dialog>
 
                 <!--
-                    3.7-g-4: форма удаления заказа. Отправляет
+                    форма удаления заказа. Отправляет
                     confirmAction после подтверждения в #confirmModal.
                 -->
                 <form id="deleteOrderForm" method="post" action="/admin.php?tab=orders" hidden>
                     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                     <input type="hidden" name="return_params" value="<?= escape(admin_list_query('orders')) ?>">
                     <input type="hidden" name="orderId" id="deleteOrderId" value="">
-                    <!-- 3.7-g-4: deleteOrder лежит скрытым input, а не
+                    <!-- deleteOrder лежит скрытым input, а не
                          кнопкой: form.submit() не включает имя нажатой
                          кнопки, а обработчик проверяет $_POST['deleteOrder'] -->
                     <input type="hidden" name="deleteOrder" value="1">

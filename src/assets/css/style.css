@@ -121,7 +121,7 @@ body::-webkit-scrollbar-thumb {
 	opacity: 1;
 }
 
-/* 3.7-f-3-15: компенсация контраста из f-3-8 убрана полностью -
+/* компенсация контраста из f-3-8 убрана полностью -
    навигация снова белая, как в исходном проекте (чекпоинт 71d6968). */
 .icon img{
 	height: 30px;
@@ -145,7 +145,7 @@ body::-webkit-scrollbar-thumb {
 	   (body), из-за чего admin.php и assembly.php показывали серый фон */
 	background: transparent;
 }
-/* 5-f-3: .container_about убран из общего правила - секции контактов
+/* .container_about убран из общего правила - секции контактов
    больше нет. .container_conf в разметке тоже не встречается, но
    оставлен: это тот же блок-обёртка слайдера и конфигуратора, и
    трогать его без задачи не буду. */
@@ -203,7 +203,7 @@ body::-webkit-scrollbar-thumb {
     object-fit: cover;
     object-position: 0;
 }
-/* 3.6.3-a: затемнение под текстом героя.
+/* затемнение под текстом героя.
    Раньше читаемость давало только размытие подложки (backdrop-filter),
    а сама фотография оставалась светлой, и белый текст местами терялся.
    Слой отдельный от .slider, потому что slider.js пересобирает .slide:
@@ -241,7 +241,7 @@ body::-webkit-scrollbar-thumb {
 }
 
 .hero__title {
-    /* ПРАВКА 3: заголовок на главной всегда заглавными.
+    /* заголовок на главной всегда заглавными.
        Раньше регистр брался из site_name, и «Aion Corporation»
        выглядело на фоне фотографии тише, чем «AION CORPORATION»:
        прописные читаются как марка, и именно так это выглядело до
@@ -265,7 +265,7 @@ body::-webkit-scrollbar-thumb {
     text-shadow: 0 1px 14px rgba(0, 0, 0, 0.75), 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-/* 3.6.3-a-2: полупрозрачная кнопка вместо синей .btn--primary -
+/* полупрозрачная кнопка вместо синей .btn--primary -
    по просьбе пользователя. Размытие подложки ловит блики фотографии,
    поэтому кнопка читается на любом слайде. Один селектор вместо
    «.hero__button, a.btn.hero__button»: у .btn та же специфичность,
@@ -630,7 +630,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     -webkit-appearance: none;
 }
 
-/* 3.6.3-a-4: иконка-стрелка из плейсхолдера убрана. Правило с
+/* иконка-стрелка из плейсхолдера убрана. Правило с
    background: url(../images/arrow-forward-outline.svg) висело здесь
    с 2022 года и на главной читалось как стрелка на кнопке рядом -
    поле бюджета стоит сразу под героем. Полное переоформление поля
@@ -725,7 +725,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 	height: 10%;
 	margin-right: 10%;
 }
-/* 5-f-3: секция контактов. Разметка переписана целиком, прежние правила
+/* секция контактов. Разметка переписана целиком, прежние правила
    .container_about, .cont_shell_about, .about_map с float и розовым
    градиентом, а также .site-map-* и .contacts__title удалены - они
    ссылались на старую структуру и больше ничего не рисуют.
@@ -733,7 +733,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
    Раскладка: сетка из двух колонок, ширина ограничена 1280px, высота
    по содержимому. Прежний блок был width:100vw и height:75vh, то есть
    не мог вырасти под контент. */
-/* 5-f-3b: светлая подложка под секцией.
+/* светлая подложка под секцией.
 
    У этой секции раньше был фон на самом контейнере:
    <div class="container_about" style="background: url(background_2.webp)
@@ -902,7 +902,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 	font-size: 14px;
 }
 
-/* 5-f-3: @keyframes gradient удалён. Единственный пользователь был
+/* @keyframes gradient удалён. Единственный пользователь был
    .about_map с розовым градиентом - секция контактов переписана, а
    background-position больше нигде не анимируется. Файл с анимацией
    не жалко: анимация фонового положения съедала бы GPU на всей странице,
@@ -948,7 +948,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     .header__inner {
         padding: 0 24px;
     }
-    /* 3.6.3-a: заголовок остаётся в диапазоне 56-64px до 1024px,
+    /* заголовок остаётся в диапазоне 56-64px до 1024px,
        дальше уменьшается - на 768px ширины 64px уже не читаются */
     .hero__title {
         font-size: 56px;
@@ -959,7 +959,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     .container_select {
         flex-wrap: wrap;
     }
-    /* 5-f-3: прежние правила для .container_about, .cont_shell_about и
+    /* прежние правила для .container_about, .cont_shell_about и
        .about_map в этой медиа-ветке удалены вместе с разметкой секции.
        Адаптив контактов живёт ниже, в своём @media, ближе к правилам. */
 }
@@ -1194,7 +1194,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     pointer-events: none;
 }
 
-/* 3.6.3-c-1b: тёмное стекло с размытием, в стиле кнопки hero, но под
+/* тёмное стекло с размытием, в стиле кнопки hero, но под
    светлый фон секции. */
 .cfg__submit {
     height: 56px;

@@ -5,7 +5,7 @@
  * Подключается только из admin.php (admin.php?tab=components).
  * Прямой запрос к файлу → 404.
  *
- * 3.6.2-c: форма добавления — в нативной модалке <dialog>,
+ * форма добавления — в нативной модалке <dialog>,
  * список — на .table из base.css.
  */
 
@@ -65,7 +65,7 @@ if ($result) {
     }
 }
 ?>
-                <!-- 3.7-e: отказ по FK — компонент используется в сборках -->
+                <!-- отказ по FK — компонент используется в сборках -->
 <?php if (isset($_GET['error']) && $_GET['error'] === 'used'): ?>
                 <div class="alert alert--error">
                     Компонент используется в <?= (int) ($_GET['count'] ?? 0) ?> сборках. Удаление запрещено.
@@ -77,7 +77,7 @@ if ($result) {
                         <button type="button" class="btn btn--primary" data-action="open-modal" data-modal="addComponentModal">+ Добавить</button>
                     </div>
 
-                    <!-- 3.7-f-2-2: фильтры категории / сокета / поиска по названию -->
+                    <!-- фильтры категории / сокета / поиска по названию -->
                     <form method="get" class="admin-filters">
                         <input type="hidden" name="tab" value="components">
 
@@ -92,10 +92,10 @@ if ($result) {
                         </select>
 
                         <?php
-                            // 3.7-f-3-3: сокет есть только у процессоров, материнских
+                            // сокет есть только у процессоров, материнских
                             // плат и кулеров - для остальных категорий фильтр скрываем
                             $fCatId = (int) ($_GET['cat'] ?? 0);
-                            // 3.7-f-3-10: показываем строго для CPU/платы/кулера;
+                            // показываем строго для CPU/платы/кулера;
                             // при первой загрузке (категория не выбрана) скрыт
                             $sockRelevant = in_array($fCatId, [1, 2, 7], true);
                             $sockCatsJs = [1, 2, 7];
@@ -115,7 +115,7 @@ if ($result) {
                         <input type="search" name="q" class="input" placeholder="Поиск по названию..."
                                value="<?= escape((string) ($_GET['q'] ?? '')) ?>">
 
-                        <!-- 3.7-f-3-11: сортировка, значения проверяются по белому списку в admin.php -->
+                        <!-- сортировка, значения проверяются по белому списку в admin.php -->
                         <select name="sort" class="input">
 <?php
     $sortOptions = [
@@ -155,11 +155,11 @@ if ($result) {
                             </thead>
                             <tbody>
 <?php
-                                // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
+                                // $page/$pages/$offset/$total/$perPage считает admin.php
                                 // (нужно до вывода HTML — там же работает редирект page>N)
 
-                                // 3.7-d: явный список колонок — нужен для data-component (edit).
-                                // FIX-8: image в выборке — иначе превью в edit-модалке пустое
+                                // явный список колонок — нужен для data-component (edit).
+                                // image в выборке — иначе превью в edit-модалке пустое
                                 $sql = "SELECT components.component_id, components.component_name, components.component_price,
                                                components.amount, components.category_id, categories.category_name,
                                                components.description, components.manufacturer, components.model,
@@ -171,7 +171,7 @@ if ($result) {
                                         FROM components,categories WHERE components.category_id = categories.category_id"
                                         . $listWhere . "
                                         ORDER BY {$listOrder} LIMIT ? OFFSET ?";
-                                // 3.7-f-2-2: параметры фильтров идут перед LIMIT/OFFSET
+                                // параметры фильтров идут перед LIMIT/OFFSET
                                 if ($listParams === []) {
                                     $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
                                 } else {
@@ -190,7 +190,7 @@ if ($result) {
                                             'description' => $row['description'],
                                             'manufacturer' => $row['manufacturer'],
                                             'model' => $row['model'],
-                                            // FIX-8: путь картинки нужен JS для превью
+                                            // путь картинки нужен JS для превью
                                             // в edit-модалке корпуса
                                             'image' => $row['image'],
                                             'socket_id' => $row['socket_id'],
@@ -206,7 +206,7 @@ if ($result) {
                                             'rpm' => $row['rpm'],
                                             'cooler_type' => $row['cooler_type'],
                                         ]);
-                                        // 3.7-f-1: клик по строке открывает edit-модалку,
+                                        // клик по строке открывает edit-модалку,
                                         // колонки «Действия» больше нет
                                         // Нулевой остаток помечается явно:
                                         // конфигуратор такой товар не
@@ -239,7 +239,7 @@ if ($result) {
                 </section>
 
                 <!--
-                    3.7-c: модалка с динамическими группами полей.
+                    модалка с динамическими группами полей.
                     Каждая группа .field-group несёт data-cat — список category_id,
                     для которых она релевантна. Все группы в DOM, скрыты по умолчанию;
                     показ/скрытие — scripts.js по событию change на select[name="cat"].
@@ -251,7 +251,7 @@ if ($result) {
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                         <input type="hidden" name="return_params" value="<?= escape($returnParams) ?>">
                         <h2 id="modalTitle">Добавить комплектующий</h2>
-                        <!-- 3.7-d: пустой = INSERT, заполненный = UPDATE -->
+                        <!-- пустой = INSERT, заполненный = UPDATE -->
                         <input type="hidden" name="editComponentId" id="editComponentId" value="">
 
                         <!-- Всегда видны: обязательные поля -->
@@ -282,7 +282,7 @@ if ($result) {
                         </div>
 
                         <!-- Изображение корпуса (только для category_id = 6).
-                             FIX-7: сама картинка (плейсхолдер) - кнопка, клик
+                             сама картинка (плейсхолдер) - кнопка, клик
                              открывает модалку выбора: загрузка или сетка
                              загруженных файлов. -->
                         <div class="field-group" data-cat="6">
@@ -381,7 +381,7 @@ if ($result) {
                             <div class="form-group">
                                 <label class="form-label" for="formFactorSelect">Форм-фактор</label>
 <?php
-                                // 3.7-f-3-12: опции зависят от категории, карта отдаётся в JS
+                                // опции зависят от категории, карта отдаётся в JS
                                 $formFactorsByCat = [
                                     2 => ['ATX', 'Micro-ATX', 'Mini-ITX'],
                                     5 => ['ATX', 'SFX', 'TFX'],
@@ -465,7 +465,7 @@ if ($result) {
                                     <option value="SATA">SATA</option>
                                     <option value="M.2 NVMe PCIe 3.0">M.2 NVMe PCIe 3.0</option>
                                     <option value="M.2 NVMe PCIe 4.0">M.2 NVMe PCIe 4.0</option>
-                                    <!-- 3.7-j-2b: значения без указания версии PCIe.
+                                    <!-- значения без указания версии PCIe.
                                          Их проставил эшелон 2b из названий старых
                                          накопителей («M.2» в имени, но не «NVMe»),
                                          и без этих опций поле в модалке выглядело
@@ -479,7 +479,7 @@ if ($result) {
                         </div>
 
                         <div class="modal-actions">
-                            <!-- 3.7-f-2: удаление доступно только в edit-режиме -->
+                            <!-- удаление доступно только в edit-режиме -->
                             <button type="button" class="btn btn--danger" id="modalDeleteBtn" data-action="open-delete-modal" hidden>Удалить</button>
                             <div class="modal-actions-right">
                                 <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
@@ -490,13 +490,13 @@ if ($result) {
                 </dialog>
 
                 <!--
-                    3.7-e: подтверждение удаления. Реальную проверку
+                    подтверждение удаления. Реальную проверку
                     использования в сборках делает бэкенд (FK assembly.*_id →
                     components.component_id с NO ACTION) — при отказе
                     редирект с ?error=used&count=N.
                 -->
                 <!--
-                    3.7-g-4: подтверждение удаления показывает общая
+                    подтверждение удаления показывает общая
                     #confirmModal из partials/header.php, поэтому
                     отдельная модалка с теми же кнопками удалена.
                     Осталась форма, которую отправляет confirmAction.
@@ -505,7 +505,7 @@ if ($result) {
                     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                     <input type="hidden" name="return_params" value="<?= escape($returnParams) ?>">
                     <input type="hidden" name="deleteComponentId" id="deleteComponentId" value="">
-                    <!-- 3.7-g-4: скрытый input вместо submit-кнопки,
+                    <!-- скрытый input вместо submit-кнопки,
                          потому что форму отправляет form.submit() -->
                     <input type="hidden" name="deleteComponent" value="1">
                 </form>

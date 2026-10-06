@@ -298,7 +298,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-a: сессия переживает удаление пользователя из базы.
+     * сессия переживает удаление пользователя из базы.
      *
      * Раньше profile.php решал, показывать профиль или форму входа, по
      * $_SESSION['user_id'], а не по наличию строки в users. Удалённый
@@ -342,7 +342,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-a: удалённый пользователь не может «сохранить» профиль POST-запросом.
+     * удалённый пользователь не может «сохранить» профиль POST-запросом.
      *
      * Сброс сессии стоит до обработчиков, поэтому запрос уходит в редирект и
      * профиль не перерисовывается. Раньше UPDATE уходил в ноль строк, а
@@ -394,7 +394,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-1: сообщение о неверном пароле должно доходить до пользователя.
+     * сообщение о неверном пароле должно доходить до пользователя.
      *
      * Раньше validation/auth.php клал текст в cookie error_access, а
      * profile.php читал $_SESSION['error_access'] — ключ, который не
@@ -435,7 +435,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-1: без ошибки плашки быть не должно.
+     * без ошибки плашки быть не должно.
      *
      * Разметка была <p class="alert alert--error"> с условием внутри, поэтому
      * пустой красный блок высотой 26px висел на каждом заходе гостя.
@@ -452,7 +452,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-1: ошибка регистрации показывается в раскрытой форме регистрации.
+     * ошибка регистрации показывается в раскрытой форме регистрации.
      *
      * error_access общий для входа и регистрации, поэтому при провале
      * регистрации текст попадал в свёрнутую форму входа и оставался невидимым.
@@ -490,7 +490,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-1b: ошибка входа не должна показываться в форме регистрации.
+     * ошибка входа не должна показываться в форме регистрации.
      *
      * error_from живёт 60 секунд, error_access - одну. Если регистрация
      * провалилась, страницу открыли позже, короткая cookie истекла, а
@@ -533,7 +533,7 @@ final class AuthTest extends AionTestCase
     /**
      * Зарегистрировать пользователя и войти под ним, вернуть логин.
      *
-     * 5-f-2c: тесты смены пароля работают на своём пользователе, а не на
+     * тесты смены пароля работают на своём пользователе, а не на
      * admin - иначе тест менял бы пароль админа и следующий прогон падал
      * бы из-за этого.
      */
@@ -556,7 +556,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c: успешная смена пароля, новый работает, старый нет.
+     * успешная смена пароля, новый работает, старый нет.
      */
     public function testChangePasswordWorks(): void
     {
@@ -597,7 +597,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c: неверный текущий пароль отклоняется, пароль не меняется.
+     * неверный текущий пароль отклоняется, пароль не меняется.
      */
     public function testChangePasswordRejectsWrongCurrent(): void
     {
@@ -620,7 +620,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c: короткий новый пароль отклоняется.
+     * короткий новый пароль отклоняется.
      */
     public function testChangePasswordRejectsShort(): void
     {
@@ -642,7 +642,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c: несовпадение повтора отклоняется.
+     * несовпадение повтора отклоняется.
      */
     public function testChangePasswordRejectsMismatch(): void
     {
@@ -664,7 +664,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c: смена пароля без CSRF-токена отклоняется.
+     * смена пароля без CSRF-токена отклоняется.
      */
     public function testChangePasswordRequiresCsrf(): void
     {
@@ -684,7 +684,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c: карточка безопасности не рисуется гостю.
+     * карточка безопасности не рисуется гостю.
      */
     public function testSecurityCardHiddenForGuest(): void
     {
@@ -695,7 +695,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c-1: пункт «Безопасность» в сайдбаре - обычная ссылка с
+     * пункт «Безопасность» в сайдбаре - обычная ссылка с
      * ?section=, а не кнопка с JS.
      *
      * Кнопка работала только там, где секция уже нарисована. В админке
@@ -728,7 +728,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c-1: на страницах профиля не должно быть разметки, которую
+     * на страницах профиля не должно быть разметки, которую
      * браузер считает комментарием.
      *
      * Точный regression-тест на баг с незакрытым комментарием: он не виден
@@ -750,7 +750,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c-1: ?section=security открывает карточку, а не прячет её.
+     * ?section=security открывает карточку, а не прячет её.
      *
      * Проверяется именно отсутствие display:none, а не наличие id.
      * Раньше карточка в разметке была, но всегда со
@@ -771,7 +771,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c-1: неизвестный ключ в ?section= откатывается на info.
+     * неизвестный ключ в ?section= откатывается на info.
      */
     public function testUnknownSectionFallsBackToInfo(): void
     {
@@ -787,7 +787,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c-1: после смены пароля редирект ведёт на section=security,
+     * после смены пароля редирект ведёт на section=security,
      * а не на section=card-security.
      *
      * section=card-security в $sectionMap не находился: там ключи
@@ -818,7 +818,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-2c-1: заказы и избранное обычному пользователю по-прежнему
+     * заказы и избранное обычному пользователю по-прежнему
      * открываются и по ?section=, и по кнопке.
      *
      * Правка перевела на ссылки только те секции, что нужны с любой
@@ -852,7 +852,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-4: у поля пароля в форме входа есть кнопка показа.
+     * у поля пароля в форме входа есть кнопка показа.
      *
      * Проверяется разбором DOM, а не поиском строки в ответе: именно так
      * в 5-f-2c-1 проскочил баг, когда разметка оказалась внутри
@@ -868,7 +868,7 @@ final class AuthTest extends AionTestCase
             '//div[@id="login_cont"]//button[@data-action="toggle-password"]'
         );
 
-        // 5-f-4: type="button" обязателен. Кнопка внутри формы по умолчанию
+        // type="button" обязателен. Кнопка внутри формы по умолчанию
         // submit, и полагаться на preventDefault в обработчике нельзя: на
         // старых iOS Safari форма уходит раньше, чем обработчик отработает
         $this->assertSame('button', $toggle['type'], 'кнопка не должна быть submit');
@@ -902,7 +902,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-4: то же в форме регистрации, у которой своё поле.
+     * то же в форме регистрации, у которой своё поле.
      */
     public function testRegistrationFormHasPasswordToggle(): void
     {
@@ -922,7 +922,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-4: три поля смены пароля, у каждого своя кнопка.
+     * три поля смены пароля, у каждого своя кнопка.
      *
      * Независимость проверяется по разметке: своя обёртка
      * .password-field и своя кнопка на каждое поле. Одна кнопка на форму
@@ -971,7 +971,7 @@ final class AuthTest extends AionTestCase
     }
 
     /**
-     * 5-f-4: у каждого поля пароля на странице своя кнопка.
+     * у каждого поля пароля на странице своя кнопка.
      *
      * Считается по обоим состояниям страницы, потому что формы входа и
      * регистрации залогиненному не рисуются: гостю достаются две кнопки,

@@ -8,7 +8,7 @@
  *   $bodyClass — класс для <body> (по умолчанию '')
  *   $settings  — готовый массив site_settings; если не задан, читается здесь
  *
- * Stage 9: название, логотип и favicon берутся из site_settings, а не из
+ * название, логотип и favicon берутся из site_settings, а не из
  * разметки. Настройки читаются здесь, а не пробрасываются из каждой
  * страницы: страниц четыре, и в одной из них поле забыли бы. Один
  * запрос на страницу, остальные значения отдаёт кэш внутри
@@ -33,7 +33,7 @@ if (!isset($settings) || !is_array($settings)) {
 $siteName = site_setting($settings, 'site_name', 'Aion Corporation');
 $siteDescription = site_setting($settings, 'site_description', '');
 $siteLogo = site_setting($settings, 'site_logo_url', '/assets/images/logo.png');
-// ПРАВКА 4: одна иконка, PNG. Ключ site_favicon_url (svg) удалён
+// одна иконка, PNG. Ключ site_favicon_url (svg) удалён
 // миграцией, а путь по умолчанию ведёт в branding, где иконку и
 // делает генератор.
 $siteFavicon = site_setting($settings, 'site_favicon_png_url', '/assets/images/branding/favicon.png');
@@ -73,7 +73,7 @@ $isLoggedIn = isset($_SESSION['user_id']);
 <?php foreach ($extraCss as $css): ?>
     <link rel="stylesheet" href="<?= escape(asset_url($css)) ?>">
 <?php endforeach; ?>
-    <!-- ПРАВКА 4: иконка одна и только PNG.
+    <!-- иконка одна и только PNG.
 
          Раньше их было две - svg для современных браузеров и png для
          старых, - и это стоило отдельного ключа настройки, отдельной
@@ -125,7 +125,7 @@ $isLoggedIn = isset($_SESSION['user_id']);
         </div>
     </header>
 <?php
-// 3.7-g-4: единая модалка подтверждения нужна и админке, и профилю
+// единая модалка подтверждения нужна и админке, и профилю
 // (удаление заказа/комплектующего/пользователя, избранного, выход),
 // поэтому подключается здесь - на каждой странице
 require __DIR__ . '/confirm-modal.php';

@@ -1,6 +1,6 @@
 <?php
 /**
- * Модалки пользователя и его удаления (Stage 3.7-f-4-2).
+ * Модалки пользователя и его удаления .
  *
  * Подключаются из admin.php, а не из _tab_users.php: переход
  * «заказ -> покупатель» открывает editUserModal прямо на вкладке
@@ -11,10 +11,10 @@
  */
 ?>
                 <!--
-                    3.7-h-2: модалка пользователя — имя, группа, контакты, адрес.
+                    модалка пользователя — имя, группа, контакты, адрес.
                     Логин только для чтения. Отправляет name="editUser".
                 -->
-                <!-- 3.7-f-4c-2: modal--wide — широкий вариант, иначе данные
+                <!-- modal--wide — широкий вариант, иначе данные
                      пользователя не помещались.
                      7: ширина поднята до 900px и раскладка перестроена в две
                      колонки. Раньше секции стояли по две в ряд сеткой на самой
@@ -54,7 +54,7 @@
                                         <label class="form-label" for="editUserName">Имя</label>
                                         <input class="input" name="user_name" id="editUserName" maxlength="20" required>
                                     </div>
-                                    <!-- 3.7-f-4c-3: maxlength 30 — в users это varchar(30),
+                                    <!-- maxlength 30 — в users это varchar(30),
                                          поле 50 в разметке пропустило бы слишком длинное
                                          значение в колонку -->
                                     <div class="form-group">
@@ -67,7 +67,7 @@
                                         <label class="form-label" for="editUserNameRO">Логин (не изменяется)</label>
                                         <input class="input" id="editUserNameRO" disabled>
                                     </div>
-                                    <!-- 3.7-g-6: дата регистрации только для чтения,
+                                    <!-- дата регистрации только для чтения,
                                          без name, поэтому в POST не уходит -->
                                     <div class="form-group">
                                         <label class="form-label" for="editUserRegdate">Дата регистрации</label>
@@ -78,7 +78,7 @@
                                 <div class="modal-section modal-section--cols">
                                     <h3>Адрес</h3>
                                     <!--
-                                        3.7-i-2: адрес разбит на поля (миграция 3.7-i-1).
+                                        адрес разбит на поля (миграция перевела в отдельные колонки).
                                         Город не required: колонка nullable, и у части
                                         пользователей адреса нет вовсе - required
                                         запрещал бы сохранить любое другое поле.
@@ -116,7 +116,7 @@
                                         <input class="input" name="user_house" id="editUserHouse"
                                                maxlength="20" placeholder="15">
                                     </div>
-                                    <!-- FIX-2: показывать legacy-строку user_address
+                                    <!-- показывать legacy-строку user_address
                                          больше нечем - поле удалено целиком. В базе
                                          колонка остаётся, но UI её не читает. -->
                                 </div>
@@ -215,14 +215,14 @@
                         </div>
                     </form>
                 </dialog>
-                <!-- 3.7-g-4: подтверждение удаления показывает общая #confirmModal
+                <!-- подтверждение удаления показывает общая #confirmModal
                      из partials/header.php, поэтому отдельная модалка
                      удалена. Осталась форма, которую отправляет
                      confirmAction. -->
                 <form id="deleteUserForm" method="post" action="/admin.php?tab=users" hidden>
                     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                     <input type="hidden" name="userId" id="deleteUserId" value="">
-                    <!-- 3.7-g-4: скрытый input вместо submit-кнопки,
+                    <!-- скрытый input вместо submit-кнопки,
                          потому что форму отправляет form.submit() -->
                     <input type="hidden" name="deleteUser" value="1">
                 </form>

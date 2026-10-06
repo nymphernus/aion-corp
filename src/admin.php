@@ -3,7 +3,7 @@
  * Админ-панель AION CORP.
  *
  * URL: /admin.php?tab=users|orders|components
- *  - без ?tab        → 302 на ?tab=users (3.7-f-3)
+ *  - без ?tab → 302 на ?tab=users 
  *  - неизвестный tab → 404
  *  - гость / не админ (свежая группа из БД) → 302 на /profile.php
  *
@@ -43,9 +43,9 @@ $isAdmin = true;
 // Роутинг вкладки
 $tab = $_GET['tab'] ?? '';
 if ($tab === '') {
-    // ПРАВКА 5: /admin.php без раздела уводит на страницу пользователя.
+    // /admin.php без раздела уводит на страницу пользователя.
     //
-    // Раньше здесь стоял редирект на ?tab=users (3.7-f-3). Он был удобен
+    // Раньше здесь стоял редирект на ?tab=users . Он был удобен
     // только до появления выбора раздела: при входе из шапки или из
     // закладки человек попадал в список пользователей без всякого
     // основания, и это выглядело как «меня куда-то перебросило».
@@ -61,12 +61,12 @@ if (!isset($allowedTabs[$tab])) {
     exit('Раздел не найден');
 }
 
-// 3.7-f-5: пагинация. Считаем ДО вывода HTML: header() в paginate()
+// пагинация. Считаем ДО вывода HTML: header() в paginate()
 // не сработает после старта вывода (headers already sent), и редирект
 // с page=99 молча превратился бы в пустую таблицу.
-$perPage = 10; // 3.7-f-2-2: было 20
+$perPage = 10; // было 20
 
-// 3.7-f-2-2 / 3.7-f-4-3: фильтры и сортировка админ-таблиц.
+// фильтры и сортировка админ-таблиц.
 // Условие общее для COUNT, для выборки и для ссылок пагинации.
 $listWhere = '';
 $listParams = [];
@@ -195,7 +195,7 @@ if ($tab === 'components') {
         $listParams[] = $fCat;
         $listTypes .= 'i';
     }
-    // 3.7-f-3-10: сокет применяем только когда категория выбрана и
+    // сокет применяем только когда категория выбрана и
     // входит в [1, 2, 7] - скрытый select всё равно шлёт значение
     $sockRelevant = in_array($fCat, [1, 2, 7], true);
     if ($fSock > 0 && $sockRelevant) {
@@ -209,7 +209,7 @@ if ($tab === 'components') {
         $listTypes .= 's';
     }
 
-    // FIX-3: только корпуса без картинки (ссылка из файлового менеджера).
+    // только корпуса без картинки (ссылка из файлового менеджера).
     // Признак - флаг без значения: ?tab=components&cat=6&no_image=1
     if (isset($_GET['no_image'])) {
         $listWhere .= " AND (components.image IS NULL OR components.image = '')";
@@ -217,7 +217,7 @@ if ($tab === 'components') {
         $qs_no_image = true;
     }
 
-    // 3.7-f-3-11: сортировка только из белого списка, $_GET в SQL не идёт
+    // сортировка только из белого списка, $_GET в SQL не идёт
     $sortWhitelist = [
         'price_asc' => 'components.component_price ASC',
         'price_desc' => 'components.component_price DESC',
@@ -241,13 +241,13 @@ if ($tab === 'components') {
     if (isset($sortWhitelist[$sort])) {
         $qs[] = 'sort=' . $sort;
     }
-    // FIX-3: флаг переносится в пагинацию, если проставлен выше
+    // флаг переносится в пагинацию, если проставлен выше
     if (!empty($qs_no_image)) {
         $qs[] = 'no_image=1';
     }
     $listQuery = implode('&', $qs);
 } elseif ($tab === 'orders') {
-    // 3.7-f-4-3: фильтр по статусу, поиск по покупателю, сортировка
+    // фильтр по статусу, поиск по покупателю, сортировка
     $fStatus = trim((string) ($_GET['status'] ?? ''));
     $fQ = trim((string) ($_GET['q'] ?? ''));
     $statusWhitelist = ['Обрабатывается', 'Собирается', 'Доставляется', 'Выполнен', 'Отменён'];
@@ -264,7 +264,7 @@ if ($tab === 'components') {
         $listParams[] = $like;
         $listTypes .= 'sss';
     }
-    // 3.7-f-4b-4: сортировка убрана и из UI, и из бэкенда — порядок
+    // сортировка убрана и из UI, и из бэкенда — порядок
     // фиксированный (свежие сверху), параметр sort больше не читается
     $listOrder = 'orders.created_at DESC, orders.order_id DESC';
 
@@ -277,7 +277,7 @@ if ($tab === 'components') {
     }
     $listQuery = implode('&', $qs);
 } elseif ($tab === 'users') {
-    // 3.7-f-4-3: фильтр по группе и поиск по имени или логину
+    // фильтр по группе и поиск по имени или логину
     $fGroup = trim((string) ($_GET['group'] ?? ''));
     $fQ = trim((string) ($_GET['q'] ?? ''));
     if (in_array($fGroup, ['user', 'admin'], true)) {
@@ -292,7 +292,7 @@ if ($tab === 'components') {
         $listParams[] = $like;
         $listTypes .= 'ss';
     }
-    // 3.7-f-4b-4: сортировка убрана, порядок по умолчанию — по id
+    // сортировка убрана, порядок по умолчанию — по id
     $listOrder = 'users.user_id ASC';
 
     $qs = [];
@@ -305,10 +305,10 @@ if ($tab === 'components') {
     $listQuery = implode('&', $qs);
 }
 
-// 3.7-g: дашборду пагинация и счётчик строк не нужны, поэтому весь блок
+// дашборду пагинация и счётчик строк не нужны, поэтому весь блок
 // с COUNT и paginate() для него пропускается. Иначе пришлось бы держать
 // в $countSql фиктивную запись ради значения, которое никто не читает.
-// 5-f-2: то же для settings - это форма на пару экранов, а не таблица.
+// то же для settings - это форма на пару экранов, а не таблица.
 // Без этой правки вкладка падала: в $countSql нет ключа settings,
 // $countSql приходил null, и db_prepare() умирал на типе аргумента.
 if ($tab !== 'dashboard' && $tab !== 'settings') {
@@ -334,7 +334,7 @@ if ($tab !== 'dashboard' && $tab !== 'settings') {
 // Обработчики POST (перенесено из profile.php, SQL без изменений)
 if ($isAdmin && isset($_POST['deleteComponent'])) {
     csrf_verify();
-    // 3.7-e: FK assembly.*_id → components.component_id (11 колонок, NO ACTION).
+    // FK assembly.*_id → components.component_id (11 колонок, NO ACTION).
     // Без проверки MySQL выдал бы 23000 пользователю, поэтому считаем
     // использования заранее и отказываем с понятным сообщением.
     $delId = (int) ($_POST['deleteComponentId'] ?? 0);
@@ -381,14 +381,14 @@ if ($isAdmin && isset($_POST['addComponent'])) {
         $location .= '&' . $returnParams;
     }
 
-    // 3.7-d: пустой editComponentId = INSERT, заполненный = UPDATE
+    // пустой editComponentId = INSERT, заполненный = UPDATE
     $editId = (int) ($_POST['editComponentId'] ?? 0);
     $name = $_POST['nm'] ?? '';
     $price = (int) ($_POST['pr'] ?? 0);
     $amount = (int) ($_POST['col'] ?? 0);
     $categoryId = (int) ($_POST['cat'] ?? 0);
     
-    // --- Изображение корпуса (Stage 8) ---
+    // --- Изображение корпуса  ---
     // Только для category_id = 6 (Корпус). Приоритет по БЛОКУ 3:
     // 1) image_selected_url - выбран существующий файл;
     // 2) image_file - загружен новый;
@@ -449,7 +449,7 @@ if ($isAdmin && isset($_POST['addComponent'])) {
         }
     }
 
-    // 3.7-c: разрешённые поля по категориям. Скрытые input всё равно
+    // разрешённые поля по категориям. Скрытые input всё равно
     // уходят в $_POST (залипший tdp от «Процессора» после переключения
     // на «ОЗУ»), поэтому сервер обязан резать всё вне маппинга.
     $fieldMap = [
@@ -500,7 +500,7 @@ if ($isAdmin && isset($_POST['addComponent'])) {
             }
         }
 
-        // 3.7-c: типы выводятся из набора колонок (i для числовых, s для остальных)
+        // типы выводятся из набора колонок (i для числовых, s для остальных)
         $intCols = ['component_price', 'amount', 'category_id', 'socket_id', 'tdp',
             'frequency_mhz', 'video_core', 'capacity_gb', 'wattage', 'rpm'];
         $cols = array_keys($fields);
@@ -509,7 +509,7 @@ if ($isAdmin && isset($_POST['addComponent'])) {
             $types .= in_array($c, $intCols, true) ? 'i' : 's';
         }
         if ($editId > 0) {
-            // 3.7-d: UPDATE всех 19 колонок — при смене категории поля,
+            // UPDATE всех 19 колонок — при смене категории поля,
             // не входящие в новый маппинг, обнуляются ($fields = null)
             $sql = "UPDATE `components` SET `" . implode('`=?,`', $cols) . '`=?'
                 . " WHERE `component_id`=?";
@@ -678,7 +678,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     exit();
 }
 
-// 5-f-2: сохранение контактов и текстовых настроек из формы вкладки
+// сохранение контактов и текстовых настроек из формы вкладки
 // «Настройки сайта». Координаты и снимок карты сюда не попадают: их
 // пишет отдельный обработчик saveMapSnapshot, который проверяет PNG.
 // saveSettings пропускается, если пришёл removeCustomFavicon: кнопка
@@ -695,7 +695,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
 
     // Белый список: ключи из POST не должны попадать в запрос как есть.
     // Здесь только значения, ключ берётся из этого списка.
-    // Stage 9: добавились ключи брендинга - по тому же правилу, что и
+    // добавились ключи брендинга - по тому же правилу, что и
     // контакты: правится только то, что перечислено здесь.
     // site_name_full и site_footer_copyright больше нет: два названия
     // были лишними, а копирайт целиком требовал дублировать в тексте
@@ -772,7 +772,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
         $values['site_logo_url'] = $logo['url'];
     }
 
-    // ПРАВКА 5: favicon - только PNG, и два способа его получить.
+    // favicon - только PNG, и два способа его получить.
     //
     // Загруженный файл важнее сгенерированного: если админ выбрал свою
     // иконку, генератор не должен тут же переписать её своей буквой.
@@ -924,7 +924,7 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     exit();
 }
 
-// ПРАВКА 4/5: предпросмотр favicon. Отдельный обработчик, потому что
+// предпросмотр favicon. Отдельный обработчик, потому что
 // ответ здесь - не страница, а поток PNG: он показывается прямо в
 // поле формы, до нажатия «Сохранить».
 //
@@ -1022,7 +1022,7 @@ if ($isAdmin && isset($_POST['removeCustomFavicon'])) {
     exit();
 }
 
-// 5-f-2: приём снимка карты с админской страницы.
+// приём снимка карты с админской страницы.
 //
 // В POST приходит data:image/png;base64,... из html2canvas. Данные
 // приходят из браузера, поэтому проверяем всё, на что можно опереться:
@@ -1114,7 +1114,7 @@ if ($isAdmin && isset($_POST['saveMapSnapshot'])) {
     exit();
 }
 
-// 3.7-h-1: смена статуса из модалки заказа. Существующий editOrderStatus
+// смена статуса из модалки заказа. Существующий editOrderStatus
 // (кнопки в строках таблицы) не меняем — здесь свой обработчик с
 // валидацией статуса по белому списку.
 if ($isAdmin && isset($_POST['editOrder'])) {
@@ -1133,7 +1133,7 @@ if ($isAdmin && isset($_POST['editOrder'])) {
     exit();
 }
 
-// 3.7-h-2: редактирование профиля пользователя из модалки.
+// редактирование профиля пользователя из модалки.
 // Валидация: user_name 2-20 символов (колонка varchar(20)), группа из
 // белого списка, телефон по маске проекта. Разжаловать себя нельзя —
 // иначе админ теряет доступ к панели.
@@ -1141,11 +1141,11 @@ if ($isAdmin && isset($_POST['editUser'])) {
     csrf_verify();
     $editUserId = (int) ($_POST['editUserId'] ?? 0);
     $editName = trim($_POST['user_name'] ?? '');
-    // 3.7-f-4c-3: фамилия не обязательна, но слишком длинное значение
+    // фамилия не обязательна, но слишком длинное значение
     // в varchar(30) не влезет, поэтому длина всё равно проверяется
     $editSurname = trim($_POST['user_surname'] ?? '');
     $editGroup = $_POST['user_group'] ?? '';
-    // 3.7-i-2: адрес разбит на поля. user_address больше не обновляется -
+    // адрес разбит на поля. user_address больше не обновляется -
     // это legacy-строка, её значение остаётся как было при миграции.
     $editPostal = trim($_POST['user_postal_code'] ?? '');
     $editRegion = trim($_POST['user_region'] ?? '');
@@ -1171,7 +1171,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
     if (mb_strlen($editSurname, 'UTF-8') > 30) {
         $fail('surname');
     }
-    // 3.7-i-2: адресные поля. Все необязательны: у части пользователей
+    // адресные поля. Все необязательны: у части пользователей
     // адреса нет вовсе, и пустое значение пишется в NULL.
     if ($editCity !== '' && mb_strlen($editCity, 'UTF-8') > 100) {
         $fail('city');
@@ -1207,7 +1207,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
             $fail('missing');
         }
 
-        // 3.7-i-2: user_address в UPDATE не участвует - legacy остаётся как есть
+        // user_address в UPDATE не участвует - legacy остаётся как есть
         $stmt = db_prepare($mysql, "UPDATE users SET user_name = ?, user_surname = ?, user_group = ?,
                                        user_postal_code = ?, user_region = ?, user_city = ?, user_street = ?,
                                        user_house = ?, user_apartment = ?, user_number = ?
@@ -1233,7 +1233,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
     exit();
 }
 
-// 3.7-g-4: удаление заказа. На orders ссылается только сам заказ,
+// удаление заказа. На orders ссылается только сам заказ,
 // других таблиц с FK на orders нет (проверено: единственный FK у orders -
 // assembly_id, то есть от заказа к сборке, а не наоборот), поэтому
 // удалять можно без проверок использования.
@@ -1341,7 +1341,7 @@ $pageTitle = 'Админ-панель';
 $extraCss = ['/assets/css/profile.css'];
 $extraJs  = ['/assets/js/scripts.js'];
 
-// 5-f-2: карта администрируется только на вкладке настроек, а на главной
+// карта администрируется только на вкладке настроек, а на главной
 // это статичный <img>. Leaflet весит около 150 КБ, и тащить его на каждую
 // страницу админки незачем. Подключается здесь, до header.php: вкладки
 // включаются уже после вывода <head>.
@@ -1356,21 +1356,21 @@ if ($tab === 'settings') {
 require __DIR__ . '/partials/header.php';
 ?>
         <div class="profile-layout">
-<?php // 3.7-f-4-1: тот же сайдбар, что и в profile.php ?>
+<?php // тот же сайдбар, что и в profile.php ?>
 <?php $activeTab = $tab; ?>
 <?php require __DIR__ . '/partials/profile-sidebar.php'; ?>
             <div class="profile-content">
 <?php
 define('ADMIN_CONTEXT', true);
-// 3.7-f-4-2: модалки пользователя нужны на всех вкладках - из модалки
+// модалки пользователя нужны на всех вкладках - из модалки
 // заказа можно перейти к покупателю
 require __DIR__ . '/partials/admin-user-modal.php';
-// 3.7-g-3: модалка заказа нужна и таблице заказов, и дашборду
+// модалка заказа нужна и таблице заказов, и дашборду
 require __DIR__ . '/partials/admin-order-modal.php';
-// 3.7-g-3: общий контракт data-row для обеих таблиц с заказами
+// общий контракт data-row для обеих таблиц с заказами
 require_once __DIR__ . '/admin/_order_row_data.php';
 
-// 3.7-g: дашборд - первая вкладка в роутинге и первый пункт сайдбара
+// дашборд - первая вкладка в роутинге и первый пункт сайдбара
 if ($tab === 'dashboard') {
     require __DIR__ . '/admin/_tab_dashboard.php';
 } elseif ($tab === 'components') {
@@ -1382,7 +1382,7 @@ if ($tab === 'dashboard') {
 } elseif ($tab === 'users') {
     require __DIR__ . '/admin/_tab_users.php';
 } elseif ($tab === 'settings') {
-    // 5-f-2: настройки читаются один раз на страницу и уходят и в форму,
+    // настройки читаются один раз на страницу и уходят и в форму,
     // и в модалку снимка карты
     $settings = site_settings($mysql);
     require __DIR__ . '/admin/_tab_settings.php';

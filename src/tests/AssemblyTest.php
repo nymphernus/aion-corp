@@ -124,7 +124,7 @@ final class AssemblyTest extends AionTestCase
         $this->assertSame(302, $cfg['code']);
 
         // 2. Открываем созданную сборку, запоминаем N.
-        // 5-c-redesign: номер выводится в сводке как «Сборка №N»,
+        // номер выводится в сводке как «Сборка №N»,
         // раньше это был отдельный блок «Номер сборки - N»
         $page = $this->httpGet('/assembly.php');
         $this->assertSame(200, $page['code']);

@@ -1,6 +1,6 @@
 <?php
 /**
- * IconsTest — иконки конфигуратора (Stage 7.5).
+ * IconsTest — иконки конфигуратора .
  */
 
 declare(strict_types=1);

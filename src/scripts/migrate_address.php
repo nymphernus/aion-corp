@@ -1,6 +1,6 @@
 <?php
 /**
- * Разбивка users.user_address на отдельные поля (Stage 3.7-i-1).
+ * Разбивка users.user_address на отдельные поля .
  *
  * Миграция заполняет user_region / user_city / user_street / user_house /
  * user_apartment / user_postal_code по эвристикам разбора строки адреса.

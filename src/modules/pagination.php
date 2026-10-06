@@ -1,6 +1,6 @@
 <?php
 /**
- * Постраничная навигация админ-таблиц (Stage 3.7-f-5).
+ * Постраничная навигация админ-таблиц .
  *
  * Единый паттерн для /admin.php?tab=users|orders|components:
  *   ?tab=X&page=N — N по умолчанию 1, по 20 строк на страницу.
@@ -41,7 +41,7 @@ if (!function_exists('render_pagination')) {
         if ($pages < 2) {
             return '';
         }
-        // 3.7-f-2-2: фильтры сохраняются в каждой ссылке пагинации
+        // фильтры сохраняются в каждой ссылке пагинации
         $tail = $extraQuery !== '' ? '&' . $extraQuery : '';
         $q = '/admin.php?tab=' . urlencode($tab) . '&page=';
         $out = '<nav class="pagination">';

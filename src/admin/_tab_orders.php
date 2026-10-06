@@ -5,7 +5,7 @@
  * Подключается только из admin.php (admin.php?tab=orders).
  * Прямой запрос к файлу → 404.
  *
- * 3.7-f-3: переведено с legacy-разметки .assemblyTable (span-строки
+ * переведено с legacy-разметки .assemblyTable (span-строки
  * с фиксированными ширинами) на .table из base.css — таблица
  * тянется на всю ширину карточки. Имена POST-полей не менялись.
  */
@@ -18,8 +18,8 @@ if (!defined('ADMIN_CONTEXT')) {
                 <section class="card admin-panel">
                     <h1 class="page-title">Управление заказами</h1>
 
-                    <!-- 3.7-f-4-3: фильтр по статусу и поиск по покупателю
-                         (3.7-f-4b-4: сортировка убрана) -->
+                    <!-- фильтр по статусу и поиск по покупателю
+                         (сортировка убрана) -->
                     <form method="get" class="admin-filters">
                         <input type="hidden" name="tab" value="orders">
 
@@ -51,7 +51,7 @@ if (!defined('ADMIN_CONTEXT')) {
                     $checkResult = $checkStmt->get_result();
 
                     if ($checkResult && $checkResult->num_rows > 0) {
-                        // 3.7-f-5: $page/$pages/$offset/$total/$perPage считает admin.php
+                        // $page/$pages/$offset/$total/$perPage считает admin.php
 
                         $sql = "SELECT user_name,user_surname,user_address,assembly_name,assembly_price,order_id,status,
                                        users.user_id AS buyer_id, assembly.assembly_id AS asm_id,
@@ -66,7 +66,7 @@ if (!defined('ADMIN_CONTEXT')) {
                                 WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id"
                                 . $listWhere . "
                                 ORDER BY {$listOrder} LIMIT ? OFFSET ?";
-                        // 3.7-f-4-3: параметры фильтров идут перед LIMIT/OFFSET
+                        // параметры фильтров идут перед LIMIT/OFFSET
                         if ($listParams === []) {
                             $stmt = db_prepare($mysql, $sql, "ii", $perPage, $offset);
                         } else {
@@ -85,32 +85,32 @@ if (!defined('ADMIN_CONTEXT')) {
                             </tr></thead><tbody>";
                         if ($result) {
                             while ($row = $result->fetch_array()) {
-                                // 3.7-h-1: колонка переименована в asm_id, условие обновлено
+                                // колонка переименована в asm_id, условие обновлено
                                 if ($row['asm_id'] > 3) {
                                     $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
                                 }
-                                // FIX-3: колонка адреса - из user_city, как в таблице пользователей.
+                                // колонка адреса - из user_city, как в таблице пользователей.
                                 // Раньше брала первую часть legacy user_address,
                                 // поэтому показывала устаревшую строку.
                                 $addr = trim((string) ($row['user_city'] ?? ''));
                                 $shortAddress = $addr !== '' ? $addr : 'Не указан';
 
-                                // 3.7-h-1: данные строки для модалки заказа.
-                                // 3.7-g-3: сборщик вынесен в admin/_order_row_data.php,
+                                // данные строки для модалки заказа.
+                                // сборщик вынесен в admin/_order_row_data.php,
                                 // тем же пользуется дашборд - формат один.
                                 $rowData = json_encode(adminOrderRowData($row));
                                 echo "<tr data-row='" . escape($rowData) . "'>"
                                     . "<td>" . htmlspecialchars(($row['user_name'] ?? '') . " " . ($row['user_surname'] ?? '')) . "</td>"
-                                    // 3.7-f-3-7: в таблице только город (первая часть до запятой),
+                                    // в таблице только город (первая часть до запятой),
                                     // полный адрес - в модалке заказа
                                     . "<td>" . htmlspecialchars($shortAddress) . "</td>"
                                     . "<td>" . htmlspecialchars($row['assembly_name'] ?? '') . "</td>"
                                     . "<td>" . htmlspecialchars($row['assembly_price'] ?? '') . "</td>"
-                                    // 3.7-f-2-4: статус стал бейджем, смена - в модалке заказа
+                                    // статус стал бейджем, смена - в модалке заказа
                                     . "<td><span class=\"badge " . match ($row['status'] ?? '') {
                                         'Выполнен' => 'badge--success',
                                         'Отменён' => 'badge--error',
-                                        // 3.7-f-3-4: «Обрабатывается» тоже цветной,
+                                        // «Обрабатывается» тоже цветной,
                                         // иначе статус не читается как статус
                                         default => 'badge--warning',
                                     } . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
@@ -125,6 +125,6 @@ if (!defined('ADMIN_CONTEXT')) {
 ?>
                 </section>
 
-                <!-- 3.7-g-3: модалка заказа вынесена в
+                <!-- модалка заказа вынесена в
                      partials/admin-order-modal.php и подключается из admin.php -
                      её открывает и таблица заказов, и дашборд -->

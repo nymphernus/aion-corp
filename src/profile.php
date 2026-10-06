@@ -19,7 +19,7 @@ if ($userLogin) {
     $validResult = $stmt->get_result();
     $userProfile = $validResult->fetch_assoc();
 
-    // 5-a: сессия переживает удаление пользователя из базы. Раньше страница
+    // сессия переживает удаление пользователя из базы. Раньше страница
     // решала, показывать профиль или форму входа, по $_SESSION['user_id'],
     // а не по наличию строки в users. Из-за этого удалённый пользователь
     // видел пустой профиль: все поля «Не указано», логин без имени, и любое
@@ -28,7 +28,7 @@ if ($userLogin) {
     // Сброс стоит до обработчиков POST: удалённый пользователь не должен
     // «обновлять» профиль и POST-запросом.
     if (!$userProfile) {
-        // 5-b: тот же сброс, что и в validation/exit.php, вынесен в
+        // тот же сброс, что и в validation/exit.php, вынесен в
         // общий logout_user()
         logout_user();
         header('Location: /profile.php');
@@ -58,11 +58,11 @@ if ($userProfile) {
 
     if (isset($_POST['changeAddress']) && isset($_SESSION['user_login'])) {
         csrf_verify();
-        // 3.7-i-3: адрес разбит на поля. Раньше отсюда собиралась строка
+        // адрес разбит на поля. Раньше отсюда собиралась строка
         // «г.$city, ул.$street, д.$home» в user_address, причём без
         // проверок, а поле называлось user_home - такой колонки нет.
         // Теперь пишем в шесть колонок, user_address не трогаем: это
-        // legacy-значение из миграции 3.7-i-1.
+        // legacy-значение из миграции .
         $addr = [
             'postal_code' => trim($_POST['user_postal_code'] ?? ''),
             'region' => trim($_POST['user_region'] ?? ''),
@@ -120,11 +120,11 @@ if ($userProfile) {
         exit();
     }
 
-    // 5-f-2c: смена пароля из профиля.
+    // смена пароля из профиля.
     //
     // Проверка текущего пароля обязательна: без неё любой, кто открыл
     // сессию, мог бы заменить пароль, не зная прежнего. Хеш лежит в
-    // $userProfile - это та же строка из users, что идёт в 5-a.
+    // $userProfile - это та же строка из users, что идёт в .
     //
     // Порядок проверок: сначала текущий пароль, потом длина, потом
     // совпадение с прежним, потом повтор. Так пользователь видит по
@@ -178,7 +178,7 @@ if ($userProfile) {
             $stmt->close();
 
             csrf_rotate();
-            // 5-f-2c-1: section=security, а не section=card-security. В $sectionMap
+            // section=security, а не section=card-security. В $sectionMap
             // ключи info/security/orders/fav, а card-security - это уже
             // результат отображения. Со значением card-security ключ не
             // находился, $activeSection откатывался в card-info, и после
@@ -316,13 +316,13 @@ $pageTitle = 'Профиль';
 $extraCss = ['/assets/css/profile.css'];
 $extraJs  = ['/assets/js/scripts.js'];
 
-// 5-f-2c: подтверждение смены пароля. Текст ставится по флагу в
+// подтверждение смены пароля. Текст ставится по флагу в
 // адресе, потому что успешный случай заканчивается редиректом - POST там
 // уже недоступен.
 $passwordSuccess = isset($_GET['password_changed']) ? 'Пароль успешно изменён' : null;
 $passwordError   = $passwordError ?? null;
 
-// 5-f-1: сообщение об ошибке приходит cookie error_access, которую ставят
+// сообщение об ошибке приходит cookie error_access, которую ставят
 // validation/auth.php и validation/reg.php. Читать её было некому: страница
 // смотрела в $_SESSION['error_access'], который не заполняет никто, поэтому
 // при неверном пароле пользователь возвращался на пустую форму без
@@ -354,7 +354,7 @@ require __DIR__ . '/partials/header.php';
 ?>
         <div class="container_profile container_profile--fluid">
             <div class="cont_profile cont_profile--plain">
-                <?php // 5-a: решение по строке из users, а не по флагу сессии.
+                <?php // решение по строке из users, а не по флагу сессии.
                       // Флаг живёт дольше пользователя, строка - нет. ?>
                 <?php if (!$userProfile): ?>
                     <?php
@@ -385,7 +385,7 @@ require __DIR__ . '/partials/header.php';
                                     <label class="form-label" for="auth_pass">Пароль</label>
 <?php password_field('user_pass', 'auth_pass', 'current-password', 'Введите пароль', null, null, true, 36); ?>
                                 </div>
-                                <?php // 5-f-1: плашка рисуется только когда есть
+                                <?php // плашка рисуется только когда есть
                                       // что показать. Раньше <p> выводился всегда,
                                       // а условие было внутри - получалась пустая
                                       // красная полоса на каждом заходе ?>
@@ -448,14 +448,14 @@ require __DIR__ . '/partials/header.php';
                         </div>
                     </div>
                 <?php else: ?>
-                    <?php // 3.7-f-4-1: единый сайдбар (тот же partial, что и в admin.php) ?>
+                    <?php // единый сайдбар (тот же partial, что и в admin.php) ?>
                     <?php $activeTab = 'profile'; ?>
                     <?php
-                    // 3.7-f-4b-5: секцию можно открыть ссылкой, чтобы из модалки
+                    // секцию можно открыть ссылкой, чтобы из модалки
                     // пользователя в админке попасть в «Мои заказы» без кликов.
                     // Значение из GET не идёт в разметку как есть - только по белому
                     // списку, id секции берётся из массива, а не из запроса.
-                    // 5-f-2c: 'security' добавлен в белый список. id секции берётся из
+                    // 'security' добавлен в белый список. id секции берётся из
                     // этого массива, а не из запроса - значение из GET в
                     // разметку как не попадает, неизвестный ключ даёт info.
                     $sectionMap = [
@@ -467,7 +467,7 @@ require __DIR__ . '/partials/header.php';
                     $sectionKey = (string) ($_GET['section'] ?? 'info');
                     $activeSection = $sectionMap[$sectionKey] ?? 'card-info';
 
-                    // 5-f-2c-1: какие секции реально есть на этой странице.
+                    // какие секции реально есть на этой странице.
                     // Заказы и избранное рисуются только обычному
                     // пользователю, но карточка безопасности есть у обоих:
                     // пароль у администратора такой же пользовательский.
@@ -510,7 +510,7 @@ require __DIR__ . '/partials/header.php';
                             <div class="profile-content">
                             <section class="card" id="card-info" data-section<?= $sectionStyle('card-info') ?>>
 <?php
-// 3.7-i-6: спрайт иконок для кнопок редактирования. Один символ на
+// спрайт иконок для кнопок редактирования. Один символ на
 // страницу вместо пяти одинаковых <svg> внутри каждой кнопки
 $profileInitial = mb_strtoupper(mb_substr((string) ($userProfile['user_name'] ?? '?'), 0, 1, 'UTF-8'), 'UTF-8');
 $profileFullName = trim(($userProfile['user_name'] ?? '') . ' ' . ($userProfile['user_surname'] ?? ''));
@@ -518,7 +518,7 @@ $profileFullName = trim(($userProfile['user_name'] ?? '') . ' ' . ($userProfile[
                                 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
                                     <symbol id="icon-edit" viewBox="0 0 512 512">
                                         <rect x="150" y="96" width="216" height="88" rx="12" fill="none" stroke="currentColor" stroke-width="32" transform="rotate(-45 258 140)"></rect>
-                                    <!-- 3.7-g-5: галочка и крестик для inline-edit,
+                                    <!-- галочка и крестик для inline-edit,
                                          viewBox 24 как у Feather-иконок -->
                                     <symbol id="icon-check" viewBox="0 0 24 24">
                                         <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
@@ -529,13 +529,13 @@ $profileFullName = trim(($userProfile['user_name'] ?? '') . ' ' . ($userProfile[
                                     </symbol>
                                 </svg>
 
-                                <!-- 3.7-i-6: шапка профиля вместо голого h2 -->
+                                <!-- шапка профиля вместо голого h2 -->
                                 <div class="profile-header">
                                     <div class="profile-header-avatar"><?= escape($profileInitial) ?></div>
                                     <div class="profile-header-info">
                                         <h2><?= escape($profileFullName !== '' ? $profileFullName : (string) ($userProfile['user_login'] ?? '')) ?></h2>
                                         <div class="profile-header-login">@<?= escape((string) ($userProfile['user_login'] ?? '')) ?></div>
-                                        <!-- 3.7-g-6: бейдж роли и дата регистрации
+                                        <!-- бейдж роли и дата регистрации
                                              в одну строку, раньше бейдж стоял сам -->
                                         <div class="profile-header-meta">
                                             <span class="badge <?= $isAdmin ? 'badge--success' : 'badge--warning' ?>">
@@ -548,7 +548,7 @@ $profileFullName = trim(($userProfile['user_name'] ?? '') . ' ' . ($userProfile[
                                     </div>
                                 </div>
 <?php
-// 3.7-i-3: раньше сообщения об ошибке показывались только на карточке
+// раньше сообщения об ошибке показывались только на карточке
 // входа (там $_SESSION['error_access']), поэтому залогиненный пользователь
 // о неудачном сохранении адреса не узнавал. Тот же приём, что в админке:
 // код ошибки в GET, текст из карты.
@@ -564,7 +564,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
 ?>
                                 <div class="alert alert--error"><?= escape($profileErrors[$_GET['error']]) ?></div>
 <?php endif; ?>
-                                <!-- 3.7-i-6: поля в две колонки, каждое своей плиткой -->
+                                <!-- поля в две колонки, каждое своей плиткой -->
                                 <div class="profile-fields">
                                 <div class="profile-field" data-field="name">
                                     <div class="profile-field-label">Имя</div>
@@ -572,7 +572,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_name" placeholder="Имя" value="<?= escape($userProfile['user_name'] ?? '') ?>">
-                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                        <!-- текстовые кнопки занимали строку и
                                              сжимали инпут до 78px, теперь иконки -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeName" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
@@ -581,7 +581,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
                                         </button>
                                     </form>
-                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                    <!-- иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->
                                                     <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
@@ -593,7 +593,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_surname" placeholder="Фамилия" value="<?= escape($userProfile['user_surname'] ?? '') ?>">
-                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                        <!-- текстовые кнопки занимали строку и
                                              сжимали инпут до 78px, теперь иконки -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeSurname" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
@@ -602,7 +602,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
                                         </button>
                                     </form>
-                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                    <!-- иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->
                                                     <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
@@ -614,7 +614,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_email" placeholder="Электронная почта" value="<?= escape($userProfile['user_email'] ?? '') ?>">
-                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                        <!-- текстовые кнопки занимали строку и
                                              сжимали инпут до 78px, теперь иконки -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeEmail" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
@@ -623,7 +623,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
                                         </button>
                                     </form>
-                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                    <!-- иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->
                                                     <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
@@ -631,8 +631,8 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                 </div>
                                 <div class="profile-field" data-field="address">
 <?php
-                                // 3.7-i-3: адрес собирается из шести полей.
-                                // 3.7-i-2/FIX-2: fallback на legacy user_address
+                                // адрес собирается из шести полей.
+                                // fallback на legacy user_address
                                 // убран - новые поля единственный источник
                                 // правды, иначе очищенный пользователем адрес
                                 // воскресал бы из старой строки.
@@ -663,7 +663,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <input class="input" type="text" name="user_apartment" placeholder="Квартира" maxlength="20"
                                                value="<?= escape($userProfile['user_apartment'] ?? '') ?>">
                                         <div class="edit-form-actions">
-                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                        <!-- текстовые кнопки занимали строку и
                                              сжимали инпут до 78px, теперь иконки -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeAddress" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
@@ -673,7 +673,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         </button>
                                         </div>
                                     </form>
-                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                    <!-- иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->
                                                     <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
@@ -686,7 +686,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="tel" name="user_number" placeholder="+7(XXX)XXX-XX-XX" required
                                             pattern="\+7\s?[\(]{0,1}[0-9][0-9]{2}[\)]{0,1}\s?\d{3}[-]{0,1}\d{2}[-]{0,1}\d{2}" value="<?= escape($userProfile['user_number'] ?? '') ?>">
-                                        <!-- 3.7-g-5: текстовые кнопки занимали строку и
+                                        <!-- текстовые кнопки занимали строку и
                                              сжимали инпут до 78px, теперь иконки -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeNumber" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
@@ -695,7 +695,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
                                         </button>
                                     </form>
-                                    <!-- 3.7-i-6: иконка-карандаш вместо текста «Изменить».
+                                    <!-- иконка-карандаш вместо текста «Изменить».
                                          Спрайт один на страницу, символ берётся через <use> -->
                                                     <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
@@ -705,7 +705,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                             </section>
 
                             <!--
-                                5-f-2c: карточка безопасности. Секция своя,
+                                карточка безопасности. Секция своя,
                                 а не блок внутри «Личной информации»: смена
                                 пароля не про анкету, и смешивать их в одной
                                 карточке значило бы держать поля пароля на
@@ -836,7 +836,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                         </div>
                                     </div>
                             </section>
-                            <!-- 3.7-f-4: промежуточная админ-карточка удалена —
+                            <!-- промежуточная админ-карточка удалена —
      в сайдбаре ссылка на /admin.php, внутри админки свой сайдбар с вкладками -->
                             <!-- 8: карточка рисуется и админу. Раньше была только у
                                  обычного пользователя, при том что кнопка
@@ -846,10 +846,10 @@ $hasPhone = !empty($userProfile['user_number']);
                                  карточка отрисовывалась как display:none. -->
                             <section class="card" id="card-fav" data-section<?= $sectionStyle('card-fav') ?>>
                                 <h2 class="page-title">Избранное</h2>
-                                            <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
+                                            <!-- обёртка contTable заменена на .table-wrap -->
                                             <div class="table-wrap">
                                                 <?php
-                                                // 3.7-f-4b-2: без лишнего FROM users - фильтр идёт
+                                                // без лишнего FROM users - фильтр идёт
                                                 // по favorites.user_id, порядок DESC
                                                 $sql = "SELECT a.assembly_name, a.assembly_price, a.assembly_id, f.favorit_id
                                                         FROM favorites f
@@ -871,7 +871,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 echo '<table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th></th></tr></thead><tbody>';
 
                                                 foreach ($favRows as $row) {
-                                                    // 3.7-f-4b-2: явное поле вместо хрупкого $row[0]
+                                                    // явное поле вместо хрупкого $row[0]
                                                     $favName = $row['assembly_name'] ?? '';
                                                     if (($row['assembly_id'] ?? 0) > 3) {
                                                         $favName = "Сборка " . $favName;
@@ -883,7 +883,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                                         . "<td><form method=\"POST\">"
                                                         . "<input type=\"hidden\" name=\"csrf_token\" value=\"" . escape(csrf_token()) . "\">"
                                                         . "<input name=\"favoritId\" type=\"hidden\" value=\"{$row['favorit_id']}\">"
-                                                        // 3.7-g-4: подтверждение перед удалением.
+                                                        // подтверждение перед удалением.
                                                         // deleteAssembly дублируется скрытым input:
                                                         // форму отправляет form.submit(), а он не
                                                         // включает имя нажатой submit-кнопки.
@@ -902,10 +902,10 @@ $hasPhone = !empty($userProfile['user_number']);
                             <?php if (!$isAdmin): ?>
                             <section class="card" id="card-builds" data-section<?= $sectionStyle('card-builds') ?>>
                                             <h2 class="page-title">Мои заказы</h2>
-                                            <!-- 3.7-f-4b-1: обёртка contTable заменена на .table-wrap -->
+                                            <!-- обёртка contTable заменена на .table-wrap -->
                                             <div class="table-wrap">
                                                 <?php
-                                                // 3.7-f-4b-3: «Мои сборки» -> «Мои заказы».
+                                                // «Мои сборки» -> «Мои заказы».
                                                 // Таблица и раньше брала заказы из orders, но без
                                                 // номера и даты, а название сборки вело на её
                                                 // страницу. Теперь это список заказов, а детали
@@ -931,13 +931,13 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 if (empty($ordRows)) {
                                                     echo '<div class="profile-empty">Пока нет заказов</div>';
                                                 } else {
-                                                // 3.7-g-5: колонка «№» убрана, пользователю номер заказа не нужен.
+                                                // колонка «№» убрана, пользователю номер заказа не нужен.
 // В модалке он по-прежнему показывается - там он помогает сослаться
 // на заказ при поддержке.
                                                 echo '<table class="table"><thead><tr><th>Сборка</th><th>Стоимость</th><th>Статус</th><th>Дата</th></tr></thead><tbody>';
 
                                                 foreach ($ordRows as $row) {
-                                                    // 3.7-f-4b-3: явное поле вместо хрупкого $row[0]
+                                                    // явное поле вместо хрупкого $row[0]
                                                     $ordAsmName = $row['assembly_name'] ?? '';
                                                     if (($row['assembly_id'] ?? 0) > 3) {
                                                         $ordAsmName = "Сборка " . $ordAsmName;
@@ -956,7 +956,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                                         'created_at' => $ordCreated,
                                                     ], JSON_UNESCAPED_UNICODE);
                                                     echo "<tr class=\"row-link\" data-row='" . escape($ordData) . "'>"
-                                                        // 3.7-g-5: колонки с номером заказа больше нет
+                                                        // колонки с номером заказа больше нет
                                                         . "<td>" . htmlspecialchars($ordAsmName) . "</td>"
                                                         . "<td>" . htmlspecialchars((string) ($row['assembly_price'] ?? '')) . " руб.</td>"
                                                         . "<td><span class=\"badge " . $statusCls . "\">" . htmlspecialchars($row['status'] ?? '') . "</span></td>"
@@ -969,7 +969,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                             </div>
 
                                             <!--
-                                                3.7-f-4b-3: просмотр заказа только для чтения.
+                                                просмотр заказа только для чтения.
                                                 Ни формы, ни кнопок сохранения - одна кнопка
                                                 «Закрыть». Все поля заполняет JS из data-row
                                                 строки, поэтому модалка ничего не отправляет.
@@ -982,7 +982,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                                         <h3>Сборка</h3>
                                                         <div class="form-group">
                                                             <label class="form-label">Название</label>
-                                                            <!-- 3.7-f-4c-5: название открывает сборку в
+                                                            <!-- название открывает сборку в
                                                                  новой вкладке, как в editOrderModal -->
                                                             <a href="#" id="userOrderAssemblyLink" target="_blank" rel="noopener"
                                                                class="btn btn--secondary btn--sm"><span id="userOrderAssembly"></span></a>
