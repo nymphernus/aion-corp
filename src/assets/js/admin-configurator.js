@@ -30,7 +30,6 @@
             document.getElementById('presetName').value = nameCell ? nameCell.textContent.trim() : '';
             document.getElementById('presetBudget').value =
                 budgetCell ? budgetCell.textContent.replace(/[^\d]/g, '') : '';
-            document.getElementById('presetSort').value = '';
             document.getElementById('presetActive').checked = isActive;
             document.getElementById('presetModalTitle').textContent = 'Редактировать пресет';
 
@@ -48,7 +47,6 @@
             document.getElementById('presetId').value = '';
             document.getElementById('presetName').value = '';
             document.getElementById('presetBudget').value = '';
-            document.getElementById('presetSort').value = '';
             document.getElementById('presetActive').checked = true;
             document.getElementById('presetModalTitle').textContent = 'Добавить пресет';
 
@@ -98,14 +96,12 @@
                показало бы ошибку на ровном валидном состоянии. */
             const priceText = priceCell ? priceCell.textContent.replace(/[^\d]/g, '') : '';
             document.getElementById('osPrice').value = priceText === '' ? '0' : priceText;
-            document.getElementById('osSort').value = '';
             document.getElementById('osActive').checked = isActive;
             document.getElementById('osModalTitle').textContent = 'Редактировать операционную систему';
         } else {
             document.getElementById('osId').value = '';
             document.getElementById('osName').value = '';
             document.getElementById('osPrice').value = '0';
-            document.getElementById('osSort').value = '';
             document.getElementById('osActive').checked = true;
             document.getElementById('osModalTitle').textContent = 'Добавить операционную систему';
         }

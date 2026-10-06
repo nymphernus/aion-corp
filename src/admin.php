@@ -1032,7 +1032,6 @@ function cfg_bad_preset(array $post): array
     $name = trim((string) ($post['preset_name'] ?? ''));
     $budget = (int) ($post['preset_budget'] ?? 0);
     $icon = trim((string) ($post['preset_icon'] ?? ''));
-    $sort = (int) ($post['sort_order'] ?? 0);
     $active = !empty($post['is_active']) ? 1 : 0;
 
     if ($name === '') {
@@ -1054,10 +1053,6 @@ function cfg_bad_preset(array $post): array
     if (!array_key_exists($icon, cfg_preset_icons())) {
         $bad[] = 'preset_icon';
         $icon = 'monitor';
-    }
-
-    if ($sort < 0 || $sort > 999) {
-        $bad[] = 'preset_sort';
     }
 
     return $bad;
@@ -1099,7 +1094,6 @@ if ($isAdmin && isset($_POST['presetAction'])) {
     $name = trim((string) $_POST['preset_name']);
     $budget = (int) $_POST['preset_budget'];
     $icon = trim((string) $_POST['preset_icon']);
-    $sort = (int) $_POST['sort_order'];
     $active = !empty($_POST['is_active']) ? 1 : 0;
 
     // Редактирование несуществующей строки сообщает об ошибке, а не
@@ -1117,13 +1111,12 @@ if ($isAdmin && isset($_POST['presetAction'])) {
         $stmt = db_prepare(
             $mysql,
             'UPDATE configurator_presets
-                SET preset_name = ?, preset_budget = ?, preset_icon = ?, sort_order = ?, is_active = ?
+                SET preset_name = ?, preset_budget = ?, preset_icon = ?, is_active = ?
               WHERE preset_id = ?',
-            'sisiii',
+            'sisii',
             $name,
             $budget,
             $icon,
-            $sort,
             $active,
             $presetId
         );
@@ -1131,13 +1124,12 @@ if ($isAdmin && isset($_POST['presetAction'])) {
     } else {
         $stmt = db_prepare(
             $mysql,
-            'INSERT INTO configurator_presets (preset_name, preset_budget, preset_icon, sort_order, is_active)
-             VALUES (?, ?, ?, ?, ?)',
-            'sisii',
+            'INSERT INTO configurator_presets (preset_name, preset_budget, preset_icon, is_active)
+             VALUES (?, ?, ?, ?)',
+            'sisi',
             $name,
             $budget,
             $icon,
-            $sort,
             $active
         );
         $stmt->execute();
@@ -1163,7 +1155,6 @@ function cfg_bad_os(array $post): array
     // теоретически: под неё нет ни одной проверки ниже по коду, и
     // сборка уехала бы в минус. Поэтому ноль - минимум.
     $price = (int) ($post['os_price'] ?? 0);
-    $sort = (int) ($post['sort_order'] ?? 0);
 
     if ($name === '') {
         $bad[] = 'os_name';
@@ -1173,10 +1164,6 @@ function cfg_bad_os(array $post): array
 
     if ($price < 0 || $price > 1000000) {
         $bad[] = 'os_price';
-    }
-
-    if ($sort < 0 || $sort > 999) {
-        $bad[] = 'os_sort';
     }
 
     return $bad;
@@ -1216,7 +1203,6 @@ if ($isAdmin && isset($_POST['osAction'])) {
 
     $name = trim((string) $_POST['os_name']);
     $price = (int) $_POST['os_price'];
-    $sort = (int) $_POST['sort_order'];
     $active = !empty($_POST['is_active']) ? 1 : 0;
 
     if ($osId > 0) {
@@ -1231,12 +1217,11 @@ if ($isAdmin && isset($_POST['osAction'])) {
         $stmt = db_prepare(
             $mysql,
             'UPDATE configurator_os
-                SET os_name = ?, os_price = ?, sort_order = ?, is_active = ?
+                SET os_name = ?, os_price = ?, is_active = ?
               WHERE os_id = ?',
-            'siiii',
+            'siii',
             $name,
             $price,
-            $sort,
             $active,
             $osId
         );
@@ -1244,12 +1229,11 @@ if ($isAdmin && isset($_POST['osAction'])) {
     } else {
         $stmt = db_prepare(
             $mysql,
-            'INSERT INTO configurator_os (os_name, os_price, sort_order, is_active)
+            'INSERT INTO configurator_os (os_name, os_price, is_active)
              VALUES (?, ?, ?, ?)',
-            'siii',
+            'sii',
             $name,
             $price,
-            $sort,
             $active
         );
         $stmt->execute();

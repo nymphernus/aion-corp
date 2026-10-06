@@ -20,13 +20,11 @@ $badCodes = [
     'preset_name_long' => 'Название пресета длиннее 50 символов.',
     'preset_budget' => 'Бюджет должен быть от 1 000 до 10 000 000 ₽.',
     'preset_icon' => 'Выберите иконку из списка.',
-    'preset_sort' => 'Порядок должен быть от 0 до 999.',
     'preset_not_found' => 'Такого пресета больше нет.',
     'preset_action' => 'Неизвестное действие с пресетом.',
     'os_name' => 'Укажите название операционной системы.',
     'os_name_long' => 'Название ОС длиннее 100 символов.',
     'os_price' => 'Стоимость должна быть от 0 до 1 000 000 ₽.',
-    'os_sort' => 'Порядок должен быть от 0 до 999.',
     'os_not_found' => 'Такой операционной системы больше нет.',
     'os_action' => 'Неизвестное действие с операционной системой.',
 ];
@@ -41,14 +39,14 @@ foreach (explode(',', (string) ($_GET['bad'] ?? '')) as $code) {
 $saved = isset($_GET['saved']);
 
 // Выборки читаются здесь, а не в admin.php: обе таблицы короткие,
-// а файл переиспользуется как образец разметки для будущих вкладок
-// со списками. Порядок вывода - по sort_order, как на главной.
+// «Порядок» в формах нет, и у добавленных через них строк он был бы DEFAULT 0,
+// со списками. Порядок вывода - по добавлению (id), а не по sort_order: поля
 $cfgPresets = [];
 $stmt = db_prepare(
     $mysql,
-    'SELECT preset_id, preset_name, preset_budget, preset_icon, sort_order, is_active
+    'SELECT preset_id, preset_name, preset_budget, preset_icon, is_active
        FROM configurator_presets
-      ORDER BY sort_order ASC, preset_id ASC',
+      ORDER BY preset_id ASC',
     ''
 );
 $stmt->execute();
@@ -60,9 +58,9 @@ while ($row = $result->fetch_assoc()) {
 $cfgOs = [];
 $stmt = db_prepare(
     $mysql,
-    'SELECT os_id, os_name, os_price, sort_order, is_active
+    'SELECT os_id, os_name, os_price, is_active
        FROM configurator_os
-      ORDER BY sort_order ASC, os_id ASC',
+      ORDER BY os_id ASC',
     ''
 );
 $stmt->execute();
@@ -261,19 +259,15 @@ $presetIconNames = cfg_preset_icon_names();
             </div>
         </div>
 
-        <div class="form-row">
-            <div class="form-group">
-                <label class="form-label" for="presetSort">Порядок</label>
-                <input class="input" type="number" name="sort_order" id="presetSort"
-                       min="0" max="999" value="0">
-            </div>
-            <div class="form-group">
-                <span class="form-label">Показ</span>
-                <label class="checkbox-label">
-                    <input type="checkbox" name="is_active" id="presetActive" value="1" checked>
-                    Показывать в конфигураторе
-                </label>
-            </div>
+        <!-- Поля «Порядок» нет: вывод идёт в порядке добавления
+             (preset_id / os_id), а ручная сортировка админу не нужна.
+             Колонка sort_order в таблице осталась как резерв. -->
+        <div class="form-group">
+            <span class="form-label">Показ</span>
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_active" id="presetActive" value="1" checked>
+                Показывать в конфигураторе
+            </label>
         </div>
 
         <div class="modal-actions">
@@ -310,19 +304,12 @@ $presetIconNames = cfg_preset_icon_names();
             </p>
         </div>
 
-        <div class="form-row">
-            <div class="form-group">
-                <label class="form-label" for="osSort">Порядок</label>
-                <input class="input" type="number" name="sort_order" id="osSort"
-                       min="0" max="999" value="0">
-            </div>
-            <div class="form-group">
-                <span class="form-label">Показ</span>
-                <label class="checkbox-label">
-                    <input type="checkbox" name="is_active" id="osActive" value="1" checked>
-                    Показывать в списке на главной
-                </label>
-            </div>
+        <div class="form-group">
+            <span class="form-label">Показ</span>
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_active" id="osActive" value="1" checked>
+                Показывать в списке на главной
+            </label>
         </div>
 
         <div class="modal-actions">
