@@ -274,7 +274,7 @@ if ($osList === []) {
                   // как сбой вывода, а не как отсутствие товара. ?>
             <?php if (!empty($homeBuilds)): ?>
             <div class="container_pc" id="assembly">
-                <div class="builds-slider-wrap<?= count($homeBuilds) > 3 ? ' is-slider' : '' ?>">
+                <div class="builds-slider-container<?= count($homeBuilds) > 3 ? ' is-slider' : '' ?>">
                     <button type="button" class="builds-slider__nav builds-slider__nav--prev"
                             data-action="scroll-builds" data-direction="-1"
                             aria-label="Предыдущая сборка"

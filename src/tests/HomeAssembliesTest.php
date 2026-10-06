@@ -245,6 +245,58 @@ final class HomeAssembliesTest extends AionTestCase
      * без заказов и избранного старше часа. Базовые сборки защищены
      * флагом is_base.
      */
+    /**
+     * Стрелки находятся вне блока с карточками.
+     *
+     * Раньше стрелки были position: absolute и налезали на изображения
+     * корпусов. Теперь они статичные, вне блока с карточками.
+     */
+    public function testArrowsOutsideSlider(): void
+    {
+        $this->loginAsAdmin();
+
+        // Создаём 4-ю сборку, чтобы стрелки были видны
+        $name = self::tmpName('tmp_arrows_');
+        $id = $this->createBaseAssembly($name, 150000);
+        $this->createdIds[] = $id;
+
+        $page = $this->httpGet('/');
+        $this->assertSame(200, $page['code']);
+
+        // Стрелки должны быть внутри .builds-slider-container, но вне .builds-slider
+        $this->assertMatchesRegularExpression(
+            '/<div class="builds-slider-container[^"]*">\s*<button[^>]*builds-slider__nav--prev/',
+            $page['body'],
+            'стрелка «назад» должна быть внутри контейнера, но вне слайдера'
+        );
+        $this->assertMatchesRegularExpression(
+            '/<button[^>]*builds-slider__nav--next[^>]*>\s*<svg/',
+            $page['body'],
+            'стрелка «вперёд» должна быть внутри контейнера'
+        );
+
+        // Контейнер должен быть flex (стрелки по бокам)
+        $this->assertStringContainsString('builds-slider-container', $page['body']);
+
+        // JS обязан искать тот же класс, что есть в разметке.
+        // При переименовании обёртки в разметке и забытой правке
+        // scripts.js closest() возвращает null, скрипт выходит до
+        // стрелок, и они молча остаются скрытыми при переполнении.
+        // Ни php -l, ни тесты на разметку этого не видят: ошибка
+        // проявилась только в браузере.
+        $js = (string) file_get_contents(__DIR__ . '/../assets/js/scripts.js');
+        $this->assertStringContainsString(
+            "closest('.builds-slider-container')",
+            $js,
+            'scripts.js должен искать обёртку по классу, который стоит в разметке'
+        );
+        $this->assertStringNotContainsString(
+            'builds-slider-wrap',
+            $js,
+            'старое имя обёртки в scripts.js: переименование класса не доведено до конца'
+        );
+    }
+
     public function testCleanupDoesNotDeleteBase(): void
     {
         $this->loginAsAdmin();

@@ -429,12 +429,16 @@ body::-webkit-scrollbar-thumb {
    Имя .container_select сохранено и дополнено .builds-slider: старый
    блок правил убран, но разметка секции на имя класса опирается, и
    переименование задело бы другие правила файла. */
-.builds-slider-wrap {
+.builds-slider-container {
     position: relative;
     max-width: 1440px;
     margin: 0 auto;
-    /* место под стрелки: они absolute и не должны лежать на карточках */
-    padding: 0 56px;
+    /* Стрелки статичные, вне блока с карточками: они не налезают
+       на изображения корпусов и не требуют absolute-позиционирования. */
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 24px;
 }
 .container_select.builds-slider {
     display: flex;
@@ -476,7 +480,7 @@ body::-webkit-scrollbar-thumb {
 }
 
 @media (min-width: 1025px) {
-    .builds-slider-wrap {
+    .builds-slider-container {
         padding: 0;
     }
     /* 1-3 сборки: grid, стрелок нет. 4+: flex со скроллом и стрелки.
@@ -488,7 +492,7 @@ body::-webkit-scrollbar-thumb {
         /* сетка выравнивает по колонкам, snap здесь не нужен */
         scroll-snap-type: none;
     }
-    .builds-slider-wrap.is-slider .container_select.builds-slider {
+    .builds-slider-container.is-slider .container_select.builds-slider {
         display: flex;
         overflow-x: auto;
         scroll-snap-type: x mandatory;
@@ -501,14 +505,15 @@ body::-webkit-scrollbar-thumb {
         display: none !important;
     }
     /* при 4+ сборках стрелки нужны */
-    .builds-slider-wrap.is-slider .builds-slider__nav {
+    .builds-slider-container.is-slider .builds-slider__nav {
         display: block !important;
     }
 }
 
 @media (max-width: 640px) {
-    .builds-slider-wrap {
-        padding: 0 48px;
+    .builds-slider-container {
+        padding: 0;
+        gap: 8px;
     }
     /* 272px, а не 280: при экране 375px под стрелки уходит 48px с
        каждой стороны, остаётся 279px. Карточка 280px не влезала
@@ -521,9 +526,9 @@ body::-webkit-scrollbar-thumb {
 /* Стрелки. Показываются через JS: скрытая стрелка означает «в эту
    сторону листать нечего». display: flex при показе. */
 .builds-slider__nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
+    /* Стрелки статичные, вне блока с карточками: они не налезают
+       на изображения корпусов и не требуют absolute-позиционирования. */
+    flex-shrink: 0;
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -545,8 +550,6 @@ body::-webkit-scrollbar-thumb {
     border-color: var(--accent);
     box-shadow: 0 6px 16px rgba(37, 99, 235, 0.2);
 }
-.builds-slider__nav--prev { left: 4px; }
-.builds-slider__nav--next { right: 4px; }
 .builds-slider__nav[hidden] { display: none; }
 
 /* Контейнер сетки на широком экране. Способ раскладки (flex со

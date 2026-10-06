@@ -772,7 +772,7 @@ document.addEventListener('input', function(e) {
     const slider = document.getElementById('buildsSlider');
     if (!slider) return;
 
-    const wrap = slider.closest('.builds-slider-wrap');
+    const wrap = slider.closest('.builds-slider-container');
     if (!wrap) return;
 
     const prev = wrap.querySelector('[data-direction="-1"]');
