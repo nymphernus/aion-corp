@@ -137,6 +137,64 @@ final class OrderTest extends AionTestCase
         return (int) ($row['c'] ?? 0);
     }
 
+    private function orderId(int $userId, int $assemblyId): int
+    {
+        $mysql = connect();
+        $stmt = db_prepare($mysql, "SELECT order_id FROM orders WHERE user_id = ? AND assembly_id = ?", 'ii', $userId, $assemblyId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mysql->close();
+
+        $this->assertNotEmpty($row, 'заказ должен существовать');
+        return (int) $row['order_id'];
+    }
+
+    private function orderStatus(int $orderId): string
+    {
+        $mysql = connect();
+        $stmt = db_prepare($mysql, "SELECT status FROM orders WHERE order_id = ?", 'i', $orderId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mysql->close();
+
+        return (string) ($row['status'] ?? '');
+    }
+
+    /**
+     * Вход админом в тот же cookie-jar.
+     *
+     * Отдельный jar не годится: смена статуса идёт POST-ом в
+     * admin.php, и нужен именно админский.
+     */
+    private function loginAsAdmin(): void
+    {
+        $adminPass = getenv('ADMIN_PASSWORD');
+        $this->assertNotEmpty($adminPass, 'ADMIN_PASSWORD не задан в окружении');
+        $this->clearLoginAttempts('admin');
+        $r = $this->loginAs('admin', (string) $adminPass);
+        $this->assertSame(302, $r['code']);
+    }
+
+    /**
+     * Смена статуса заказа из модалки админки.
+     *
+     * @return array{code: int, body: string, location: string}
+     */
+    private function setOrderStatus(int $orderId, string $status): array
+    {
+        $page = $this->httpGet('/admin.php?tab=orders');
+        $this->assertSame(200, $page['code']);
+
+        return $this->httpPost('/admin.php?tab=orders', [
+            'editOrder' => '1',
+            'orderId' => (string) $orderId,
+            'status' => $status,
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+    }
+
     private function dropTestAssemblies(): void
     {
         if ($this->assemblyIds === []) {
@@ -407,5 +465,127 @@ final class OrderTest extends AionTestCase
         $this->assertSame([7 => 3, 9 => 2, 11 => 1], $demand);
         $this->assertArrayNotHasKey(40909, $demand, 'цена сборки не является компонентом');
         $this->assertArrayNotHasKey(0, $demand, 'нулевые слоты пропускаются');
+    }
+
+    public function testCancelOrderRestoresStock(): void
+    {
+        [$userId, $assemblyId] = $this->arrangePurchase();
+        [$a, $b, $c] = $this->parts;
+
+        $before = $this->componentAmount($a);
+
+        $this->buy($assemblyId);
+        $this->assertSame($before - 3, $this->componentAmount($a), 'до отмены остаток уменьшен');
+
+        $orderId = $this->orderId($userId, $assemblyId);
+        $this->loginAsAdmin();
+
+        $r = $this->setOrderStatus($orderId, 'Отменён');
+        $this->assertSame(302, $r['code']);
+        $this->assertSame('Отменён', $this->orderStatus($orderId));
+
+        $this->assertSame($before, $this->componentAmount($a), 'отмена возвращает три слота процессора');
+        $this->assertSame($this->stockSnapshot[$b], $this->componentAmount($b));
+        $this->assertSame($this->stockSnapshot[$c], $this->componentAmount($c));
+    }
+
+    public function testUncancelOrderDeductsStockAgain(): void
+    {
+        [$userId, $assemblyId] = $this->arrangePurchase();
+        [$a, $b] = $this->parts;
+        $before = $this->componentAmount($a);
+
+        $this->buy($assemblyId);
+        $orderId = $this->orderId($userId, $assemblyId);
+        $this->loginAsAdmin();
+
+        $this->setOrderStatus($orderId, 'Отменён');
+        $this->assertSame($before, $this->componentAmount($a), 'после отмены остаток полный');
+
+        // снятие отмены: заказ снова в работе, товар снова продан
+        $r = $this->setOrderStatus($orderId, 'Собирается');
+        $this->assertSame(302, $r['code']);
+        $this->assertSame('Собирается', $this->orderStatus($orderId));
+
+        $this->assertSame($before - 3, $this->componentAmount($a), 'снятие отмены списывает обратно');
+        $this->assertSame($this->stockSnapshot[$b] - 2, $this->componentAmount($b));
+    }
+
+    /**
+     * Повторная отправка формы ничего не меняет.
+     *
+     * Ключевой случай: без проверки старого статуса второй POST с
+     * «Отменён» вернул бы товар ещё раз, и склад раздувался бы на
+     * единицу за каждое переоткрытие страницы.
+     */
+    public function testRepeatedStatusDoesNotTouchStock(): void
+    {
+        [$userId, $assemblyId] = $this->arrangePurchase();
+        [$a] = $this->parts;
+        $before = $this->componentAmount($a);
+
+        $this->buy($assemblyId);
+        $orderId = $this->orderId($userId, $assemblyId);
+        $this->loginAsAdmin();
+
+        // тот же статус, что уже стоит
+        $this->setOrderStatus($orderId, 'Обрабатывается');
+        $this->assertSame($before - 3, $this->componentAmount($a), 'тот же статус не должен трогать склад');
+
+        $this->setOrderStatus($orderId, 'Отменён');
+        $this->assertSame($before, $this->componentAmount($a));
+
+        // отмена ещё раз, форма переоткрыта и отправлена повторно
+        $this->setOrderStatus($orderId, 'Отменён');
+        $this->setOrderStatus($orderId, 'Отменён');
+        $this->assertSame($before, $this->componentAmount($a), 'повторная отмена не должна возвращать товар ещё раз');
+    }
+
+    /**
+     * Статусы кроме отмены склад не трогают.
+     */
+    public function testNonCancelledStatusLeavesStockAlone(): void
+    {
+        [$userId, $assemblyId] = $this->arrangePurchase();
+        [$a] = $this->parts;
+        $before = $this->componentAmount($a);
+
+        $this->buy($assemblyId);
+        $orderId = $this->orderId($userId, $assemblyId);
+        $this->loginAsAdmin();
+
+        $this->setOrderStatus($orderId, 'Доставляется');
+        $this->assertSame('Доставляется', $this->orderStatus($orderId));
+        $this->assertSame($before - 3, $this->componentAmount($a));
+
+        $this->setOrderStatus($orderId, 'Выполнен');
+        $this->assertSame('Выполнен', $this->orderStatus($orderId));
+        $this->assertSame($before - 3, $this->componentAmount($a), 'выполненный заказ товар не возвращает');
+    }
+
+    /**
+     * Статус вне белого списка отклоняется.
+     *
+     * Раньше у обработчика editOrderStatus белого списка не было
+     * вовсе, и строка из POST писалась в таблицу как есть.
+     */
+    public function testUnknownStatusIsRejected(): void
+    {
+        [$userId, $assemblyId] = $this->arrangePurchase();
+        [$a] = $this->parts;
+        $before = $this->componentAmount($a);
+
+        $this->buy($assemblyId);
+        $orderId = $this->orderId($userId, $assemblyId);
+        $this->loginAsAdmin();
+
+        $this->setOrderStatus($orderId, 'Отменён; DROP TABLE orders');
+        $this->assertSame('Обрабатывается', $this->orderStatus($orderId), 'чужой статус не должен попасть в таблицу');
+        $this->assertSame($before - 3, $this->componentAmount($a), 'отклонённый статус склад не трогает');
+
+        // «Отменён» с хвостом - тоже не «Отменён»: сравнение строгое,
+        // иначе такой статус вернул бы товар на склад
+        $this->setOrderStatus($orderId, 'Отменён ');
+        $this->assertSame('Обрабатывается', $this->orderStatus($orderId));
     }
 }

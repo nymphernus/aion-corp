@@ -12,6 +12,11 @@
 
 require_once __DIR__ . '/modules/connect.php';
 require_once __DIR__ . '/modules/pagination.php';
+// Смена статуса заказа возвращает товар на склад, а остатки считает
+// модуль компонентов. Без этой строки order_set_status() падал на
+// assembly_demand() как Error до try - и отдавал пустую страницу
+// вместо редиректа.
+require_once __DIR__ . '/modules/components.php';
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 csrf_token();
@@ -668,13 +673,126 @@ if ($isAdmin && isset($_POST['attachFile'])) {
     exit;
 }
 
+/**
+ * Статус отменённого заказа.
+ *
+ * Именно по нему считается, возвращать товар на склад или нет.
+ * Строкой, а не константой: значение попадает в таблицу orders и
+ * разбирается на странице заказов.
+ */
+define('ORDER_STATUS_CANCELLED', 'Отменён');
+
+if (!function_exists('order_statuses')) {
+    /**
+     * Статусы, которые админ может выставить заказу.
+     *
+     * Список один на оба обработчика. Раньше белый список был только
+     * у модалки, а кнопки в строках таблицы писали в status что
+     * угодно: любой POST мог поставить заказу произвольный статус.
+     */
+    function order_statuses(): array
+    {
+        return ['Обрабатывается', 'Собирается', 'Доставляется', 'Выполнен', ORDER_STATUS_CANCELLED];
+    }
+}
+
+if (!function_exists('order_set_status')) {
+    /**
+     * Сменить статус заказа вместе со складом.
+     *
+     * Отмена возвращает единицы всех компонентов сборки, снятие
+     * отмены списывает их обратно. Статус читается до UPDATE: старый
+     * статус и есть признак перехода, и он же делает операцию
+     * идемпотентной. Форму можно перезагрузить или отправить дважды,
+     * и без этой проверки каждый повторный переход в «Отменён»
+     * вернул бы товар ещё на единицу.
+     *
+     * Возврат из обеих сторон идёт в одной транзакции со сменой
+     * статуса: заказ без возврата - это товар, который числится
+     * проданным и лежит на складе одновременно.
+     *
+     * @return bool Статус применён (правда также при неизменном статусе)
+     */
+    function order_set_status(mysqli $mysql, int $orderId, string $newStatus): bool
+    {
+        if ($orderId <= 0 || !in_array($newStatus, order_statuses(), true)) {
+            return false;
+        }
+
+        $stmt = db_prepare($mysql, "SELECT status, assembly_id FROM orders WHERE order_id = ?", 'i', $orderId);
+        $stmt->execute();
+        $order = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ($order === null) {
+            return false;
+        }
+
+        $oldStatus = (string) $order['status'];
+        if ($oldStatus === $newStatus) {
+            // повторная отправка той же формы: перехода не было
+            return true;
+        }
+
+        $wasCancelled = $oldStatus === ORDER_STATUS_CANCELLED;
+        $nowCancelled = $newStatus === ORDER_STATUS_CANCELLED;
+
+        $delta = 0;
+        if (!$wasCancelled && $nowCancelled) {
+            $delta = 1;
+        } elseif ($wasCancelled && !$nowCancelled) {
+            $delta = -1;
+        }
+
+        $demand = [];
+        if ($delta !== 0) {
+            $stmt = db_prepare($mysql, "SELECT * FROM assembly WHERE assembly_id = ?", 'i', (int) $order['assembly_id']);
+            $stmt->execute();
+            $assemb = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            $demand = $assemb === null ? [] : assembly_demand($assemb);
+
+            if ($delta < 0 && stock_shortage($mysql, $demand) !== null) {
+                // Снятие отмены не должно упираться в остаток: пока
+                // заказ стоял отменённым, товар могли купить. Статус
+                // применяем, а списание пропускаем - иначе админ не смог
+                // бы вернуть заказ в работу из-за чужой покупки.
+                error_log('order ' . $orderId . ': снятие отмены, товара на складе уже нет');
+                $demand = [];
+            }
+        }
+
+        $mysql->begin_transaction();
+        try {
+            $stmt = db_prepare($mysql, "UPDATE orders SET status = ? WHERE order_id = ?", 'si', $newStatus, $orderId);
+            $stmt->execute();
+            $stmt->close();
+
+            if ($demand !== []) {
+                stock_apply($mysql, $demand, $delta);
+            }
+
+            $mysql->commit();
+        } catch (Throwable $e) {
+            $mysql->rollback();
+            error_log('order status change failed: ' . $e->getMessage());
+            return false;
+        }
+
+        return true;
+    }
+}
+
 if ($isAdmin && isset($_POST['editOrderStatus'])) {
     csrf_verify();
-    $status = $_POST['status'] ?? '';
-    $orderId = $_POST['editOrderStatus'];
+    // Значение кнопки, а не отдельное поле orderId: форма ставит
+    // номер заказа в value. Раньше сюда попадал сырой POST без
+    // приведения к int, и подставлялся в запрос как есть.
+    $orderId = (int) ($_POST['editOrderStatus'] ?? 0);
+    $status = (string) ($_POST['status'] ?? '');
 
-    $stmt = db_prepare($mysql, "UPDATE orders SET status = ? WHERE order_id = ?", "si", $status, $orderId);
-    $stmt->execute();
+    order_set_status($mysql, $orderId, $status);
+
     csrf_rotate();
     header('Location: ' . admin_list_url('orders'));
     exit();
@@ -1590,19 +1708,15 @@ if ($isAdmin && isset($_POST['saveMapSnapshot'])) {
     exit();
 }
 
-// смена статуса из модалки заказа. Существующий editOrderStatus
-// (кнопки в строках таблицы) не меняем — здесь свой обработчик с
-// валидацией статуса по белому списку.
+// смена статуса из модалки заказа. Логика общая с обработчиком
+// editOrderStatus выше: обе формы обязаны возвращать товар на склад,
+// иначе отмена через одну из них оставляла бы заказ списанным.
 if ($isAdmin && isset($_POST['editOrder'])) {
     csrf_verify();
     $orderId = (int) ($_POST['orderId'] ?? 0);
     $status = (string) ($_POST['status'] ?? '');
-    $allowed = ['Обрабатывается', 'Собирается', 'Доставляется', 'Выполнен', 'Отменён'];
 
-    if ($orderId > 0 && in_array($status, $allowed, true)) {
-        $stmt = db_prepare($mysql, "UPDATE `orders` SET `status` = ? WHERE `order_id` = ?", "si", $status, $orderId);
-        $stmt->execute();
-    }
+    order_set_status($mysql, $orderId, $status);
 
     csrf_rotate();
     header('Location: ' . admin_list_url('orders'));
