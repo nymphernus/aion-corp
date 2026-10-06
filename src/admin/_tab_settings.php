@@ -30,6 +30,14 @@ $badCodes = [
     'favicon_generate' => 'Не удалось создать favicon.',
     'favicon_letter_empty' => 'Укажите букву для иконки.',
     'favicon_letter_unsupported' => 'Генератор рисует одну букву. Для этого варианта загрузите свою картинку.',
+    'social_name' => 'Укажите название соцсети.',
+    'social_name_long' => 'Название длиннее 50 символов.',
+    'social_url' => 'Ссылка должна начинаться с http:// или https://',
+    'social_url_long' => 'Ссылка длиннее 255 символов.',
+    'social_icon' => 'Выберите иконку или загрузите свою.',
+    'social_icon_upload' => 'Иконка не загрузилась. Нужен SVG, PNG или WebP до 500 КБ.',
+    'social_icon_unsafe' => 'Иконка не распознана: выберите из списка или загрузите свою.',
+    'social_not_found' => 'Такой соцсети больше нет.',
 ];
 $badMessages = [];
 foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
@@ -37,6 +45,66 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
     if ($code !== '') {
         $badMessages[] = $badCodes[$code] ?? $code;
     }
+}
+
+// Соцсети и набор иконок.
+//
+// Строки читаются здесь, а не в admin.php: вкладка настроек и так
+// разбирает на себе и форму, и модалки, а выборка одна и короткая.
+// Порядок тот же, что на главной, - иначе админ правил бы сортировку и
+// не видел бы результата.
+$socialLinks = [];
+$stmt = db_prepare(
+    $mysql,
+    'SELECT link_id, link_name, link_url, link_icon, sort_order, is_active
+       FROM social_links
+      ORDER BY sort_order ASC, link_id ASC',
+    ''
+);
+$stmt->execute();
+$result = $stmt->get_result();
+while ($row = $result->fetch_assoc()) {
+    $socialLinks[] = $row;
+}
+$result->free();
+
+// Иконки берутся из каталога, а не из списка в коде. Причина
+// практическая: чтобы добавить площадку, достаточно положить svg в
+// assets/images/social/, и она сразу появится в списке. Список в коде
+// пришлось бы править на каждую новую иконку, и через год он разошёлся
+// бы с каталогом.
+$socialIconDir = __DIR__ . '/../assets/images/social/';
+
+// Подписи. Слаг файла не всегда читается: ok - это «OK», а не «Ok».
+// Нет ключа - берётся ucfirst от имени файла, поэтому иконка вне
+// словаря всё равно будет подписана и выбрана.
+$socialIconLabels = [
+    'vk' => 'VK',
+    'telegram' => 'Telegram',
+    'whatsapp' => 'WhatsApp',
+    'youtube' => 'YouTube',
+    'ok' => 'Одноклассники',
+    'viber' => 'Viber',
+];
+
+$socialIcons = [];
+if (is_dir($socialIconDir)) {
+    $found = scandir($socialIconDir);
+    if ($found !== false) {
+        foreach ($found as $file) {
+            if (!str_ends_with($file, '.svg')) {
+                continue;
+            }
+            $slug = pathinfo($file, PATHINFO_FILENAME);
+            $socialIcons[] = [
+                'path' => '/assets/images/social/' . $file,
+                'label' => $socialIconLabels[$slug] ?? ucfirst($slug),
+            ];
+        }
+    }
+    // Сортировка по подписи, а не по файлу: иначе ok встал бы между
+    // odnoklassniki и telegram, и список выглядел бы случайным.
+    usort($socialIcons, static fn(array $a, array $b): int => strcmp($a['label'], $b['label']));
 }
 ?>
                 <?php // контакты и брендинг - две отдельные
@@ -338,6 +406,99 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                 </article>
 
                 <!--
+                    Соцсети. Карточка стоит ВНЕ формы настроек, как и карта:
+                    у неё своя форма с полем socialAction и свой multipart
+                    для загрузки иконки. Вложенная форма недопустима в HTML,
+                    и закрывать её пришлось бы перед этим блоком, ломая
+                    разметку брендинга.
+                -->
+                <article class="settings-block">
+                    <h2 class="settings-block__title">Соцсети</h2>
+                    <p class="settings-block__hint">
+                        Показываются в блоке «Свяжитесь с нами» на главной.
+                        Порядок вывода — по полю «Порядок», потом по ID.
+                        Соцсеть с пустой ссылкой не выводится вовсе, а
+                        выключенная скрывается, но остаётся в списке.
+                    </p>
+
+<?php if ($socialLinks): ?>
+                    <div class="table-wrap">
+                        <table class="table social-table">
+                            <thead>
+                                <tr>
+                                    <th class="social-table__icon" title="Иконка"></th>
+                                    <th>Название</th>
+                                    <th class="social-table__url">Ссылка</th>
+                                    <th class="social-table__sort">Порядок</th>
+                                    <th class="social-table__actions"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+<?php foreach ($socialLinks as $social): ?>
+                                <tr data-link-id="<?= (int) $social['link_id'] ?>"
+                                    data-link-url="<?= escape((string) $social['link_url']) ?>">
+                                    <td>
+                                        <img class="social-row__icon"
+                                             src="<?= escape(asset_url((string) $social['link_icon'])) ?>"
+                                             alt="" width="24" height="24">
+                                    </td>
+                                    <td>
+                                        <span class="social-row__name" title="<?= escape((string) $social['link_name']) ?>"><?= escape((string) $social['link_name']) ?></span>
+<?php // Бейдж стоит рядом с названием, а не своей колонкой: карточка
+     // настроек шириной 413px, шесть колонок в неё не помещались -
+     // таблица выходила на 783px и кнопки правки уезжали за край.
+     if ((int) $social['is_active'] === 1): ?>
+                                        <span class="badge badge--success">показ</span>
+<?php else: ?>
+                                        <span class="badge">скрыта</span>
+<?php endif; ?>
+                                    </td>
+                                    <td class="social-table__url">
+<?php if ((string) $social['link_url'] !== ''): ?>
+                                        <a href="<?= escape((string) $social['link_url']) ?>"
+                                           target="_blank" rel="noopener noreferrer"
+                                           class="link-muted"
+                                           title="<?= escape((string) $social['link_url']) ?>"><?= escape((string) $social['link_url']) ?></a>
+<?php else: ?>
+                                        <span class="settings-list__hint">не задана</span>
+<?php endif; ?>
+                                    </td>
+                                    <td class="social-table__sort"><?= (int) $social['sort_order'] ?></td>
+                                    <td class="social-table__actions">
+                                        <button type="button" class="btn-icon btn-icon--muted"
+                                                data-action="edit-social"
+                                                data-link-id="<?= (int) $social['link_id'] ?>"
+                                                title="Редактировать"
+                                                aria-label="Редактировать <?= escape((string) $social['link_name']) ?>">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                        </button>
+                                        <button type="button" class="btn-icon btn-icon--danger"
+                                                data-action="delete-social"
+                                                data-link-id="<?= (int) $social['link_id'] ?>"
+                                                data-link-name="<?= escape((string) $social['link_name']) ?>"
+                                                title="Удалить"
+                                                aria-label="Удалить <?= escape((string) $social['link_name']) ?>">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+<?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+<?php else: ?>
+                    <p class="settings-list__hint">Пока ни одной соцсети не заведено.</p>
+<?php endif; ?>
+
+                    <div class="modal-actions"><div class="modal-actions-right">
+                        <button type="button" class="btn btn--primary"
+                                data-action="add-social">
+                            + Добавить соцсеть
+                        </button>
+                    </div></div>
+                </article>
+
+                <!--
                     модалка обновления карты. Геокодирование идёт через
                     Nominatim прямо из браузера админа, снимок делает
                     html2canvas и отправляет на сервер одним POST.
@@ -380,3 +541,99 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                         </div>
                     </div>
                 </dialog>
+
+                <!--
+                    Модалка соцсети. Своя форма с полем socialAction:
+                    отдельная от формы настроек, поэтому её нельзя было бы
+                    положить внутрь той. enctype обязателен из-за загрузки
+                    своей иконки.
+
+                    Значения полей заполняет JS из строки таблицы, а при
+                    добавлении очищает. Сервер при этом ничего не берёт
+                    из атрибутов: всё приходит полями POST.
+                -->
+                <dialog id="socialModal" class="modal">
+                    <form method="post" class="modal-form"
+                          action="/admin.php?tab=settings"
+                          enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                        <input type="hidden" name="socialAction" value="save">
+                        <input type="hidden" name="linkId" id="socialLinkId" value="0">
+
+                        <h2 id="socialModalTitle">Добавить соцсеть</h2>
+
+                        <div class="form-group">
+                            <label class="form-label" for="socialName">Название</label>
+                            <input class="input" type="text" name="link_name" id="socialName"
+                                   maxlength="50" placeholder="ВКонтакте">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="socialUrl">Ссылка</label>
+                            <input class="input" type="url" name="link_url" id="socialUrl"
+                                   maxlength="255" placeholder="https://vk.com/aioncorp">
+                            <p class="form-hint">Должна начинаться с http:// или https://</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Иконка</label>
+                            <div class="social-icon-picker">
+<?php foreach ($socialIcons as $icon): ?>
+                                <label class="social-icon-option">
+                                    <input type="radio" name="link_icon"
+                                           value="<?= escape($icon['path']) ?>">
+                                    <span class="social-icon-option__box">
+                                        <img src="<?= escape(asset_url($icon['path'])) ?>" alt="">
+                                        <span><?= escape($icon['label']) ?></span>
+                                    </span>
+                                </label>
+<?php endforeach; ?>
+                            </div>
+                            <p class="form-hint">
+                                Свой вариант (SVG, PNG или WebP до 500 КБ) перекрывает
+                                выбор сверху: если файл выбран, он и сохранится.
+                            </p>
+                            <label class="btn btn--secondary btn--sm">
+                                <input type="file" name="link_icon_upload"
+                                       accept="image/svg+xml,image/png,image/webp"
+                                       style="display:none">
+                                Загрузить свою
+                            </label>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="socialSort">Порядок</label>
+                                <input class="input" type="number" name="sort_order"
+                                       id="socialSort" value="10" min="0" max="999">
+                                <p class="form-hint">Меньше - выше в списке</p>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Показ</label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="is_active"
+                                           id="socialActive" value="1" checked>
+                                    Показывать на главной
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions"><div class="modal-actions-right">
+                            <button type="button" class="btn btn--secondary" data-action="close-modal">Отмена</button>
+                            <button type="submit" class="btn btn--primary">Сохранить</button>
+                        </div></div>
+                    </form>
+                </dialog>
+
+                <!--
+                    Удаление отдельной формой. Кнопка «удалить» в строке
+                    таблицы не может сама быть submit - её форма находится
+                    в модалке. Скрытая форма с тремя полями - самый
+                    короткий путь без обработчика на каждый <form>.
+                -->
+                <form id="deleteSocialForm" method="post" action="/admin.php?tab=settings"
+                      class="hidden-form">
+                    <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                    <input type="hidden" name="socialAction" value="delete">
+                    <input type="hidden" name="linkId" value="0">
+                </form>

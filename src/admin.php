@@ -1005,6 +1005,262 @@ if ($isAdmin && isset($_POST['useFaviconVariant'])) {
         : 'bad=favicon_variant'));
     exit();
 }
+// Соцсети: сохранение и удаление строк social_links.
+//
+// Отдельная форма с полем socialAction, а не часть формы настроек: у
+// соцсетей своя карточка со своей формой и свой multipart, а вложенные
+// формы в HTML недопустимы.
+//
+// Обработчик стоит выше рендера вкладки, поэтому проверка CSRF не
+// обходится порядком блоков, как это было с useFaviconVariant.
+if ($isAdmin && isset($_POST['socialAction'])) {
+    csrf_verify();
+
+    $socialAction = (string) $_POST['socialAction'];
+    $socialLinkId = (int) ($_POST['linkId'] ?? 0);
+
+    // Накапливаем коды ошибок и уходим разом: одна неудачная отправка
+    // не должна оставлять админа с одним из десяти жалоб подряд.
+    $socialBad = [];
+
+    if ($socialAction === 'delete') {
+        if ($socialLinkId > 0) {
+            $stmt = db_prepare($mysql, 'DELETE FROM social_links WHERE link_id = ?', 'i', $socialLinkId);
+            $stmt->execute();
+        } else {
+            // linkId = 0 означал бы «удалить строку, которой нет».
+            $socialBad[] = 'social_not_found';
+        }
+
+        if ($socialBad === []) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=settings&saved=1');
+            exit();
+        }
+
+        csrf_rotate();
+        header('Location: /admin.php?tab=settings&bad=' . implode(',', $socialBad));
+        exit();
+    }
+
+    if ($socialAction !== 'save') {
+        csrf_rotate();
+        header('Location: /admin.php?tab=settings&bad=social_action');
+        exit();
+    }
+
+    require_once __DIR__ . '/modules/image.php';
+
+    // --- поля ---
+    $socialName = trim((string) ($_POST['link_name'] ?? ''));
+    $socialUrl = trim((string) ($_POST['link_url'] ?? ''));
+    $socialSort = max(0, min(999, (int) ($_POST['sort_order'] ?? 0)));
+    // Галочка не присылается, когда снята: отсутствие поля и есть «нет».
+    $socialActive = !empty($_POST['is_active']) ? 1 : 0;
+
+    if ($socialName === '') {
+        $socialBad[] = 'social_name';
+    } elseif (mb_strlen($socialName, 'UTF-8') > 50) {
+        $socialBad[] = 'social_name_long';
+    }
+
+    // Схема http(s) обязательна. Без проверки в поле «Ссылка» попал бы
+    // javascript:alert(1), и он исполнился бы по клику в блоке
+    // соцсетей - это тот же XSS, только через админку.
+    if ($socialUrl === '' || preg_match('#^https?://#i', $socialUrl) !== 1) {
+        $socialBad[] = 'social_url';
+    } elseif (mb_strlen($socialUrl, 'UTF-8') > 255) {
+        $socialBad[] = 'social_url_long';
+    }
+
+    // --- иконка ---
+    //
+    // Сначала загруженный файл, потом выбор из списка: загруженная
+    // иконка должна перекрывать предустановленную, иначе админ
+    // загрузил бы файл и удивился, что сохранилась старая.
+    $socialIcon = '';
+
+    $socialUpload = $_FILES['link_icon_upload'] ?? null;
+    if (is_array($socialUpload) && ($socialUpload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        $socialIcon = social_icon_store_upload($socialUpload);
+        if ($socialIcon === '') {
+            $socialBad[] = 'social_icon_upload';
+        }
+    }
+
+    if ($socialIcon === '') {
+        $socialIcon = trim((string) ($_POST['link_icon'] ?? ''));
+        // Путь сверяется с белым списком каталогов, а не ищется на диске:
+        // строка из POST не должна указывать ни на что, кроме иконок.
+        // Иначе в link_icon можно было бы записать /etc/passwd, и он
+        // пошёл бы дальше в атрибут src на главной.
+        if (preg_match('#^/assets/(images/social/[a-z0-9_.-]+\.svg|uploads/social/[a-z0-9_.-]+\.(?:svg|png|webp))$#i', $socialIcon) !== 1) {
+            $socialIcon = '';
+            $socialBad[] = ($socialBad === [] ? 'social_icon' : 'social_icon_unsafe');
+        }
+    }
+
+    if ($socialIcon === '') {
+        $socialBad[] = 'social_icon';
+    }
+
+    if ($socialBad !== []) {
+        csrf_rotate();
+        header('Location: /admin.php?tab=settings&bad=' . implode(',', array_unique($socialBad)));
+        exit();
+    }
+
+    // --- запись ---
+    //
+    // Редактирование несуществующей строки сообщает об ошибке, а не
+    // молча создаёт новую: иначе рассинхронизация между id в форме и
+    // строкой в таблице выглядела бы как «изменения не сохранились».
+    if ($socialLinkId > 0) {
+        $stmt = db_prepare($mysql, 'SELECT COUNT(*) FROM social_links WHERE link_id = ?', 'i', $socialLinkId);
+        $stmt->execute();
+        if ((int) $stmt->get_result()->fetch_row()[0] === 0) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=settings&bad=social_not_found');
+            exit();
+        }
+
+        $stmt = db_prepare(
+            $mysql,
+            'UPDATE social_links
+                SET link_name = ?, link_url = ?, link_icon = ?, sort_order = ?, is_active = ?
+              WHERE link_id = ?',
+            'sssiii',
+            $socialName,
+            $socialUrl,
+            $socialIcon,
+            $socialSort,
+            $socialActive,
+            $socialLinkId
+        );
+        $stmt->execute();
+    } else {
+        $stmt = db_prepare(
+            $mysql,
+            'INSERT INTO social_links (link_name, link_url, link_icon, sort_order, is_active)
+             VALUES (?, ?, ?, ?, ?)',
+            'sssii',
+            $socialName,
+            $socialUrl,
+            $socialIcon,
+            $socialSort,
+            $socialActive
+        );
+        $stmt->execute();
+    }
+
+    // Токен одноразовый в рамках загрузки страницы: без ротации
+    // следующая отправка получила бы 403 по причине, ничего не
+    // объясняющей.
+    csrf_rotate();
+    header('Location: /admin.php?tab=settings&saved=1');
+    exit();
+}
+
+// Загруженная иконка соцсети -> путь от корня сайта.
+//
+// Отдельная функция, а не тело обработчика: ею же пользуется проверка,
+// и держать её рядом с веткой save невозможно - ветка на двести строк
+// уже есть.
+//
+// Имя файла генерируется, а не берётся из формы: имя из POST может
+// содержать «../» и записать файл вне uploads. Оригинал теряется
+// намеренно - ссылка на старый файл всё равно была бы в link_icon
+// соседних строк, если он сам не переименовывался.
+if (!function_exists('social_icon_store_upload')) {
+    /**
+     * @param array|null $file элемент из $_FILES
+     * @return string путь вида /assets/uploads/social/xxx.svg или '' при ошибке
+     */
+    function social_icon_store_upload(?array $file): string
+    {
+        if ($file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return '';
+        }
+
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            return '';
+        }
+
+        // 500 КБ: иконка рисуется в 24x24, крупнее бессмысленно, а
+        // лимит защищает uploads от случайно загруженного архива.
+        if (filesize($tmp) > 512000) {
+            return '';
+        }
+
+        require_once __DIR__ . '/image.php';
+        $mime = detect_image_mime($tmp);
+        $extByMime = [
+            'image/svg+xml' => 'svg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+        ];
+        if (!isset($extByMime[$mime])) {
+            return '';
+        }
+        $ext = $extByMime[$mime];
+
+        $dir = __DIR__ . '/../assets/uploads/social';
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return '';
+        }
+
+        $bytes = (string) @file_get_contents($tmp);
+
+        if ($ext === 'svg') {
+            $bytes = social_icon_sanitize_svg($bytes);
+            if ($bytes === '') {
+                return '';
+            }
+        }
+
+        $name = 'icon-' . bin2hex(random_bytes(8)) . '.' . $ext;
+        if (@file_put_contents($dir . '/' . $name, $bytes) === false) {
+            return '';
+        }
+
+        return '/assets/uploads/social/' . $name;
+    }
+}
+
+// Удаление из SVG всего, что умеет выполняться.
+//
+// Файл кладётся в uploads и отдаётся с того же домена. Через <img>
+// скрипт внутри не исполнится - картинка не является контекстом
+// скриптов, - но при прямом открытии адреса браузер выполнит его от
+// имени того, кто открыл. Загрузка защищена CSRF, но файл потом доступен
+// всем, поэтому очистка всё равно нужна.
+//
+// Удаляются целиком: <script>, обработчики on*, <foreignObject>,
+// <iframe>, <object>, <embed> и javascript: в href.
+if (!function_exists('social_icon_sanitize_svg')) {
+    function social_icon_sanitize_svg(string $svg): string
+    {
+        if ($svg === '' || stripos($svg, '<svg') === false) {
+            return '';
+        }
+
+        $patterns = [
+            '#<script\b.*?</script>#is',
+            '#<foreignObject\b.*?</foreignObject>#is',
+            '#<(iframe|object|embed|use|set|animate)\b[^>]*/?>#is',
+            '#\son[a-z]+\s*=\s*"[^"]*"#i',
+            "#\son[a-z]+\s*=\s*'[^']*'#i",
+            '#javascript\s*:#i',
+        ];
+        foreach ($patterns as $pattern) {
+            $svg = (string) preg_replace($pattern, '', $svg);
+        }
+
+        return trim($svg);
+    }
+}
+
 
 // приём снимка карты с админской страницы.
 //

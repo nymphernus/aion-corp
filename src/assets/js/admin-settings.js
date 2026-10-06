@@ -611,4 +611,105 @@
             previewGeneratedFavicon();
         }
     });
+
+// --- Соцсети: модалка, заполнение, удаление ---
+    //
+    // Отдельный слушатель, как и у действий с иконкой: этот блок не
+    // связан ни с предпросмотром, ни с картой, и смешивать его с
+    // общим маршрутизатором data-action значило бы тянуть в одну
+    // ветку ещё четыре случая.
+
+    var socialModal = byId('socialModal');
+
+    // Показать соцсеть в модалке.
+    //
+    // linkId = 0 означает добавление. Ошибку сервера (например, пустое
+    // название) ловить не нужно: после неё страница перезагружается с
+    // кодом в адресе, а браузер сам восстановит значения из DOM при
+    // возврате. Своих проверок здесь нет намеренно - тогда форма и
+    // сервер проверяли бы одно и то же по-разному.
+    function openSocialModal(linkId) {
+        if (!socialModal || typeof socialModal.showModal !== 'function') return;
+
+        byId('socialModalTitle').textContent = linkId > 0 ? 'Редактировать соцсеть' : 'Добавить соцсеть';
+        byId('socialLinkId').value = linkId > 0 ? linkId : '0';
+        byId('socialName').value = '';
+        byId('socialUrl').value = '';
+        byId('socialSort').value = '10';
+        byId('socialActive').checked = true;
+
+        // Своя иконка из прошлого открытия сбросается: без этого файл
+        // остался бы выбранным и при добавлении новой соцсети, и
+        // сервер сохранил бы его вместо иконки из списка.
+        var upload = socialModal.querySelector('input[name="link_icon_upload"]');
+        if (upload) upload.value = '';
+
+        // Ни одна иконка не выбрана: серверу нужен явный выбор.
+        var radios = socialModal.querySelectorAll('input[name="link_icon"]');
+        for (var i = 0; i < radios.length; i++) radios[i].checked = false;
+
+        socialModal.showModal();
+    }
+
+    // Внести значения строки таблицы в модалку.
+    //
+    // Название и порядок берутся из ячеек, а ссылка - из data-link-url
+    // на самой строке. Из ячейки её брать нельзя: в ячейке адрес обрезан
+    // до 44 символов с многоточием, и такой обрезок попал бы в поле, а
+    // после сохранения записался бы в базу навсегда. Проверено: ссылка
+    // длиной 82 символа возвращалась в поле как «...UCverylongc…».
+    //
+    // Значения не дублируются в разметке кнопок: при первом же изменении
+    // строки они разошлись бы с тем, что видно в таблице.
+    function fillSocialModal(row, linkId) {
+        openSocialModal(linkId);
+
+        var cells = row.querySelectorAll('td');
+        if (cells.length < 4) return;
+
+        byId('socialName').value = (cells[1].textContent || '').trim();
+        byId('socialSort').value = (cells[3].textContent || '0').trim();
+        byId('socialUrl').value = row.getAttribute('data-link-url') || '';
+
+        // Пустая ссылка остаётся пустой и в поле: обрезанного значения у
+        // неё нет, а вместо неё в ячейке стоит подпись «не задана».
+        //
+        // Иконка отмечается сравнением с src картинки строки: query
+        // отбрасывается, иначе сравнение не сошлось бы с тем, что лежит
+        // в value радио-кнопок.
+        var icon = row.querySelector('.social-row__icon');
+        var wanted = icon ? (icon.getAttribute('src') || '').split('?')[0] : '';
+        var radios = socialModal.querySelectorAll('input[name="link_icon"]');
+        for (var i = 0; i < radios.length; i++) {
+            if (radios[i].value === wanted) {
+                radios[i].checked = true;
+                break;
+            }
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        var target = e.target.closest ? e.target.closest('[data-action]') : null;
+        if (!target) return;
+
+        var action = target.getAttribute('data-action');
+
+        if (action === 'add-social') {
+            e.preventDefault();
+            openSocialModal(0);
+        } else if (action === 'edit-social') {
+            e.preventDefault();
+            var row = target.closest('tr');
+            if (row) fillSocialModal(row, parseInt(target.getAttribute('data-link-id'), 10) || 0);
+        } else if (action === 'delete-social') {
+            e.preventDefault();
+            var form = byId('deleteSocialForm');
+            if (!form) return;
+            var name = target.getAttribute('data-link-name') || 'соцсеть';
+            if (!window.confirm('Удалить «' + name + '»?\nИконка и ссылка исчезнут с главной.')) return;
+            form.querySelector('input[name="linkId"]').value =
+                target.getAttribute('data-link-id') || '0';
+            form.submit();
+        }
+    });
 })();

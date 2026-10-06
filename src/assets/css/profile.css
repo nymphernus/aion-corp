@@ -619,6 +619,197 @@ h1{
     border: 1px solid var(--border);
 }
 
+/* --- Соцсети: таблица, выбор иконки, скрытая форма удаления --- */
+
+/* Иконка в строке таблицы. object-fit нужен потому, что загруженная
+   админом картинка может оказаться не квадратной, а колонка в
+   таблице фиксированной - без него картинка растолкнула бы строку. */
+.social-row__icon {
+    display: block;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+/* Таблица соцсетей.
+   Замер до правки: ширина таблицы 783px при ширине карточки 413px.
+   Кнопки правки и удаления уезжали за край, и до них нельзя было
+   добраться без горизонтальной прокрутки.
+
+   table-layout: fixed - главное. Без него браузер сам делит ширину по
+   содержимому, длинная ссылка растягивала свою колонку до 330px, а
+   колонки кнопок съезжали за пределы. С фиксированной раскладкой ширины
+   задаются правилами и держатся. */
+.social-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+/* Отступы ячеек уменьшены с 12px 16px до 10px 8px. Замер: при штатных
+   отступах пять колонок съедали 160px из 413px ширины карточки, и на
+   содержимое оставалось 253px - заголовок «Иконка» налезал на
+   «Название», а длинный адрес растягивал колонку. */
+.social-table th,
+.social-table td {
+    padding: 10px 8px;
+}
+
+/* Заголовки в этой таблице меньше штатных. Замер: при 13px uppercase с
+   разрядкой 0.05em слово «ИКОНКА» занимало 58px, а колонка давала 42px
+   - заголовок обрезался до «ИК...». Здесь заголовок подпись, а не
+   содержимое, и читается он с первого взгляда на таблицу. */
+.social-table th {
+    font-size: 11px;
+    letter-spacing: 0;
+}
+
+/* Заголовок не должен вылезать из своей колонки: обрезается
+   многоточием вместе с содержимым. */
+.social-table th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Ширины колонок под 413px ширины карточки. Замеры, которые к ним
+   привели:
+   - колонка действий 68px при двух кнопках по 32px и отступах 8+8 -
+     нужно 80px, из-за неё таблица вылезала на 8px;
+   - слово «ИКОНКА» в колонке 62px всё равно обрезалось;
+   - при ширине ссылки 110px на название оставалось 85px, и
+     «ВКонтакте» превращалось в «ВКонта...».
+   У колонки иконок заголовок убран в title: колонка из картинок
+   размером 24px подписывается сама, а место нужно названию.
+   Итого фиксированные 48 + 92 + 76 + 80 = 296, под название остаётся 117. */
+.social-table__icon {
+    width: 48px;
+}
+
+/* Ссылка обрезается многоточием средствами CSS, а не на сервере: при
+   обрезке в PHP оставалось два многоточия подряд и колонка всё равно не
+   использовалась целиком. Полный адрес - в title.
+
+   Класс стоит и на th, и на td: с table-layout: fixed ширину колонки
+   задаёт первая строка, то есть th, - но правила обрезки навешены на
+   содержимое ячейки, а до td это правило не доходило и ссылка вылезала
+   на 203px в колонке 130px. */
+.social-table__url {
+    width: 92px;
+}
+
+.social-table__url a,
+.link-muted {
+    /* link-muted в проекте не был определён, и ссылки выходили синими с
+       подчёркиванием - в таблице это тянуло строку и спорило с
+       основным текстом. Определяем здесь же: класс уже стоял в разметке. */
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.social-table__url a {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.social-table__url a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.social-table__sort {
+    width: 76px;
+}
+
+.social-table__actions {
+    width: 80px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.social-row__name {
+    /* Название и бейдж «показ» не влезали в одну строку - бейдж
+       переносился, и строка вырастала до 91px. Название обрезается, а
+       бейдж остаётся на виду: он короче и отвечает на вопрос «видна ли
+       соцсеть», который важнее длины названия. Полное название - в
+       title. */
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 3px;
+}
+
+.social-row__name + .badge {
+    white-space: nowrap;
+}
+
+/* Сетка выбора иконки: минимум 96px, дальше колонки по числу
+   помещающихся. auto-fill, а не auto-fit - пустые колонки при
+   неполном ряду не нужны, список растёт вниз ровными блоками. */
+.social-icon-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+    margin: 8px 0 12px;
+}
+
+/* Сам radio скрывается, но не display:none: иначе перестаёт работать
+   переключение по клику и ввод с клавиатуры. Кликается по обёртке
+   через <label>. */
+.social-icon-option input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.social-icon-option__box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 6px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 150ms;
+    text-align: center;
+}
+
+.social-icon-option__box img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.social-icon-option__box span {
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--text-secondary);
+    word-break: break-word;
+}
+
+.social-icon-option input:checked + .social-icon-option__box {
+    border-color: var(--accent);
+    background: var(--accent-light);
+}
+
+/* Фокус с клавиатуры должен быть виден. Радио скрыто, поэтому рамка
+   рисуется на обёртке - иначе при переборе стрелками ничто не
+   подсвечивалось бы. */
+.social-icon-option input:focus-visible + .social-icon-option__box {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Форма удаления соцсети: кнопка удаления в строке таблицы не может
+   сама быть submit, её форма находится в модалке. */
+.hidden-form {
+    display: none;
+}
+
 /* «Контакты», «Брендинг» и «Карта» - три отдельные карточки.
    Раньше брендинг был вложенным блоком с одним border-top и читался как
    хвост карточки контактов; теперь у каждого раздела своя рамка, и их
