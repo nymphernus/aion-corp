@@ -326,7 +326,9 @@ if (!empty($assemb['os'])) {
                 </div>
 
                 <h1 class="build-summary__title">
-                    <?php if ($idA <= 3) {
+                    <?php // признак базовой сборки - флаг is_base, а не номер:
+                          // номер у сборки витрины может быть любым.
+                          if ((int) ($assemb['is_base'] ?? 0) === 1) {
                         echo escape($assemb['assembly_name']);
                     } else {
                         echo 'Сборка ' . escape($assemb['assembly_name']);

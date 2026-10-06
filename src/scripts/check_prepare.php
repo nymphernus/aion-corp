@@ -67,9 +67,13 @@ foreach ($files as $file) {
     $problems = [];
 
     // Однострочный вызов: всё в одной строке.
-    $single = "/db_prepare\(\s*\\\$mysql,\s*(?P<q>['\"])(?<sql>[^'\"]+)(?P=q),\s*(?P<tq>['\"])(?<types>[a-z]*)(?P=tq),\s*(?<args>.*)\);\s*$/m";
+    // В строке типов допускается пробел - и именно из-за него класс
+    // символов шире, чем [a-z]: с пробелом mysqli падает с
+    // ArgumentCountError, и раньше такой вызов не попадал в проверку
+    // вовсе, а молча её обходил.
+    $single = "/db_prepare\(\s*\\\$mysql,\s*(?P<q>['\"])(?<sql>[^'\"]+)(?P=q),\s*(?P<tq>['\"])(?<types>[a-z ]*)(?P=tq),\s*(?<args>.*)\);\s*$/m";
     // Многострочный: SQL и типы на следующих строках.
-    $multi = "/db_prepare\(\s*\\\$mysql,\s*(?P<q>['\"])(?<sql>[^'\"]+)(?P=q),\s*(?P<tq>['\"])(?<types>[a-z]*)(?P=tq),\s*(?<args>.*?)\s*\);/s";
+    $multi = "/db_prepare\(\s*\\\$mysql,\s*(?P<q>['\"])(?<sql>[^'\"]+)(?P=q),\s*(?P<tq>['\"])(?<types>[a-z ]*)(?P=tq),\s*(?<args>.*?)\s*\);/s";
 
     if (preg_match_all($single, $code, $m1, PREG_SET_ORDER)) {
         foreach ($m1 as $m) {

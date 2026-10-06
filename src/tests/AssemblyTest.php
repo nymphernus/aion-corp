@@ -43,8 +43,11 @@ final class AssemblyTest extends AionTestCase
         $ids = self::$createdAssemblyIds;
         self::$createdAssemblyIds = [];
 
+        // Фильтр по is_base, а не по номеру: базовые сборки создаются
+        // тестами админки, и уборка «сборок старше пяти минут» не должна
+        // задевать витрину только потому, что у неё номер больше трёх.
         $stmt = db_prepare($mysql, "SELECT assembly_id FROM assembly
-            WHERE assembly_id > 3 AND created_at > ?", 's', $cutoff);
+            WHERE is_base = 0 AND created_at > ?", 's', $cutoff);
         $stmt->execute();
         $recent = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();

@@ -7,9 +7,15 @@
  * а просто подобрал и ушёл - нет, и такие сборки копятся без ограничений.
  *
  * Осиротевшей считается сборка, на которую нет ни строки в favorites, ни
- * строки в orders. Сборки 1-3 из сида не трогаются никогда: их зовут
+ * строки в orders. Базовые сборки витрины не трогаются никогда: их зовут
  * EinTech, Eternal и Magic Workbench, они витрина, а не результат
- * конфигуратора.
+ * конфигуратора, и заводятся админом вручную.
+ *
+ * Признак базовой - колонка assembly.is_base, а не номер сборки. Раньше
+ * здесь стояло «assembly_id > 3», и четвёртая базовая сборка, созданная
+ * админом, получала номер 4 и удалялась через час. Скрипт запускается при
+ * каждом старте контейнера, то есть минуту после создания сборки её уже
+ * могло не стать.
  *
  * Возраст берётся из assembly.created_at. У сборок, созданных до
  * появления колонки, стоит дата добавления колонки, поэтому первый запуск
@@ -30,8 +36,6 @@ if (php_sapi_name() !== 'cli') {
     http_response_code(403);
     exit('Access denied');
 }
-
-const SEED_ASSEMBLY_LIMIT = 3;
 
 $hours = 1;
 $dryRun = false;
@@ -81,6 +85,10 @@ try {
 mysqli_set_charset($mysql, 'utf8');
 
 $hasCreatedAt = false;
+// обе колонки проверяются до запроса, а не после. Без is_base запрос
+// с is_base = 0 упал бы с Unknown column, а без created_at - с другой
+// ошибкой; и то и другое после ALTER в migrate.php, который запускается
+// раньше. Отказ с инструкцией лучше молчаливого пропуска сирот.
 $stmt = db_prepare($mysql, "SHOW COLUMNS FROM assembly LIKE 'created_at'", '');
 $stmt->execute();
 $hasCreatedAt = (bool) $stmt->get_result()->fetch_assoc();
@@ -89,6 +97,20 @@ $stmt->close();
 if (!$hasCreatedAt) {
     fwrite(STDERR, 'В таблице assembly нет колонки created_at.' . PHP_EOL);
     fwrite(STDERR, "Выполните:ALTER TABLE assembly ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;" . PHP_EOL);
+    $mysql->close();
+    exit(1);
+}
+
+$stmt = db_prepare($mysql, "SHOW COLUMNS FROM assembly LIKE 'is_base'", '');
+$stmt->execute();
+$hasIsBase = (bool) $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$hasIsBase) {
+    fwrite(STDERR, 'В таблице assembly нет колонки is_base.' . PHP_EOL);
+    fwrite(STDERR, 'Без неё скрипт не может отличить базовую сборку от результата' . PHP_EOL);
+    fwrite(STDERR, 'конфигуратора и удалил бы витрину. Выполните:' . PHP_EOL);
+    fwrite(STDERR, "  php src/scripts/migrate.php" . PHP_EOL);
     $mysql->close();
     exit(1);
 }
@@ -103,13 +125,12 @@ $find = db_prepare(
      FROM assembly a
      LEFT JOIN favorites f ON f.assembly_id = a.assembly_id
      LEFT JOIN orders o ON o.assembly_id = a.assembly_id
-     WHERE a.assembly_id > ?
+     WHERE a.is_base = 0
        AND f.favorit_id IS NULL
        AND o.order_id IS NULL
        AND a.created_at < ?
      ORDER BY a.assembly_id",
-    'is',
-    SEED_ASSEMBLY_LIMIT,
+    's',
     $cutoff
 );
 $find->execute();
@@ -119,7 +140,7 @@ $find->close();
 echo 'Осиротевшие сборки' . PHP_EOL;
 echo '===================' . PHP_EOL;
 echo 'Порог: created_at < ' . $cutoff . ' (с ' . $hours . ' ч назад)' . PHP_EOL;
-echo 'Сидовые сборки 1-' . SEED_ASSEMBLY_LIMIT . ' не трогаются никогда.' . PHP_EOL;
+echo 'Базовые сборки (is_base = 1) не трогаются никогда.' . PHP_EOL;
 echo PHP_EOL;
 
 if (!$rows) {

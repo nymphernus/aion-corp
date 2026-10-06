@@ -276,7 +276,8 @@ if ($userProfile) {
 
     if (isset($_POST['deleteAssembly']) && isset($_POST['favoritId'])) {
         csrf_verify();
-        $stmt = db_prepare($mysql, "SELECT orders.assembly_id FROM users,assembly,orders WHERE ? = orders.assembly_id AND users.user_id = ?", "ii", $_POST['deleteAssembly'], $_SESSION['user_id']);
+        $assemblyId = (int) $_POST['deleteAssembly'];
+        $stmt = db_prepare($mysql, "SELECT orders.assembly_id FROM users,assembly,orders WHERE ? = orders.assembly_id AND users.user_id = ?", "ii", $assemblyId, $_SESSION['user_id']);
         $stmt->execute();
         $result = $stmt->get_result();
         $row = $result->fetch_array();
@@ -284,8 +285,17 @@ if ($userProfile) {
         $stmt = db_prepare($mysql, "DELETE FROM favorites WHERE favorit_id = ?", "i", $_POST['favoritId']);
         $stmt->execute();
 
-        if (($_POST['deleteAssembly'] > 3) && (!isset($row[0]))) {
-            $stmt = db_prepare($mysql, "DELETE FROM assembly WHERE assembly_id = ?", "i", $_POST['deleteAssembly']);
+        // Удалить саму сборку можно только если она не заказана и не
+        // базовая. Признак базовой - флаг, а не номер: у сборки витрины
+        // номер может быть любым, и под правило «больше трёх» попадала бы
+        // четвёртая базовая сборка - её удалил бы обычный пользователь
+        // из избранного, и она исчезла бы с главной.
+        $stmt = db_prepare($mysql, "SELECT is_base FROM assembly WHERE assembly_id = ?", "i", $assemblyId);
+        $stmt->execute();
+        $assemblyRow = $stmt->get_result()->fetch_assoc();
+
+        if (!isset($row[0]) && $assemblyRow !== null && (int) $assemblyRow['is_base'] === 0) {
+            $stmt = db_prepare($mysql, "DELETE FROM assembly WHERE assembly_id = ?", "i", $assemblyId);
             $stmt->execute();
         }
         header('Location: /profile.php');
@@ -851,7 +861,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 <?php
                                                 // без лишнего FROM users - фильтр идёт
                                                 // по favorites.user_id, порядок DESC
-                                                $sql = "SELECT a.assembly_name, a.assembly_price, a.assembly_id, f.favorit_id
+                                                $sql = "SELECT a.assembly_name, a.assembly_price, a.assembly_id, a.is_base, f.favorit_id
                                                         FROM favorites f
                                                         JOIN assembly a ON a.assembly_id = f.assembly_id
                                                         WHERE f.user_id = ?
@@ -873,7 +883,10 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 foreach ($favRows as $row) {
                                                     // явное поле вместо хрупкого $row[0]
                                                     $favName = $row['assembly_name'] ?? '';
-                                                    if (($row['assembly_id'] ?? 0) > 3) {
+                                                    // «Сборка » только для результатов конфигуратора:
+                                                    // у них имя вроде «#42», и без префикса в списке
+                                                    // оно ни о чём не говорит. Признак - флаг is_base
+                                                    if ((int) ($row['is_base'] ?? 0) === 0) {
                                                         $favName = "Сборка " . $favName;
                                                     }
                                                     // вся строка - ссылка на просмотр сборки
@@ -914,7 +927,7 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 // и так требует orders.created_at, поэтому такая
                                                 // «защита» лишь прятала бы ошибку.
                                                 $sql = "SELECT o.order_id, o.status, o.created_at,
-                                                               a.assembly_name, a.assembly_price, o.assembly_id
+                                                               a.assembly_name, a.assembly_price, a.is_base, o.assembly_id
                                                         FROM orders o
                                                         JOIN assembly a ON a.assembly_id = o.assembly_id
                                                         WHERE o.user_id = ?
@@ -939,7 +952,8 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 foreach ($ordRows as $row) {
                                                     // явное поле вместо хрупкого $row[0]
                                                     $ordAsmName = $row['assembly_name'] ?? '';
-                                                    if (($row['assembly_id'] ?? 0) > 3) {
+                                                    // тот же признак, что и в избранном, - флаг is_base
+                                                    if ((int) ($row['is_base'] ?? 0) === 0) {
                                                         $ordAsmName = "Сборка " . $ordAsmName;
                                                     }
                                                     $statusCls = (($row['status'] ?? '') === 'Выполнен') ? 'badge--success' : 'badge--warning';

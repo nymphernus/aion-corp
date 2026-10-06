@@ -60,7 +60,7 @@ $money = static fn (int $value): string => number_format($value, 0, ',', "\u{202
 // adminOrderRowData(), поэтому клик по строке открывает ту же модалку
 $lastOrders = [];
 $stmt = db_prepare($mysql, "SELECT o.order_id, o.status, o.created_at, o.assembly_id AS asm_id,
-                                   a.assembly_name, a.assembly_price,
+                                   a.assembly_name, a.assembly_price, a.is_base AS asm_is_base,
                                    users.user_id AS buyer_id, users.user_name, users.user_surname,
                                    users.user_login, users.user_group, users.user_email, users.user_number,
                                    users.user_postal_code, users.user_region, users.user_city,
@@ -76,9 +76,9 @@ $stmt = db_prepare($mysql, "SELECT o.order_id, o.status, o.created_at, o.assembl
 $stmt->execute();
 $lastOrdersResult = $stmt->get_result();
 while ($row = $lastOrdersResult->fetch_assoc()) {
-    // то же правило, что и в таблице заказов: сборки с id > 3 - это
-    // пользовательские, им приписывается «Сборка »
-    if ($row['asm_id'] > 3) {
+    // то же правило, что и в таблице заказов: «Сборка » приписывается
+    // результатам конфигуратора, а признак - флаг is_base
+    if ((int) ($row['asm_is_base'] ?? 0) === 0) {
         $row['assembly_name'] = 'Сборка ' . ($row['assembly_name'] ?? '');
     }
     $row['data'] = json_encode(adminOrderRowData($row));

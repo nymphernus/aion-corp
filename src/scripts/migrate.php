@@ -161,6 +161,7 @@ $tables = [
   `dvd_id` int DEFAULT NULL,
   `assembly_price` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `is_base` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`assembly_id`),
   KEY `cpu_id` (`cpu_id`, `gpu_id`, `motherboard_id`, `ram_id`, `case_id`, `cooler_id`, `power_supply_id`, `ssd_id`, `ssd_2_id`, `hdd_id`, `dvd_id`),
   KEY `gpu_id` (`gpu_id`),
@@ -174,6 +175,7 @@ $tables = [
   KEY `hdd_id` (`hdd_id`),
   KEY `dvd_id` (`dvd_id`),
   KEY `idx_created` (`created_at`),
+  KEY `idx_base` (`is_base`,`assembly_id`),
   CONSTRAINT `assembly_ibfk_1` FOREIGN KEY (`cpu_id`) REFERENCES `components` (`component_id`),
   CONSTRAINT `assembly_ibfk_2` FOREIGN KEY (`gpu_id`) REFERENCES `components` (`component_id`),
   CONSTRAINT `assembly_ibfk_3` FOREIGN KEY (`motherboard_id`) REFERENCES `components` (`component_id`),
@@ -289,6 +291,14 @@ foreach ($tables as $name => $ddl) {
 // ---------------------------------------------------------------------------
 
 $columnMigrations = [
+    // is_base отличает базовые сборки витрины от результатов конфигуратора.
+    //
+    // До этого признаком служил номер: сборки 1-3 из сида считались
+    // базовыми, всё остальное - пользовательским. Номер - не признак:
+    // админ создаёт четвёртую базовую сборку, она получает номер 4, и
+    // cleanup_orphans.php удалял её через час как сироту. Флаг решает
+    // это и заодно снимает хрупкое сравнение в пяти других местах кода.
+    ['assembly', 'is_base', "ALTER TABLE `assembly` ADD COLUMN `is_base` tinyint(1) NOT NULL DEFAULT 0"],
     // ['table', 'column', 'ALTER-выражение после ADD COLUMN']
     // пример будущей миграции:
     // ['users', 'two_factor', "ALTER TABLE `users` ADD COLUMN `two_factor` tinyint(1) NOT NULL DEFAULT '0'"],
@@ -309,8 +319,58 @@ foreach ($columnMigrations as [$table, $column, $alter]) {
     }
     mig_exec($mysql, $dryRun, $alter);
     mig_log("  [alter] {$table}.{$column}");
+
+    // Разметка сидовых сборок живёт здесь, а не отдельным шагом ниже.
+    //
+    // Причина: базовыми были ровно сборки 1-3, и других базовых на базе
+    // не было. Повторять UPDATE «пометить 1-3» при каждом запуске
+    // опасно: на чистой базе первая сборка, созданная админом, получает
+    // номер 1 - и следующий запуск migrate.php пометил бы её как базовую
+    // без всяких оснований. Привязка к появлению колонки выполняет
+    // разметку ровно один раз и на той базе, где она нужна.
+    if ($table === 'assembly' && $column === 'is_base') {
+        mig_exec(
+            $mysql,
+            $dryRun,
+            'UPDATE assembly SET is_base = 1 WHERE assembly_id IN (1, 2, 3)'
+        );
+        mig_log('  [data] сборки 1-3 помечены как базовые');
+    }
 }
 if ($columnMigrations === []) {
+    mig_log('  нет активных');
+}
+
+// Индексы отдельным списком от $columnMigrations: там проверяется
+// «колонка есть», а у индекса своя проверка - существование в
+// information_schema.STATISTICS. Смешивать их нельзя ещё и потому, что
+// один ALTER может добавить и то и другое, - тогда пропуск по колонке
+// тихо оставил бы базу без индекса.
+$indexMigrations = [
+    // Главная берёт базовые сборки одним запросом, cleanup - оставшиеся.
+    // На текущем объёме (десятки строк) полный проход дешевле любого
+    // индекса, но список витрины растёт вместе с базой, и idx_base
+    // покрывает оба запроса сразу: сборка и фильтр по флагу.
+    ['assembly', 'idx_base', 'ALTER TABLE `assembly` ADD INDEX `idx_base` (`is_base`, `assembly_id`)'],
+];
+
+$indexExists = static function (mysqli $mysql, string $table, string $index): bool {
+    $stmt = $mysql->prepare("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?");
+    $stmt->bind_param('ss', $table, $index);
+    $stmt->execute();
+    return (bool) $stmt->get_result()->fetch_row()[0];
+};
+
+mig_log('=== миграция индексов ===');
+foreach ($indexMigrations as [$table, $index, $alter]) {
+    if ($indexExists($mysql, $table, $index)) {
+        mig_log("  [skip] {$table}.{$index} (уже есть)");
+        continue;
+    }
+    mig_exec($mysql, $dryRun, $alter);
+    mig_log("  [index] {$table}.{$index}");
+}
+if ($indexMigrations === []) {
     mig_log('  нет активных');
 }
 

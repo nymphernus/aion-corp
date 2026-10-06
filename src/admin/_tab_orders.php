@@ -55,6 +55,7 @@ if (!defined('ADMIN_CONTEXT')) {
 
                         $sql = "SELECT user_name,user_surname,user_address,assembly_name,assembly_price,order_id,status,
                                        users.user_id AS buyer_id, assembly.assembly_id AS asm_id,
+                                       assembly.is_base AS asm_is_base,
                                        orders.created_at, users.user_email, users.user_number,
                                        users.user_login, users.user_group,
                                        users.user_postal_code, users.user_region, users.user_city,
@@ -85,8 +86,10 @@ if (!defined('ADMIN_CONTEXT')) {
                             </tr></thead><tbody>";
                         if ($result) {
                             while ($row = $result->fetch_array()) {
-                                // колонка переименована в asm_id, условие обновлено
-                                if ($row['asm_id'] > 3) {
+                                // «Сборка » добавляется только к результатам
+                                // конфигуратора. Признак - флаг is_base, а не
+                                // номер сборки: номер у сборок витрины любой
+                                if ((int) ($row['asm_is_base'] ?? 0) === 0) {
                                     $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
                                 }
                                 // колонка адреса - из user_city, как в таблице пользователей.
