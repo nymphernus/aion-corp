@@ -469,18 +469,35 @@
             return;
         }
 
+        // Data URL, а не object URL - и не из-за памяти (хотя и это
+        // осталось бы верным: object URL пришлось бы отзывать вручную),
+        // а потому что CSP проекта в img-src разрешает 'self', data: и
+        // тайлы OpenStreetMap, и НЕ разрешает blob:. С object URL
+        // браузер молча блокировал картинку: img отдавал naturalWidth
+        // 0 и показывал битую иконку, хотя сервер отвечал валидным PNG.
+        // Заметить это можно было только глазами - ни в консоли, ни в
+        // ответе сервера ошибки нет. Тот же приём уже применён к
+        // предпросмотру загруженного файла выше, в brandingPreviews.
         var blob = await resp.blob();
-        // Прежний object URL отпускаем, иначе он держит blob в памяти до
-        // перезагрузки страницы, а предпросмотров за сессию может быть
-        // много.
-        if (preview.dataset.previewUrl) {
-            URL.revokeObjectURL(preview.dataset.previewUrl);
-        }
-        var url = URL.createObjectURL(blob);
-        preview.dataset.previewUrl = url;
-        preview.src = url;
+        var dataUrl = await blobAsDataUrl(blob);
+        preview.src = dataUrl;
         preview.classList.add('is-loaded');
         setFaviconNotice('Нажмите «Сохранить», чтобы применить иконку.');
+    }
+
+    // FileReader оборачиваем в промис: в остальном коде он используется
+    // через onload, а здесь результат нужен дальше по потоку функции.
+    function blobAsDataUrl(blob) {
+        return new Promise(function (resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function (ev) {
+                resolve(ev.target.result);
+            };
+            reader.onerror = function () {
+                reject(new Error('Не удалось прочитать сгенерированную иконку'));
+            };
+            reader.readAsDataURL(blob);
+        });
     }
 
     function faviconNoticeText(code, letter) {
