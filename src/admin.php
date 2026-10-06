@@ -684,6 +684,10 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
 if ($isAdmin && isset($_POST['saveSettings'])) {
     csrf_verify();
 
+    // Ошибки показываются на странице после редиректа, а не роняют
+    // обработку: часть настроек к этому моменту уже может быть записана.
+    $errors = [];
+
     // Белый список: ключи из POST не должны попадать в запрос как есть.
     // Здесь только значения, ключ берётся из этого списка.
     // Stage 9: добавились ключи брендинга - по тому же правилу, что и
@@ -697,7 +701,8 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
         'contact_vk', 'contact_telegram', 'contact_whatsapp',
         'map_address_text',
         'site_name', 'site_description', 'site_founded_year',
-        'site_logo_url', 'site_favicon_url', 'site_favicon_png_url',
+        'site_logo_url', 'site_favicon_png_url',
+        'favicon_letter', 'favicon_bg',
     ];
 
     $values = [];
@@ -735,7 +740,7 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     // опасен: значение попадает в src логотипа и favicon, то есть в
     // админку на каждой странице. Принимается и абсолютный путь, и
     // относительный без слеша (в бате так хранятся картинки корпусов).
-    foreach (['site_logo_url', 'site_favicon_url', 'site_favicon_png_url'] as $imgKey) {
+    foreach (['site_logo_url', 'site_favicon_png_url'] as $imgKey) {
         $value = $values[$imgKey] ?? '';
         if ($value === '') {
             continue;
@@ -759,19 +764,44 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
         $values['site_logo_url'] = $logo['url'];
     }
 
-    // Фавикон приходит одним файлом, а хранится в двух видах: svg для
-    // современных браузеров и png для старых, которые svg не понимают.
-    // Поэтому файл идёт в тот ключ, который соответствует его типу, а
-    // второй ключ при этом сбрасывается: оставить старый svg после
-    // загрузки нового png значило бы показывать старую иконку в
-    // современном браузере (он берёт первую поддерживаемую).
-    $favicon = branding_store($_FILES['branding_favicon'] ?? null, 'favicon', 'site_favicon_url');
-    if ($favicon['url'] !== '') {
-        if ($favicon['is_svg']) {
-            $values['site_favicon_url'] = $favicon['url'];
+    // ПРАВКА 4: favicon - только PNG, и два способа его получить.
+    //
+    // Загруженный файл важнее сгенерированного: если админ выбрал свою
+    // иконку, генератор не должен тут же переписать её своей буквой.
+    $faviconUpload = store_favicon_upload($_FILES['favicon_upload'] ?? null);
+    if ($faviconUpload['ok']) {
+        $values['site_favicon_png_url'] = $faviconUpload['url'];
+    } elseif ($faviconUpload['error'] !== null) {
+        // Загрузка была, но файл не подошёл. Генератор здесь не
+        // запускается намеренно: иначе админ загрузил бы негодную
+        // картинку, получил бы вместо неё иконку с буквой и потерял бы
+        // прежнюю, ничего не поняв.
+        $errors[] = $faviconUpload['error'];
+    } elseif (array_key_exists('favicon_letter', $_POST) || array_key_exists('favicon_bg', $_POST)) {
+        // Файла нет и блок иконки в форме трогали - значит иконку надо
+        // перегенерировать. Условие важно: при сохранении формы, где
+        // блок иконки не отправляли вовсе, иконка остаётся как была.
+        // Перегенерация идёт всегда, а не только при смене буквы: файл
+        // могли удалить с диска, и тогда иконка в вкладке исчезла бы
+        // молча.
+        $letter = trim((string) ($_POST['favicon_letter'] ?? ''));
+        $letterError = favicon_letter_error($letter);
+        if ($letterError !== '') {
+            $errors[] = $letterError;
         } else {
-            $values['site_favicon_png_url'] = $favicon['url'];
-            $values['site_favicon_url'] = '';
+            $path = generate_favicon($letter, (string) ($_POST['favicon_bg'] ?? '#7C3AED'));
+            if ($path === null) {
+                $errors[] = 'favicon_generate';
+            } else {
+                $values['site_favicon_png_url'] = $path;
+                // Буква и цвет сохраняются здесь, а не только из
+                // белого списка: там они прошли бы trim без всякой
+                // проверки, и в поле цвета попал бы мусор, который
+                // input type=color не покажет.
+                $values['favicon_letter'] = $letter;
+                $bg = (string) ($_POST['favicon_bg'] ?? '');
+                $values['favicon_bg'] = preg_match('/^#[0-9a-fA-F]{6}$/', $bg) === 1 ? $bg : '#7C3AED';
+            }
         }
     }
 
@@ -792,17 +822,52 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     if (array_key_exists('site_logo_url', $values) && $values['site_logo_url'] === '') {
         $values['site_logo_url'] = '/assets/images/logo.png';
     }
-    if (array_key_exists('site_favicon_url', $values) && $values['site_favicon_url'] === '') {
-        $values['site_favicon_url'] = '/assets/images/favicon.svg';
-    }
     if (array_key_exists('site_favicon_png_url', $values) && $values['site_favicon_png_url'] === '') {
-        $values['site_favicon_png_url'] = '/assets/images/favicon.png';
+        $values['site_favicon_png_url'] = '/assets/images/branding/favicon.png';
     }
 
     site_setting_save($mysql, $values);
 
     csrf_rotate();
-    header('Location: /admin.php?tab=settings');
+    $location = '/admin.php?tab=settings';
+    if ($errors !== []) {
+        $location .= '&bad=' . rawurlencode(implode(', ', $errors));
+    }
+    header('Location: ' . $location);
+    exit();
+}
+
+// ПРАВКА 4: предпросмотр favicon. Отдельный обработчик, потому что ответ
+// здесь - не страница, а поток PNG: он показывается прямо в поле формы,
+// до нажатия «Сохранить».
+//
+// Файл не пишется: generate_favicon() создал бы branding/favicon.png
+// поверх текущей иконки, и «Сохранить» после предпросмотра уже ничего
+// не изменил бы. Поэтому рисуем в память тем же кодом, которым потом
+// сохраняем, - тогда предпросмотр совпадает с результатом побайтово.
+if ($isAdmin && isset($_POST['preview_favicon'])) {
+    csrf_verify();
+
+    $letter = trim((string) ($_POST['favicon_letter'] ?? ''));
+    $letterError = favicon_letter_error($letter);
+    if ($letterError !== '') {
+        http_response_code(422);
+        header('Content-Type: text/plain; charset=utf-8');
+        exit($letterError);
+    }
+
+    $bytes = favicon_png_bytes($letter, (string) ($_POST['favicon_bg'] ?? '#7C3AED'));
+    if ($bytes === null) {
+        http_response_code(500);
+        header('Content-Type: text/plain; charset=utf-8');
+        exit('favicon_generate');
+    }
+
+    // no-store обязателен: иначе браузер закэширует превью и второй
+    // предпросмотр с другой буквой показал бы прежнюю картинку.
+    header('Content-Type: image/png');
+    header('Cache-Control: no-store');
+    echo $bytes;
     exit();
 }
 

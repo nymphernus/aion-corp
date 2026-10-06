@@ -1326,18 +1326,19 @@ final class AdminTest extends AionTestCase
     }
 
     /**
-     * Stage 9: загрузка логотипа и favicon из формы настроек.
+     * Stage 9: загрузка логотипа из формы настроек.
      *
      * Проверяется полный путь: файл уходит в branding/, уменьшается до
      * 400px по ширине с сохранением пропорций, а site_settings получает
-     * новый путь с версией. Отдельно favicon- SVG: он кладётся как есть
-     * (GD конвертирует в растр, а растр под именем .svg браузер не
-     * нарисует) и при этом сбрасывает png-ключ - иначе браузер
-     * продолжал бы показывать старую иконку.
+     * новый путь с версией.
+     *
+     * Favicon-часть этого теста переехала в FaviconTest: после ПРАВКИ 4
+     * иконка одна и только PNG, а её делает генератор - проверять
+     * загрузку svg здесь было нечего.
      *
      * Настройки восстанавливаются в finally.
      */
-    public function testBrandingUploadSavesLogoAndFavicon(): void
+    public function testBrandingUploadSavesLogo(): void
     {
         $this->loginAsAdmin();
 
@@ -1348,7 +1349,7 @@ final class AdminTest extends AionTestCase
         // Все ключи брендинга, а не только картинки: обработчик
         // сохраняет весь белый список, поэтому тест обязан вернуть всё,
         // что задевает.
-        foreach (['site_logo_url', 'site_favicon_url', 'site_favicon_png_url', 'site_name'] as $key) {
+        foreach (['site_logo_url', 'site_favicon_png_url', 'favicon_letter', 'favicon_bg', 'site_name'] as $key) {
             $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $key);
             $st->execute();
             $before[$key] = (string) ($st->get_result()->fetch_row()[0] ?? '');
@@ -1367,12 +1368,10 @@ final class AdminTest extends AionTestCase
         imagepng($im, $logo);
         imagedestroy($im);
 
-        $favicon = sys_get_temp_dir() . '/brand-test-favicon.svg';
-        file_put_contents(
-            $favicon,
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
-            . '<rect width="32" height="32" fill="#1e40af"/></svg>'
-        );
+        // Иконка перезаписывается при сохранении с её блоком полей, и
+        // файл нужно вернуть не меньше, чем настройки.
+        $savedFavicon = $brandingDir . '/favicon.png';
+        $faviconWas = is_file($savedFavicon) ? (string) file_get_contents($savedFavicon) : null;
 
         try {
             $page = $this->httpGet('/admin.php?tab=settings');
@@ -1384,18 +1383,18 @@ final class AdminTest extends AionTestCase
                 'форма настроек должна принимать файлы'
             );
             $this->assertStringContainsString('name="branding_logo"', $page['body']);
-            $this->assertStringContainsString('name="branding_favicon"', $page['body']);
+            $this->assertStringContainsString('name="favicon_upload"', $page['body']);
 
             $r = $this->httpPostMultipart('/admin.php?tab=settings', [
                 'csrf_token' => $this->extractCsrf($page['body']),
                 'saveSettings' => '1',
                 'site_name' => 'TEST CORP',
                 'site_logo_url' => $before['site_logo_url'],
-                'site_favicon_url' => $before['site_favicon_url'],
                 'site_favicon_png_url' => $before['site_favicon_png_url'],
                 'branding_logo' => ['name' => 'brand-test-logo.png', 'type' => 'image/png', 'tmp_name' => $logo],
             ]);
             $this->assertSame(302, $r['code']);
+            $this->assertStringNotContainsString('bad=', $r['location'], 'сохранение должно пройти без ошибок');
 
             $mysql = connect();
             $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", 'site_logo_url');
@@ -1421,39 +1420,6 @@ final class AdminTest extends AionTestCase
                 (int) $info[1],
                 'пропорции должны сохраниться: 900x300 -> 400x133'
             );
-
-            // теперь favicon-файл в формате svg.
-            // Форму отправляем полной: обработчик сохраняет все ключи из
-            // белого списка, а отсутствующие поля приравниваются к пустым.
-            // Частичная отправка затёрла бы остальные настройки.
-            $page2 = $this->httpGet('/admin.php?tab=settings');
-            $r2 = $this->httpPostMultipart('/admin.php?tab=settings', [
-                'csrf_token' => $this->extractCsrf($page2['body']),
-                'saveSettings' => '1',
-                'site_name' => 'Aion Corporation',
-                'site_logo_url' => $logoUrl,
-                'site_favicon_url' => $before['site_favicon_url'],
-                'site_favicon_png_url' => $before['site_favicon_png_url'],
-                'branding_favicon' => ['name' => 'brand-test-favicon.svg', 'type' => 'image/svg+xml', 'tmp_name' => $favicon],
-            ]);
-            $this->assertSame(302, $r2['code']);
-
-            $mysql = connect();
-            $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", 'site_favicon_url');
-            $st->execute();
-            $favUrl = (string) $st->get_result()->fetch_row()[0];
-            $mysql->close();
-
-            $this->assertStringContainsString(
-                'favicon.svg',
-                $favUrl,
-                'загруженный svg должен занять svg-ключ'
-            );
-            $this->assertStringContainsString(
-                '<svg',
-                (string) @file_get_contents(dirname(__DIR__) . '/assets/images/branding/favicon.svg'),
-                'svg-файл должен быть сохранён как есть, а не перекодирован GD'
-            );
         } finally {
             $mysql = connect();
             foreach ($before as $key => $value) {
@@ -1461,9 +1427,12 @@ final class AdminTest extends AionTestCase
             }
             $mysql->close();
             @unlink($logo);
-            @unlink($favicon);
             @unlink($brandingDir . '/logo.png');
-            @unlink($brandingDir . '/favicon.svg');
+            if ($faviconWas === null) {
+                @unlink($savedFavicon);
+            } else {
+                @file_put_contents($savedFavicon, $faviconWas);
+            }
         }
     }
 

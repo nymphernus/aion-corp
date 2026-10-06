@@ -17,5 +17,13 @@ src/tests/.phpunit.result.cache
 # ishodniki proekta. Katalog nuzhen, fР°Р№Р» vnutri - net
 src/assets/uploads/*
 !src/assets/uploads/.gitkeep
+
+# ПРАВКА 4: иконку и логотип бренда делает админ - это данные владельца,
+# а не исходники. Каталог нужен, файлы внутри нет: миграция создаст
+# favicon.png заново из favicon_letter и favicon_bg, а логотип
+# загружается с нуля. Как и с uploads, без этого правила git стал бы
+# следить за чужими картинками.
+src/assets/images/branding/*
+!src/assets/images/branding/.gitkeep
 # 3.7-g-5: рабочий документ, в репозитории не нужен
 AGENT.md

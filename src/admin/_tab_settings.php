@@ -17,6 +17,27 @@
 //   $snapshotUrl — вычисляется ниже из $settings
 
 $snapshotUrl = site_setting($settings, 'map_snapshot_url');
+
+// Ошибки сохранения приходят в адрес (?bad=...), потому что обработчик
+// перезагружает страницу редиректом: та же форма не может одновременно
+// принять POST и отрисоваться с результатом. Коды переводятся здесь -
+// в адресе должен лежать текст, а не имя внутреннего кода.
+$badCodes = [
+    'branding_size' => 'Файл больше 2 МБ.',
+    'branding_mime' => 'Неподдерживаемый формат: нужен PNG, JPG или WebP.',
+    'branding_image' => 'Файл не читается как изображение.',
+    'branding_dir' => 'Не удалось создать каталог для файлов бренда.',
+    'favicon_generate' => 'Не удалось создать favicon.',
+    'favicon_letter_empty' => 'Укажите букву или цифру для иконки.',
+    'favicon_letter_unsupported' => 'Иконка рисуется только латиницей или цифрой. Для кириллицы загрузите свою картинку.',
+];
+$badMessages = [];
+foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
+    $code = trim($code);
+    if ($code !== '') {
+        $badMessages[] = $badCodes[$code] ?? $code;
+    }
+}
 ?>
                 <section class="card">
                     <h2>Контакты</h2>
@@ -32,6 +53,14 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
                     <form method="post" action="/admin.php?tab=settings"
                           enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+
+<?php if ($badMessages !== []): ?>
+                        <div class="alert alert--error" role="alert">
+<?php foreach ($badMessages as $badMessage): ?>
+                            <div><?= escape($badMessage) ?></div>
+<?php endforeach; ?>
+                        </div>
+<?php endif; ?>
 
                         <div class="modal-row">
                             <div class="form-group">
@@ -138,27 +167,50 @@ $snapshotUrl = site_setting($settings, 'map_snapshot_url');
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="form-label">Favicon</label>
+                                    <label class="form-label" for="faviconLetter">Favicon</label>
                                     <div class="branding-preview branding-preview--icon">
-                                        <img src="<?= escape(site_setting($settings, 'site_favicon_png_url', '/assets/images/favicon.png')) ?>"
-                                             alt="Favicon" id="faviconPreview">
+                                        <img src="<?= escape(site_setting($settings, 'site_favicon_png_url', '/assets/images/branding/favicon.png')) ?>"
+                                             alt="Favicon" id="faviconPreview" width="64" height="64">
                                     </div>
-                                    <input type="hidden" name="site_favicon_url"
-                                           value="<?= escape(site_setting($settings, 'site_favicon_url')) ?>">
-                                    <input type="hidden" name="site_favicon_png_url"
-                                           value="<?= escape(site_setting($settings, 'site_favicon_png_url')) ?>">
+
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label class="form-label" for="faviconLetter">Буква</label>
+                                            <input class="input" name="favicon_letter" id="faviconLetter"
+                                                   maxlength="1" inputmode="text" autocomplete="off"
+                                                   value="<?= escape(site_setting($settings, 'favicon_letter', 'A')) ?>"
+                                                   placeholder="A">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label" for="faviconBg">Цвет фона</label>
+                                            <input type="color" name="favicon_bg" id="faviconBg"
+                                                   value="<?= escape(site_setting($settings, 'favicon_bg', '#7C3AED')) ?>">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label" for="faviconGenerateSpacer">&nbsp;</label>
+                                            <button type="button" class="btn btn--secondary" id="faviconGenerate"
+                                                    data-action="generate-favicon">Сгенерировать</button>
+                                        </div>
+                                    </div>
+
                                     <label class="btn btn--secondary btn--sm">
-                                        <input type="file" id="brandingFaviconInput"
-                                               name="branding_favicon"
-                                               accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                                        <input type="file" id="faviconUploadInput"
+                                               name="favicon_upload"
+                                               accept="image/png,image/jpeg,image/webp"
                                                style="display:none">
-                                        Загрузить новый favicon
+                                        Загрузить свою (PNG/JPG)
                                     </label>
+                                    <input type="hidden" name="site_favicon_png_url"
+                                           id="faviconUrlInput"
+                                           value="<?= escape(site_setting($settings, 'site_favicon_png_url')) ?>">
+
                                     <p class="form-hint">
-                                        SVG положит в svg-иконку, растр — в png.
-                                        Вторую иконку при этом сбросит, иначе
-                                        браузер показывал бы старую.
+                                        Генератор делает PNG 64×64 из буквы и цвета — одна латинская
+                                        буква или цифра, кириллица встроенным шрифтом GD не рисуется.
+                                        Свою иконку можно загрузить: она уменьшится до 64×64 и
+                                        сохранится в PNG. Загруженная иконка важнее сгенерированной.
                                     </p>
+                                    <p class="form-hint" id="faviconNotice"></p>
                                 </div>
                             </div>
                         </div>

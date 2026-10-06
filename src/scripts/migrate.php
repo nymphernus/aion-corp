@@ -321,8 +321,13 @@ $settings = [
     'site_founded_year' => '2022',
     'site_description' => 'Уникальные компьютеры для игр, стриминга, работы с графикой, видео и большими объёмами данных',
     'site_logo_url' => '/assets/images/logo.png',
-    'site_favicon_url' => '/assets/images/favicon.svg',
-    'site_favicon_png_url' => '/assets/images/favicon.png',
+    // ПРАВКА 4: favicon делает генератор в branding/. Ключ
+    // site_favicon_url (svg) удалён миграцией ниже.
+    'site_favicon_png_url' => '/assets/images/branding/favicon.png',
+    // Буква и цвет иконки. Их два, потому что буква без цвета даёт
+    // чёрно-белую иконку, а цвет без буквы - просто квадрат.
+    'favicon_letter' => 'A',
+    'favicon_bg' => '#7C3AED',
 ];
 foreach ($settings as $key => $value) {
     $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = ?", "s", $key);
@@ -406,6 +411,58 @@ if ($legacyCopyright !== '') {
 
 mig_exec($mysql, $dryRun, "DELETE FROM site_settings WHERE setting_key = 'site_footer_copyright'", []);
 mig_log("  [migrate] удалён ключ site_footer_copyright");
+
+// ПРАВКА 4: svg-favicon больше не используется.
+//
+// Иконка теперь одна и только PNG, которую рисует генератор из буквы и
+// цвета. Ссылка на старый svg удаляется без переноса значения: подставить
+// его в site_favicon_png_url нельзя, ключ объявлен как image/png, и
+// браузер отверг бы такой ответ. Вместо переноса файл генерируется заново
+// из favicon_letter и favicon_bg.
+
+// Старый путь мог остаться в site_favicon_png_url, если иконку грузили
+// до ПРАВКИ 4 и лежал она ещё в assets/images. Настоящий путь один -
+// branding/favicon.png, иначе файл мог бы оказаться вне branding.
+$stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = 'site_favicon_png_url'", "");
+$stmt->execute();
+$faviconUrl = (string) ($stmt->get_result()->fetch_row()[0] ?? '');
+if ($faviconUrl !== '/assets/images/branding/favicon.png') {
+    mig_exec(
+        $mysql,
+        $dryRun,
+        "UPDATE site_settings SET setting_value = ? WHERE setting_key = 'site_favicon_png_url'",
+        ['/assets/images/branding/favicon.png'],
+        "s"
+    );
+    mig_log("  [migrate] site_favicon_png_url -> /assets/images/branding/favicon.png (было: $faviconUrl)");
+}
+
+mig_exec($mysql, $dryRun, "DELETE FROM site_settings WHERE setting_key = 'site_favicon_url'", []);
+mig_log("  [migrate] удалён ключ site_favicon_url (svg)");
+
+// Иконку генерируем, только если её нет на диске. Существующий файл -
+// это либо загруженная админом картинка, либо иконка, сгенерированная
+// ранее с другими настройками; перезаписывать её при каждом старте
+// контейнера означало бы терять загруженную иконку.
+$faviconFile = __DIR__ . '/../assets/images/branding/favicon.png';
+if (file_exists($faviconFile)) {
+    mig_log("  [skip] favicon.png уже есть на диске");
+} else {
+    $stmt = db_prepare($mysql, "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('favicon_letter', 'favicon_bg')", "");
+    $stmt->execute();
+    $fav = [];
+    foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+        $fav[$row['setting_key']] = (string) $row['setting_value'];
+    }
+    $letter = $fav['favicon_letter'] ?? 'A';
+    $bg = $fav['favicon_bg'] ?? '#7C3AED';
+    if (!$dryRun && function_exists('generate_favicon')) {
+        $made = generate_favicon($letter, $bg);
+        mig_log($made !== null ? "  [favicon] сгенерирован из буквы $letter, цвет $bg" : "  [favicon] не удалось сгенерировать");
+    } else {
+        mig_log("  [favicon] dry-run: был бы сгенерирован из буквы $letter, цвет $bg");
+    }
+}
 
 $mysql->close();
 mig_log('=== migrate завершён ===');

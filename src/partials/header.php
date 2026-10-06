@@ -33,8 +33,10 @@ if (!isset($settings) || !is_array($settings)) {
 $siteName = site_setting($settings, 'site_name', 'Aion Corporation');
 $siteDescription = site_setting($settings, 'site_description', '');
 $siteLogo = site_setting($settings, 'site_logo_url', '/assets/images/logo.png');
-$siteFavicon = site_setting($settings, 'site_favicon_url', '/assets/images/favicon.svg');
-$siteFaviconPng = site_setting($settings, 'site_favicon_png_url', '/assets/images/favicon.png');
+// ПРАВКА 4: одна иконка, PNG. Ключ site_favicon_url (svg) удалён
+// миграцией, а путь по умолчанию ведёт в branding, где иконку и
+// делает генератор.
+$siteFavicon = site_setting($settings, 'site_favicon_png_url', '/assets/images/branding/favicon.png');
 
 $extraCss = $extraCss ?? [];
 $bodyClass = $bodyClass ?? '';
@@ -71,21 +73,20 @@ $isLoggedIn = isset($_SESSION['user_id']);
 <?php foreach ($extraCss as $css): ?>
     <link rel="stylesheet" href="<?= escape(asset_url($css)) ?>">
 <?php endforeach; ?>
-    <!-- 7.5: svg-фавикон, png остаётся запасным вариантом.
+    <!-- ПРАВКА 4: иконка одна и только PNG.
 
-         Порядок важен: браузер берёт первый rel="icon", который
-         поддерживает. Старые не знают svg и пропустят его, новые
-         возьмут svg и не будут трогать тяжёлый png. Ссылка на png
-         объявлена как alternate icon - это не запасной вариант на
-         случай ошибки, а объявление второго кандидата; без неё
-         старый браузер показал бы иконку по умолчанию.
+         Раньше их было две - svg для современных браузеров и png для
+         старых, - и это стоило отдельного ключа настройки, отдельной
+         логики сброса («загрузил png - сбрось svg, иначе старый кандидат
+         продолжит показываться») и вечного риска, что показывается не
+         та картинка. Теперь иконку рисует сайт из site_settings, и
+         кандидат ровно один.
 
-         rel="shortcut icon" убран: он значил то же самое, а в HTML5
-         правильный способ - просто rel="icon". Короткое имя живёт в
-         rel ещё с IE, где требовалось указать его для всех прочих
+         rel="shortcut icon" тоже не нужен: он значил то же самое, а в
+         HTML5 правильный способ - просто rel="icon". Короткое имя живёт
+         в rel ещё с IE, где требовалось указать его для всех прочих
          ссылок на иконку. -->
-    <link rel="icon" href="<?= escape($siteFavicon) ?>" type="image/svg+xml">
-    <link rel="alternate icon" href="<?= escape($siteFaviconPng) ?>" type="image/png">
+    <link rel="icon" href="<?= escape($siteFavicon) ?>" type="image/png">
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;700&display=swap" rel="stylesheet">
 </head>
 <body<?= $bodyClass !== '' ? ' class="' . escape($bodyClass) . '"' : '' ?>>

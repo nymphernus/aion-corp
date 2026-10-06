@@ -22,7 +22,6 @@ final class BrandingTest extends AionTestCase
         'site_founded_year',
         'site_description',
         'site_logo_url',
-        'site_favicon_url',
         'site_favicon_png_url',
     ];
 

@@ -394,7 +394,7 @@
     // в памяти, а object URL пришлось бы отзывать вручную.
     var brandingPreviews = {
         brandingLogoInput: 'logoPreview',
-        brandingFaviconInput: 'faviconPreview'
+        faviconUploadInput: 'faviconPreview'
     };
 
     Object.keys(brandingPreviews).forEach(function (inputId) {
@@ -415,5 +415,92 @@
             };
             reader.readAsDataURL(file);
         });
+    });
+
+    // --- ПРАВКА 4: предпросмотр сгенерированного favicon ---
+    //
+    // Предпросмотр спрашивает сервер и получает готовый PNG, а не рисует
+    // его в браузере: рисовать дважды - значит поддерживать два разных
+    // результата, и рано или поздно они разойдутся. Сервер отдаёт байты
+    // из того же кода, которым потом сохраняет файл, поэтому картинка в
+    // форме совпадает с тем, что окажется в вкладке.
+    //
+    // Файл при этом не пишется: сохранение и предпросмотр разделены, и
+    // неудачный эксперимент не затирает текущую иконку.
+    async function previewGeneratedFavicon() {
+        var letterInput = byId('faviconLetter');
+        var bgInput = byId('faviconBg');
+        var preview = byId('faviconPreview');
+        var tokenField = document.querySelector('input[name="csrf_token"]');
+        if (!letterInput || !bgInput || !preview || !tokenField) return;
+
+        var letter = letterInput.value.trim();
+
+        var resp = await fetch('/admin.php?tab=settings', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                csrf_token: tokenField.value,
+                preview_favicon: '1',
+                favicon_letter: letter,
+                favicon_bg: bgInput.value
+            }).toString()
+        });
+
+        if (!resp.ok) {
+            // 422 с кодом ошибки в теле: буква не та. Показываем текст
+            // под полем, а не alert - alert сработал бы поверх формы и
+            // мешал бы её читать.
+            var why = (await resp.text()).trim();
+            setFaviconNotice(faviconNoticeText(why, letter));
+            return;
+        }
+
+        var blob = await resp.blob();
+        // Прежний object URL отпускаем, иначе он держит blob в памяти до
+        // перезагрузки страницы, а предпросмотров за сессию может быть
+        // много.
+        if (preview.dataset.previewUrl) {
+            URL.revokeObjectURL(preview.dataset.previewUrl);
+        }
+        var url = URL.createObjectURL(blob);
+        preview.dataset.previewUrl = url;
+        preview.src = url;
+        preview.classList.add('is-loaded');
+        setFaviconNotice('Нажмите «Сохранить», чтобы применить иконку.');
+    }
+
+    function faviconNoticeText(code, letter) {
+        if (code === 'favicon_letter_unsupported') {
+            return 'Генератор рисует только латиницу и цифры. Для «' + letter + '» загрузите свою картинку.';
+        }
+        if (code === 'favicon_letter_empty') {
+            return 'Введите букву или цифру.';
+        }
+        return 'Не удалось построить иконку.';
+    }
+
+    function setFaviconNotice(text) {
+        var note = byId('faviconNotice');
+        if (note) note.textContent = text || '';
+    }
+
+    document.addEventListener('click', function (e) {
+        var target = e.target.closest ? e.target.closest('[data-action="generate-favicon"]') : null;
+        if (!target) return;
+        e.preventDefault();
+        previewGeneratedFavicon();
+    });
+
+    // Enter в поле буквы отправлял бы форму целиком, то есть сохранял
+    // настройки вместо предпросмотра.
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        var letter = byId('faviconLetter');
+        if (letter && e.target === letter) {
+            e.preventDefault();
+            previewGeneratedFavicon();
+        }
     });
 })();

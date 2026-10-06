@@ -19,6 +19,262 @@
 
 declare(strict_types=1);
 
+/*
+ * ============================================================================
+ * Favicon: генератор из буквы и цвета (Stage 9, ПРАВКА 4)
+ * ============================================================================
+ *
+ * Раньше favicon был нарисован вручную и лежал файлом favicon.svg с
+ * буквой «A». Это хардкод бренда: смени название, и иконка продолжала
+ * показывать старую букву, а чтобы поменять, приходилось править SVG
+ * руками. Теперь иконку делает сайт из site_settings - буква и цвет
+ * задаются в админке, файл перезаписывается при сохранении.
+ *
+ * Только PNG. Причины те же, что и у остальных загрузок: SVG-favicon
+ * в <head> требует отдельного ключа настройки, второй <link rel="icon">
+ * для браузеров без поддержки svg, и при смене иконки приходилось
+ * сбрасывать сразу два ключа, иначе старый кандидат продолжал
+ * показываться. Один PNG - одна настройка.
+ *
+ * Буква - латиница и цифры, одна штука. Встроенный шрифт GD
+ * (imagestring) умеет только ASCII, а TTF-шрифт ради одной буквы
+ * тащить в проект не стали: кириллица в генераторе не поддерживается
+ * осознанно, и для неё есть загрузка своей иконки. Заглушки вроде
+ * «?» не рисуются - она бы выглядела как рабочая иконка и молча
+ * осталась бы после смены буквы.
+ */
+
+if (!function_exists('favicon_letter_error')) {
+    /**
+     * Подходит ли буква для генератора, и если нет - почему.
+     *
+     * Пустая строка означает «подходит». Отдельная проверка нужна,
+     * потому что saveSettings должен сказать админу причину отказа, а
+     * generate_favicon() молча вернёт null.
+     */
+    function favicon_letter_error(string $letter): string
+    {
+        $letter = trim($letter);
+        if ($letter === '') {
+            return 'favicon_letter_empty';
+        }
+        if (preg_match('/^[A-Za-z0-9]$/', $letter) !== 1) {
+            return 'favicon_letter_unsupported';
+        }
+        return '';
+    }
+}
+
+if (!function_exists('favicon_png_bytes')) {
+    /**
+     * PNG иконки в памяти, без записи на диск.
+     *
+     * Нужна предпросмотру в админке: он должен показать ровно то, что
+     * потом сохранится, а значит рисовать тем же кодом. Побочный
+     * эффект тот же - если картинка рисуется, она уже валидна.
+     *
+     * @return string|null бинарный PNG или null, если буква не подходит
+     */
+    function favicon_png_bytes(string $letter, string $bgColor): ?string
+    {
+        if (favicon_letter_error($letter) !== '' || !function_exists('imagecreatetruecolor')) {
+            return null;
+        }
+
+        // 64x64 - размер, который вкладка показывает без масштабирования
+        // на обычном экране, и который все браузеры умеют хранить в
+        // кеше как отдельную иконку.
+        $size = 64;
+
+        // Цвет фона: только #rrggbb. Без прозрачности и без градиента -
+        // иконка должна читаться в светлой и тёмной теме браузера, и
+        // произвольная строка сюда пробрасываться не должна.
+        if (preg_match('/^#[0-9a-fA-F]{6}$/', $bgColor) !== 1) {
+            $bgColor = '#7C3AED';
+        }
+        $r = hexdec(substr($bgColor, 1, 2));
+        $g = hexdec(substr($bgColor, 3, 2));
+        $b = hexdec(substr($bgColor, 5, 2));
+
+        $im = imagecreatetruecolor($size, $size);
+        if ($im === false) {
+            return null;
+        }
+
+        // imagesavealpha обязателен. Без него GD всё равно рисует
+        // полупрозрачные цвета, но в файл альфа-канал не попадает:
+        // скруглённые углы становились белыми. Рисование начинается
+        // при выключенном смешивании - заливка цвета смешалась бы с
+        // прозрачной подложкой и стала бы полупрозрачной.
+        imagealphablending($im, false);
+        imagesavealpha($im, true);
+
+        // Скруглённый квадрат. GD не умеет скруглённые прямоугольники, и
+        // тянуть за это curve-функции в проект не хочется: скругление
+        // рисуется вручную - сначала весь квадрат заливается
+        // прозрачным, потом цветом заливаются полосы и четыре круга в
+        // углах. Восемь imagefilledellipse.
+        $radius = 12;
+        $transparent = imagecolorallocatealpha($im, 0, 0, 0, 127);
+        imagefill($im, 0, 0, $transparent);
+        $bg = imagecolorallocate($im, $r, $g, $b);
+        imagefilledrectangle($im, $radius, 0, $size - 1 - $radius, $size - 1, $bg);
+        imagefilledrectangle($im, 0, $radius, $size - 1, $size - 1 - $radius, $bg);
+        imagefilledellipse($im, $radius, $radius, $radius * 2, $radius * 2, $bg);
+        imagefilledellipse($im, $size - 1 - $radius, $radius, $radius * 2, $radius * 2, $bg);
+        imagefilledellipse($im, $radius, $size - 1 - $radius, $radius * 2, $radius * 2, $bg);
+        imagefilledellipse($im, $size - 1 - $radius, $size - 1 - $radius, $radius * 2, $radius * 2, $bg);
+
+        // Буква рисуется при включённом смешивании: глиф непрозрачный,
+        // и при выключенном белый просто записался бы поверх
+        // пикселей вместе с их альфой, то есть углы буквы стали бы
+        // дырявыми.
+        imagealphablending($im, true);
+
+        // Буква белым по центру. imagestring рисует в верхнем левом углу
+        // рамки заданного размера, поэтому считаем смещение от реальной
+        // ширины глифа, а не от размера шрифта.
+        $white = imagecolorallocate($im, 255, 255, 255);
+        $font = 5;
+        $letter = strtoupper(trim($letter));
+        $textWidth = imagefontwidth($font);
+        $textHeight = imagefontheight($font);
+        imagestring(
+            $im,
+            $font,
+            (int) (($size - $textWidth) / 2),
+            (int) (($size - $textHeight) / 2),
+            $letter,
+            $white
+        );
+
+        // Вывод в память: level 9, как и у остальных PNG проекта.
+        ob_start();
+        $ok = imagepng($im, null, 9);
+        $bytes = (string) ob_get_clean();
+        imagedestroy($im);
+
+        return ($ok && $bytes !== '') ? $bytes : null;
+    }
+}
+
+if (!function_exists('generate_favicon')) {
+    /**
+     * Записать сгенерированный favicon на диск.
+     *
+     * Путь фиксированный: branding/favicon.png. Один путь, одна
+     * настройка site_favicon_png_url, без варианта с именем из POST.
+     *
+     * @return string|null путь от корня сайта или null, если не вышло
+     */
+    function generate_favicon(string $letter, string $bgColor): ?string
+    {
+        $bytes = favicon_png_bytes($letter, $bgColor);
+        if ($bytes === null) {
+            return null;
+        }
+
+        $fullPath = __DIR__ . '/../assets/images/branding/favicon.png';
+        $dir = dirname($fullPath);
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return null;
+        }
+        if (@file_put_contents($fullPath, $bytes) === false) {
+            return null;
+        }
+
+        return '/assets/images/branding/favicon.png';
+    }
+}
+
+if (!function_exists('store_favicon_upload')) {
+    /**
+     * Загруженная пользователем иконка: сжать в квадрат 64x64 и положить
+     * на место сгенерированной.
+     *
+     * Тот же путь, что у генератора - иначе в site_settings пришлось бы
+     * держать два ключа, и после загрузки своей иконки старая
+     * сгенерированная продолжала бы где-то использоваться.
+     *
+     * @param array|null $file элемент $_FILES['...']
+     * @return array{ok: bool, url: string, error: ?string}
+     */
+    function store_favicon_upload(?array $file): array
+    {
+        if ($file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return ['ok' => false, 'url' => '', 'error' => null];
+        }
+
+        // Иконка показывается 16-32px, файл крупнее 2 МБ - это не иконка,
+        // а картинка, случайно выбранная не тем диалогом.
+        if ((int) $file['size'] > 2 * 1024 * 1024) {
+            return ['ok' => false, 'url' => '', 'error' => 'branding_size'];
+        }
+
+        $mime = detect_image_mime($file['tmp_name']);
+        if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            return ['ok' => false, 'url' => '', 'error' => 'branding_mime'];
+        }
+
+        $src = decode_image($file['tmp_name'], $mime);
+        if ($src === null) {
+            return ['ok' => false, 'url' => '', 'error' => 'branding_image'];
+        }
+
+        $size = 64;
+        $im = imagecreatetruecolor($size, $size);
+        if ($im === false) {
+            return ['ok' => false, 'url' => '', 'error' => 'branding_image'];
+        }
+
+        // Прозрачный фон: у иконки часто бывают скруглённые или
+        // нестандартные края, и если залить фон белым, квадрат станет
+        // видно на любой вкладке.
+        imagealphablending($im, false);
+        imagesavealpha($im, true);
+        imagefill($im, 0, 0, imagecolorallocatealpha($im, 0, 0, 0, 127));
+        imagealphablending($im, true);
+
+        $w = imagesx($src);
+        $h = imagesy($src);
+        if ($w < 1 || $h < 1) {
+            imagedestroy($src);
+            imagedestroy($im);
+            return ['ok' => false, 'url' => '', 'error' => 'branding_image'];
+        }
+
+        // Вписываем по меньшей стороне и центрируем: иконка не должна
+        // растягиваться, иначе круг превратится в овал.
+        $scale = min($size / $w, $size / $h);
+        $dw = max(1, (int) round($w * $scale));
+        $dh = max(1, (int) round($h * $scale));
+        imagecopyresampled(
+            $im,
+            $src,
+            (int) (($size - $dw) / 2),
+            (int) (($size - $dh) / 2),
+            0,
+            0,
+            $dw,
+            $dh,
+            $w,
+            $h
+        );
+        imagedestroy($src);
+
+        $fullPath = __DIR__ . '/../assets/images/branding/favicon.png';
+        $dir = dirname($fullPath);
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            imagedestroy($im);
+            return ['ok' => false, 'url' => '', 'error' => 'branding_dir'];
+        }
+        imagepng($im, $fullPath, 9);
+        imagedestroy($im);
+
+        return ['ok' => true, 'url' => '/assets/images/branding/favicon.png', 'error' => null];
+    }
+}
+
 if (!function_exists('detect_image_mime')) {
     /**
      * Реальный MIME файла по содержимому (finfo), не по расширению.

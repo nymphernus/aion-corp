@@ -1,133 +1,255 @@
 <?php
 /**
- * FaviconTest — фавикон (Stage 7.5).
+ * FaviconTest — генератор иконки (Stage 9, ПРАВКА 4).
+ *
+ * Раньше здесь проверялся favicon.svg, нарисованный вручную. Теперь
+ * иконку делает сайт из site_settings: буква и цвет задаются в админке,
+ * файл перезаписывается при сохранении, а второй формат и второй ключ
+ * настройки больше не нужны.
+ *
+ * Проверки идут от того, что видит браузер (link в head, отдаваемый
+ * файл, байты предпросмотра), а не от вызовов функций: ошибка в том,
+ * что в head объявлена не та иконка или файл не с тем MIME, снаружи
+ * выглядит как «иконка есть», и заметить её в панели вкладок почти
+ * невозможно.
  */
 
 declare(strict_types=1);
 
 final class FaviconTest extends AionTestCase
 {
-    /**
-     * Файл, который должен отдаваться как картинка.
-     */
-    private const SVG = '/assets/images/favicon.svg';
+    /** Куда кладёт иконку генератор и что лежит в site_settings. */
+    private const GENERATED = '/assets/images/branding/favicon.png';
+
+    /** Ключи, которые меняют тесты. */
+    private const TOUCHED = ['favicon_letter', 'favicon_bg', 'site_favicon_png_url'];
+
+    private function loginAsAdmin(): string
+    {
+        $adminPass = getenv('ADMIN_PASSWORD');
+        $this->assertNotEmpty($adminPass, 'ADMIN_PASSWORD не задан в окружении');
+        $this->clearLoginAttempts('admin');
+        $r = $this->loginAs('admin', (string) $adminPass);
+        $this->assertSame(302, $r['code']);
+        $page = $this->httpGet('/profile.php');
+        return $this->extractCsrf($page['body']);
+    }
 
     /**
-     * 7.5: svg-фавикон есть, отдаётся как svg и в разметке объявлен.
+     * Снимок настроек и файла иконки: тесты и перезаписывают настройки,
+     * и создают файл, а файл в git не положить.
      *
-     * Проверяется содержимое ответа, а не только код ответа: файл с
-     * опечаткой в MIME отдался бы с кодом 200, и иконка в браузере
-     * просто не появилась бы.
+     * @return array{settings: array<string,string>, file: ?string}
      */
-    public function testFaviconSvgIsServedAsSvg(): void
+    private function snapshot(): array
+    {
+        require_once dirname(__DIR__) . '/modules/site.php';
+        $mysql = connect();
+        $settings = [];
+        foreach (self::TOUCHED as $key) {
+            $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $key);
+            $st->execute();
+            $settings[$key] = (string) ($st->get_result()->fetch_row()[0] ?? '');
+        }
+        $mysql->close();
+
+        $path = dirname(__DIR__) . self::GENERATED;
+        $file = is_file($path) ? (string) file_get_contents($path) : null;
+
+        return ['settings' => $settings, 'file' => $file];
+    }
+
+    /**
+     * @param array{settings: array<string,string>, file: ?string} $snap
+     */
+    private function restore(array $snap): void
+    {
+        require_once dirname(__DIR__) . '/modules/site.php';
+        $mysql = connect();
+        site_setting_save($mysql, $snap['settings']);
+        $mysql->close();
+
+        $path = dirname(__DIR__) . self::GENERATED;
+        if ($snap['file'] === null) {
+            @unlink($path);
+        } else {
+            @file_put_contents($path, $snap['file']);
+        }
+    }
+
+    private function saveSettings(string $token, array $values): array
+    {
+        return $this->httpPost('/admin.php?tab=settings', $values + [
+            'csrf_token' => $token,
+            'saveSettings' => '1',
+        ]);
+    }
+
+    /**
+     * Свежие значения из БД, без кэша.
+     *
+     * site_settings() кэширует результат в static на весь процесс, и в
+     * PHPUnit это кэш на все тесты сразу: чтение после HTTP-сохранения
+     * возвращало состояние до сохранения, и тесты врали. Для проверок
+     * после записи значения читаются напрямую.
+     *
+     * @return array<string, string>
+     */
+    private function freshSettings(): array
+    {
+        require_once dirname(__DIR__) . '/modules/site.php';
+        $mysql = connect();
+        $out = [];
+        foreach (self::TOUCHED as $key) {
+            $st = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $key);
+            $st->execute();
+            $out[$key] = (string) ($st->get_result()->fetch_row()[0] ?? '');
+        }
+        $mysql->close();
+        return $out;
+    }
+
+    // ------------------------------------------------------------------
+    // Что видит браузер
+    // ------------------------------------------------------------------
+
+    /**
+     * В head одна иконка, PNG, и её href совпадает с настройкой.
+     *
+     * Проверяется отсутствие не только svg-типа, но и второго кандидата:
+     * при двух link rel="icon" браузер берёт первую поддерживаемую, и
+     * смена настройки молча ничего бы не меняла - старая иконка
+     * осталась бы в вкладке.
+     */
+    public function testHeadHasExactlyOnePngIcon(): void
     {
         $page = $this->httpGet('/');
         $this->assertSame(200, $page['code']);
 
         $this->assertSame(
             1,
+            $this->xpathCount($page['body'], '//link[@rel="icon"]'),
+            'в head должен быть ровно один link rel="icon"'
+        );
+        $this->assertSame(
+            0,
+            $this->xpathCount($page['body'], '//link[@rel="alternate icon"]'),
+            'второй кандидат-иконка больше не нужен'
+        );
+        $this->assertSame(
+            0,
             $this->xpathCount($page['body'], '//link[@rel="icon"][@type="image/svg+xml"]'),
-            'в head должен быть link rel="icon" на svg'
-        );
-        $this->assertSame(
-            '/assets/images/favicon.svg',
-            $this->xpathAttrs($page['body'], '//link[@rel="icon"][@type="image/svg+xml"]')['href'],
-            'link должен указывать на favicon.svg'
+            'svg-иконки больше нет'
         );
 
-        // запасной вариант для старых браузеров
-        $this->assertSame(
-            1,
-            $this->xpathCount($page['body'], '//link[@rel="alternate icon"][@type="image/png"]'),
-            'png должен остаться как запасная иконка'
-        );
+        $icon = $this->xpathAttrs($page['body'], '//link[@rel="icon"]');
+        $this->assertSame('image/png', $icon['type'] ?? '', 'иконка объявлена как image/png');
 
-        // сам файл
-        $icon = $this->httpGet(self::SVG);
-        $this->assertSame(200, $icon['code'], 'favicon.svg должен отдаваться');
-        $this->assertStringContainsString('image/svg+xml', (string) ($icon['type'] ?? ''), 'svg должен отдаваться как image/svg+xml');
-        $this->assertStringContainsString('<svg', $icon['body'], 'favicon.svg должен быть svg');
+        require_once dirname(__DIR__) . '/modules/site.php';
+        $mysql = connect();
+        $setting = site_setting(site_settings($mysql), 'site_favicon_png_url', '');
+        $mysql->close();
+        $this->assertNotSame('', $setting, 'site_favicon_png_url должен быть задан');
+
+        // href может отличаться от настройки на параметр версии (?v=),
+        // поэтому сравнивается только путь.
+        $href = (string) ($icon['href'] ?? '');
+        $this->assertStringStartsWith($setting, $href, 'href иконки должен совпадать с настройкой');
     }
 
     /**
-     * 7.5: фавикон рисуется, а не пустой или обрезанный.
+     * Файл иконки отдаётся как PNG 64x64 и существует по настройке.
      *
-     * Проверяется состав файла: у favicon.svg есть подложка и буква.
-     * Файл из одной заливки или из подложки без буквы выглядел бы как
-     * цветной квадрат, и заметить это в панели вкладок почти невозможно
-     * - квадрат 16px.
+     * MIME проверяется по ответу, а не по расширению: с кодом 200 и
+     * чужим Content-Type браузер просто не показал бы иконку.
      */
-    public function testFaviconHasBackgroundAndLetter(): void
+    public function testFaviconFileIsPng64(): void
     {
-        $icon = $this->httpGet(self::SVG);
+        $page = $this->httpGet('/');
+        $href = $this->xpathAttrs($page['body'], '//link[@rel="icon"]')['href'] ?? '';
+        $path = (string) parse_url((string) $href, PHP_URL_PATH);
+        $this->assertNotSame('', $path, 'не удалось получить путь иконки из head');
 
-        $this->assertSame(
-            1,
-            preg_match('/<svg[^>]*viewBox="0 0 32 32"/', $icon['body']),
-            'у favicon должен быть viewBox 0 0 32 32'
+        $icon = $this->httpGet($path);
+        $this->assertSame(200, $icon['code'], 'иконка должна отдаваться');
+        $this->assertStringContainsString(
+            'image/png',
+            (string) ($icon['type'] ?? ''),
+            'иконка должна отдаваться как image/png'
         );
+        $this->assertStringStartsWith("\x89PNG", $icon['body'], 'файл должен начинаться с сигнатуры PNG');
 
-        $dom = $this->loadDom($icon['body']);
-        $xpath = new DOMXPath($dom);
-
-        // подложка: залитый прямоугольник во весь квадрат
-        $bg = $xpath->query('//svg/rect[@width="32"][@height="32"][@fill]');
-        $this->assertSame(1, $bg->length, 'должна быть подложка во весь квадрат с заливкой');
-
-        // буква: минимум две ножки и перекладина
-        $this->assertGreaterThanOrEqual(
-            2,
-            $xpath->query('//svg/path')->length,
-            'буква должна быть нарисована ножками'
-        );
-        $this->assertGreaterThanOrEqual(
-            1,
-            $xpath->query('//svg/rect[@y]')->length,
-            'у буквы должна быть перекладина'
-        );
+        $info = getimagesizefromstring($icon['body']);
+        $this->assertNotFalse($info, 'PNG не читается');
+        $this->assertSame(64, (int) $info[0], 'ширина иконки 64px');
+        $this->assertSame(64, (int) $info[1], 'высота иконки 64px');
     }
 
     /**
-     * 7.5: цвет фавикона совпадает с логотипом.
+     * Углы прозрачные: иконка скруглённая, а не белый квадрат.
      *
-     * В logo.png заливка плоская, #CF8BFF. Если бы фавикон уехал в
-     * градиент из #A020F0 в #FF1493, он был бы другого оттенка, чем
-     * логотип в шапке, и это расхождение видно на любой странице -
-     * иконка и логотип рядом.
+     * Проверяется альфа-канал, а не цвет: скругление рисуется
+     * прозрачностью, и если альфа пропала, иконка стала бы квадратом с
+     * белыми углами - на светлых вкладках это почти незаметно, и
+     * заметить можно было бы только на тёмной теме.
      */
-    public function testFaviconColorMatchesLogo(): void
+    public function testFaviconCornersAreTransparent(): void
     {
-        $logo = $this->readBinary('/assets/images/logo.png');
-        $icon = $this->httpGet(self::SVG);
-
-        $this->assertMatchesRegularExpression(
-            '/#CF8BFF/i',
-            $icon['body'],
-            'фавикон должен быть фиолетовым #CF8BFF как логотип'
-        );
-
-        // цвет реально есть в логотипе: читаем пиксели квадрата.
-        // GD в контейнере нет, поэтому PNG разбирается вручную, и
-        // достаточно одного замера - заливка плоская по всему квадрату.
-        $color = $this->pngPixelColor($logo, 60, 300);
-        $this->assertSame(
-            ['r' => 0xCF, 'g' => 0x8B, 'b' => 0xFF],
-            $color,
-            'заливка логотипа должна быть #CF8BFF'
+        $path = dirname(__DIR__) . self::GENERATED;
+        if (!is_file($path)) {
+            $this->markTestSkipped('файл иконки не создан - прогоните миграцию или сохраните настройки');
+        }
+        require_once dirname(__DIR__) . '/modules/image.php';
+        $this->assertTrue(
+            has_alpha_channel($path),
+            'у иконки должен быть альфа-канал, иначе скруглённые углы станут белыми'
         );
     }
 
     /**
-     * 7.5: старый rel="shortcut icon" больше не используется.
+     * Ни svg-файла, ни ключа site_favicon_url не осталось.
      *
-     * shortcut icon - наследие IE. В HTML5 правильно rel="icon", и
-     * оставление старого рядом с новым давало бы две ссылки на один
-     * файл, из-за чего браузер мог выбрать устаревшую.
+     * Ключ проверяется и в БД, и в коде: пока он есть в белом списке
+     * saveSettings, в site_settings снова появится строка, и две
+     * настройки иконки опять разъедутся.
+     */
+    public function testSvgFaviconIsGoneCompletely(): void
+    {
+        $this->assertFileDoesNotExist(
+            dirname(__DIR__) . '/assets/images/favicon.svg',
+            'файл favicon.svg должен быть удалён'
+        );
+
+        require_once dirname(__DIR__) . '/modules/site.php';
+        $mysql = connect();
+        $st = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = 'site_favicon_url'", "");
+        $st->execute();
+        $leftovers = (int) $st->get_result()->fetch_row()[0];
+        $mysql->close();
+
+        $this->assertSame(0, $leftovers, 'ключ site_favicon_url должен быть удалён из site_settings');
+
+        // В коде упоминания остаются только в миграции, которая ключ
+        // удаляет.
+        foreach (['/partials/header.php', '/admin/_tab_settings.php', '/admin.php'] as $rel) {
+            $code = php_strip_whitespace(dirname(__DIR__) . $rel);
+            $this->assertStringNotContainsString(
+                'site_favicon_url',
+                $code,
+                'в ' . $rel . ' не должно быть site_favicon_url'
+            );
+        }
+    }
+
+    /**
+     * Старый rel="shortcut icon" не используется.
+     *
+     * Наследие IE: при двух ссылках на иконку браузер мог выбрать
+     * устаревшую.
      */
     public function testNoLegacyShortcutIcon(): void
     {
         $page = $this->httpGet('/');
-
         $this->assertSame(
             0,
             $this->xpathCount($page['body'], '//link[@rel="shortcut icon"]'),
@@ -135,31 +257,421 @@ final class FaviconTest extends AionTestCase
         );
     }
 
+    // ------------------------------------------------------------------
+    // Предпросмотр: рисует, но не пишет
+    // ------------------------------------------------------------------
+
     /**
-     * Двоичный файл из public_html.
+     * Предпросмотр отдаёт PNG и не трогает файл на диске.
+     *
+     * Неписание проверяется сравнением содержимого файла до и после: если
+     * бы предпросмотр писал на диск, он бы перезаписал иконку ещё до
+     * нажатия «Сохранить», и отмена эксперимента была бы невозможна.
      */
-    private function readBinary(string $path): string
+    public function testPreviewReturnsPngWithoutWriting(): void
     {
-        $file = dirname(__DIR__) . $path;
-        $this->assertFileExists($file, "нет файла {$path}");
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
 
-        $content = file_get_contents($file);
-        $this->assertIsString($content, "не удалось прочитать {$path}");
+        try {
+            $before = $snap['file'];
 
-        return $content;
+            $r = $this->httpPost('/admin.php?tab=settings', [
+                'csrf_token' => $this->extractCsrf($this->httpGet('/admin.php?tab=settings')['body']),
+                'preview_favicon' => '1',
+                'favicon_letter' => 'M',
+                'favicon_bg' => '#ef4444',
+            ]);
+
+            $this->assertSame(200, $r['code'], 'предпросмотр должен отвечать 200');
+            $this->assertStringStartsWith("\x89PNG", $r['body'], 'предпросмотр должен отдавать PNG');
+
+            $info = getimagesizefromstring($r['body']);
+            $this->assertNotFalse($info);
+            $this->assertSame(64, (int) $info[0]);
+
+            // В ответе не должно быть редиректа на страницу: иначе это
+            // не предпросмотр, а обычное сохранение под видом превью.
+            $this->assertSame('', $r['location'], 'предпросмотр не должен редиректить');
+
+            $path = dirname(__DIR__) . self::GENERATED;
+            $after = is_file($path) ? (string) file_get_contents($path) : null;
+            $this->assertSame(
+                $before,
+                $after,
+                'предпросмотр обязан только показать картинку и не записывать файл'
+            );
+        } finally {
+            $this->restore($snap);
+        }
     }
 
     /**
-     * Цвет пикселя PNG без GD.
+     * Цвет из предпросмотра именно тот, что запрошен.
      *
-     * Разбираются только те сегменты, что реально нужны: IHDR для
-     * размера и IDAT, распакованный zlib-ом. Второй IDAT (если есть)
-     * склеивается с первым - png с большим изображением разбивает их
-     * на части.
+     * Считается пиксель в центре: буква там может и оказаться, поэтому
+     * берётся точка у левого-нижнего края подложки - она заведомо
+     * залита цветом фона и не закрашивается глифом.
+     */
+    public function testPreviewUsesRequestedColor(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        try {
+            $token = $this->extractCsrf($this->httpGet('/admin.php?tab=settings')['body']);
+            $r = $this->httpPost('/admin.php?tab=settings', [
+                'csrf_token' => $token,
+                'preview_favicon' => '1',
+                'favicon_letter' => 'M',
+                'favicon_bg' => '#ef4444',
+            ]);
+
+            $this->assertSame(200, $r['code']);
+            // 6px от левого-нижнего угла: скругление там ещё не началось.
+            $color = $this->pngPixelColor($r['body'], 6, 58);
+            $this->assertSame(
+                ['r' => 0xEF, 'g' => 0x44, 'b' => 0x44],
+                $color,
+                'фон иконки должен быть запрошенным #ef4444'
+            );
+        } finally {
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Кириллица и пустая буква отклоняются с кодом ошибки, а не рисуются.
      *
-     * Поддержаны два типа цвета: 2 (rgb, три канала) и 6 (rgba, четыре).
-     * logo.png оказался rgba: альфа-канал просто отбрасывается, на
-     * замере внутри непрозрачного квадрата она всегда 255.
+     * Встроенный шрифт GD рисует только ASCII. Раньше предполагалось
+     * рисовать вместо буквы знак вопроса, но он выглядит как рабочая
+     * иконка: сменил букву на «Ж», увидел «?» и решил, что так и
+     * задумано. Поэтому отказ явный.
+     */
+    public function testPreviewRejectsUnsupportedLetter(): void
+    {
+        $this->loginAsAdmin();
+        $token = $this->extractCsrf($this->httpGet('/admin.php?tab=settings')['body']);
+
+        foreach ([['Ж', 'favicon_letter_unsupported'], ['', 'favicon_letter_empty'], ['AB', 'favicon_letter_unsupported']] as [$letter, $code]) {
+            $r = $this->httpPost('/admin.php?tab=settings', [
+                'csrf_token' => $token,
+                'preview_favicon' => '1',
+                'favicon_letter' => $letter,
+                'favicon_bg' => '#7C3AED',
+            ]);
+
+            $this->assertSame(422, $r['code'], 'буква «' . $letter . '» должна отклоняться');
+            $this->assertSame($code, trim($r['body']), 'в теле должен быть код ошибки');
+        }
+    }
+
+    /**
+     * Предпросмотр требует CSRF: иначе через стороннюю страницу можно
+     * было бы заставить сервер рисовать картинки.
+     */
+    public function testPreviewRequiresCsrf(): void
+    {
+        $this->loginAsAdmin();
+        $r = $this->httpPost('/admin.php?tab=settings', [
+            'csrf_token' => 'неправильный токен',
+            'preview_favicon' => '1',
+            'favicon_letter' => 'M',
+            'favicon_bg' => '#ef4444',
+        ]);
+
+        $this->assertNotSame(200, $r['code'], 'предпросмотр без верного CSRF не должен работать');
+    }
+
+    // ------------------------------------------------------------------
+    // Сохранение: генерация и загрузка
+    // ------------------------------------------------------------------
+
+    /**
+     * Сохранение перерисовывает иконку и запоминает букву с цветом.
+     *
+     * Перерисовка идёт всегда, а не только при смене буквы: файл могли
+     * удалить с диска, и иконка тогда просто исчезла бы из вкладки.
+     */
+    public function testSaveRegeneratesIconOnDisk(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        try {
+            $token = $this->extractCsrf($this->httpGet('/admin.php?tab=settings')['body']);
+
+            $r = $this->saveSettings($token, [
+                'favicon_letter' => 'M',
+                'favicon_bg' => '#ef4444',
+            ]);
+            $this->assertSame(302, $r['code'], 'сохранение должно редиректить');
+            $this->assertStringNotContainsString('bad=', $r['location'], 'сохранение прошло без ошибок');
+
+            // Настройки читаются мимо кэша site_settings(): его static
+            // переживает весь процесс PHPUnit и вернул бы значения до
+            // сохранения.
+            $settings = $this->freshSettings();
+
+            $this->assertSame('M', $settings['favicon_letter'], 'буква должна сохраниться');
+            $this->assertSame('#ef4444', $settings['favicon_bg'], 'цвет должен сохраниться');
+            $this->assertSame(
+                self::GENERATED,
+                $settings['site_favicon_png_url'],
+                'иконка должна лежать в branding'
+            );
+
+            // Файл совпадает с эталоном - теми же байтами, что рисует
+            // favicon_png_bytes для той же буквы и цвета. Сравнение
+            // «отличается от прежнего» не годится: буква и цвет могли
+            // не меняться, и перерисованная иконка совпала бы с
+            // прежней байт в байт.
+            require_once dirname(__DIR__) . '/modules/image.php';
+            $expected = favicon_png_bytes('M', '#ef4444');
+            $this->assertNotFalse($expected, 'эталон должен строиться');
+            $this->assertSame(
+                $expected,
+                file_get_contents(dirname(__DIR__) . self::GENERATED),
+                'файл должен быть перерисован из сохранённых буквы и цвета'
+            );
+
+            $info = getimagesize(dirname(__DIR__) . self::GENERATED);
+            $this->assertNotFalse($info);
+            $this->assertSame(64, (int) $info[0]);
+            $this->assertSame(64, (int) $info[1]);
+        } finally {
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Мусорный цвет не попадает в настройку: иначе в поле цвета
+     * оказалось бы значение, которое input type=color не покажет.
+     */
+    public function testInvalidColorFallsBackToDefault(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        try {
+            $token = $this->extractCsrf($this->httpGet('/admin.php?tab=settings')['body']);
+            $r = $this->saveSettings($token, [
+                'favicon_letter' => 'A',
+                'favicon_bg' => 'не-цвет',
+            ]);
+            $this->assertSame(302, $r['code']);
+
+            // Читается мимо кэша site_settings(): static-кэш переживает
+            // весь процесс PHPUnit.
+            $bg = $this->freshSettings()['favicon_bg'];
+
+            $this->assertMatchesRegularExpression(
+                '/^#[0-9a-fA-F]{6}$/',
+                $bg,
+                'в настройке должен остаться цвет в формате #rrggbb'
+            );
+            $this->assertSame('#7C3AED', $bg, 'некорректный цвет должен заменяться дефолтным');
+        } finally {
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Загруженная иконка уменьшается до квадрата 64x64 и становится PNG.
+     *
+     * JPG на входе - самая частая замена картинки, и без приведения к
+     * квадрату круг превратился бы в овал: картинка вписывается по
+     * меньшей стороне и центрируется.
+     */
+    public function testUploadBecomesSquarePng(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        $jpg = sys_get_temp_dir() . '/favicon-upload-test.jpg';
+        $im = imagecreatetruecolor(120, 40);
+        imagefill($im, 0, 0, imagecolorallocate($im, 0x11, 0x99, 0x55));
+        imagejpeg($im, $jpg, 92);
+        imagedestroy($im);
+
+        try {
+            $page = $this->httpGet('/admin.php?tab=settings');
+            $r = $this->httpPostMultipart('/admin.php?tab=settings', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'saveSettings' => '1',
+                'favicon_letter' => 'A',
+                'favicon_bg' => '#7C3AED',
+                'favicon_upload' => [
+                    'name' => 'favicon-upload-test.jpg',
+                    'type' => 'image/jpeg',
+                    'tmp_name' => $jpg,
+                ],
+            ]);
+            $this->assertSame(302, $r['code']);
+            $this->assertStringNotContainsString('bad=', $r['location'], 'загрузка должна пройти без ошибок');
+
+            $path = dirname(__DIR__) . self::GENERATED;
+            $this->assertFileExists($path);
+
+            $info = getimagesize($path);
+            $this->assertNotFalse($info);
+            $this->assertSame(64, (int) $info[0], 'загруженная иконка должна быть 64px');
+            $this->assertSame(64, (int) $info[1], 'загруженная иконка должна быть квадратной');
+            $this->assertSame('image/png', (string) ($info['mime'] ?? ''), 'на выходе всегда PNG');
+
+            // Пиксель из загруженной картинки: зелёный, который был в JPG.
+            // Допуск ±1 на канал: JPEG хранит картинку с потерями, и
+            // ресемплинг добавляет ещё немного - цвет 0x11 0x99 0x55
+            // на выходе даёт 18/153/86. Требовать точного равенства -
+            // значит привязать тест к конкретной реализации GD.
+            $color = $this->pngPixelColor((string) file_get_contents($path), 32, 32);
+            foreach (['r' => 0x11, 'g' => 0x99, 'b' => 0x55] as $ch => $want) {
+                $this->assertLessThanOrEqual(
+                    1,
+                    abs($color[$ch] - $want),
+                    $ch . ': должна сохраниться картинка из файла (±1 на JPEG), а не сгенерированная буква'
+                );
+            }
+        } finally {
+            @unlink($jpg);
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Загруженная иконка важнее сгенерированной: если бы файла не было,
+     * генератор тут же переписал бы её своей буквой.
+     *
+     * Форма одна на оба действия, и порядок в обработчике задаёт
+     * приоритет: сначала файл, потом генератор.
+     */
+    public function testUploadBeatsGenerator(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        $png = sys_get_temp_dir() . '/favicon-upload-beats.png';
+        $im = imagecreatetruecolor(64, 64);
+        imagefill($im, 0, 0, imagecolorallocate($im, 0x00, 0x00, 0xFF));
+        imagepng($im, $png);
+        imagedestroy($im);
+
+        try {
+            $page = $this->httpGet('/admin.php?tab=settings');
+            $this->httpPostMultipart('/admin.php?tab=settings', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'saveSettings' => '1',
+                'favicon_letter' => 'M',
+                'favicon_bg' => '#ef4444',
+                'favicon_upload' => [
+                    'name' => 'favicon-upload-beats.png',
+                    'type' => 'image/png',
+                    'tmp_name' => $png,
+                ],
+            ]);
+
+            $color = $this->pngPixelColor(
+                (string) file_get_contents(dirname(__DIR__) . self::GENERATED),
+                32,
+                32
+            );
+            $this->assertSame(
+                ['r' => 0x00, 'g' => 0x00, 'b' => 0xFF],
+                $color,
+                'загруженная картинка должна остаться, а не замениться сгенерированной'
+            );
+        } finally {
+            @unlink($png);
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Нечитаемый файл не затирает текущую иконку и объясняет ошибку.
+     *
+     * Проверяется именно содержимое файла на диске: при отказе загрузки
+     * генератор отработал бы (файла нет) и записал бы свою букву, и админ
+     * увидел бы «всё сохранилось», потеряв иконку без единого слова.
+     */
+    public function testBrokenUploadDoesNotSilentlyRegenerate(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        $bad = sys_get_temp_dir() . '/favicon-not-an-image.png';
+        file_put_contents($bad, 'это не картинка');
+
+        try {
+            $before = $snap['file'];
+
+            $page = $this->httpGet('/admin.php?tab=settings');
+            $r = $this->httpPostMultipart('/admin.php?tab=settings', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'saveSettings' => '1',
+                'favicon_letter' => 'Z',
+                'favicon_bg' => '#00FF00',
+                'favicon_upload' => [
+                    'name' => 'favicon-not-an-image.png',
+                    'type' => 'image/png',
+                    'tmp_name' => $bad,
+                ],
+            ]);
+
+            $this->assertSame(302, $r['code']);
+            $this->assertStringContainsString(
+                'bad=',
+                $r['location'],
+                'ошибка загрузки должна быть показана в адресе'
+            );
+
+            $path = dirname(__DIR__) . self::GENERATED;
+            $after = is_file($path) ? (string) file_get_contents($path) : null;
+            $this->assertSame(
+                $before,
+                $after,
+                'при неудачной загрузке прежняя иконка должна остаться нетронутой'
+            );
+        } finally {
+            @unlink($bad);
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Код ошибки переводится в текст на странице.
+     *
+     * В адрес попадает внутренний код, а админ читает страницу: без
+     * словаря он увидел бы branding_mime.
+     */
+    public function testErrorCodeIsTranslatedOnPage(): void
+    {
+        $this->loginAsAdmin();
+        $r = $this->httpGet('/admin.php?tab=settings&bad=favicon_letter_unsupported');
+        $this->assertSame(200, $r['code']);
+
+        $this->assertStringContainsString(
+            'только латиницей или цифрой',
+            $r['body'],
+            'код ошибки должен превратиться в понятный текст'
+        );
+        $this->assertStringNotContainsString(
+            'favicon_letter_unsupported',
+            $r['body'],
+            'внутренний код не должен показываться админу'
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Разбор PNG без GD
+    // ------------------------------------------------------------------
+
+    /**
+     * Цвет пикселя PNG вручную.
+     *
+     * GD в тестах доступен, но разбор написан без него намеренно:
+     * getimagesize даёт размер, а цвет пикселя нет, а проверять надо
+     * именно цвет - файл может быть нужного размера и при этом
+     * содержать не ту картинку.
      *
      * @return array{r:int,g:int,b:int}
      */
@@ -170,8 +682,9 @@ final class FaviconTest extends AionTestCase
         $offset = 8;
         $header = '';
         $data = '';
-        $offsetX = 0;
-        $offsetY = 0;
+        $width = 0;
+        $depth = 0;
+        $colorType = 0;
 
         while ($offset < strlen($binary)) {
             $length = unpack('N', substr($binary, $offset, 4))[1];
@@ -179,8 +692,7 @@ final class FaviconTest extends AionTestCase
             $body = substr($binary, $offset + 8, $length);
 
             if ($type === 'IHDR') {
-                $offsetX = unpack('N', substr($body, 0, 4))[1];
-                $offsetY = unpack('N', substr($body, 4, 4))[1];
+                $width = unpack('N', substr($body, 0, 4))[1];
                 $depth = ord($body[8]);
                 $colorType = ord($body[9]);
             } elseif ($type === 'IDAT') {
@@ -193,21 +705,15 @@ final class FaviconTest extends AionTestCase
         }
 
         $this->assertSame(8, $depth, 'разбирается только 8 бит на канал');
-        $this->assertContains(
-            $colorType,
-            [2, 6],
-            'разбираются только truecolor: rgb (2) или rgba (6)'
-        );
+        $this->assertContains($colorType, [2, 6], 'разбираются только truecolor: rgb (2) или rgba (6)');
 
         $raw = (string) zlib_decode($data);
         $channels = $colorType === 6 ? 4 : 3;
-        $stride = $offsetX * $channels;
+        $stride = $width * $channels;
 
-        // Строки в PNG отфильтрованы, и тип может быть любым из пяти: у
-        // logo.png на строке 300 стоял filter 2 (Up), поэтому замер без
-        // разбора фильтров вернул бы не тот цвет. Разворачиваются все
-        // строки до нужной - Up и Sub смотрят на предыдущую строку и на
-        // соседние байты, поэтому пропустить их нельзя.
+        // Строки в PNG отфильтрованы, тип может быть любым из пяти, а
+        // пропустить их нельзя: Up и Sub смотрят на предыдущую строку и
+        // соседние байты.
         $previous = str_repeat("\x00", $stride);
         for ($row = 0; $row <= $y; $row++) {
             $rowStart = $row * ($stride + 1);
