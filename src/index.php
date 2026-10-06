@@ -36,9 +36,12 @@ require __DIR__ . '/partials/header.php';
 // 340000 - расхождение с базой было возможно в любую сторону и ничем не
 // проверялось.
 //
-// Только базовые сборки 1-3: у них в базе есть осмысленные имена, а
+// Только базовые сборки: у них в базе есть осмысленные имена, а
 // пользовательские сборки конфигуратора появляются позже и на главной не
 // выводятся (см. соглашение о префиксе «Сборка » в assembly.php).
+// Признак базовой - флаг is_base, а не номер: номер у сборки витрины
+// может быть любым, и под правило «первые три» попадала бы четвёртая
+// базовая сборка, созданная админом.
 //
 // Соединение берётся отдельно от header.php: там подключается сам
 // connect.php, но соединение там не заводится.
@@ -61,7 +64,7 @@ try {
         LEFT JOIN components gpu ON gpu.component_id = a.gpu_id
         LEFT JOIN components ram ON ram.component_id = a.ram_id
         LEFT JOIN components cs  ON cs.component_id  = a.case_id
-        WHERE a.assembly_id IN (1, 2, 3)
+        WHERE a.is_base = 1
         ORDER BY a.assembly_id
     ");
     $stmtHome->execute();
@@ -266,8 +269,12 @@ if ($osList === []) {
                  лишь как обычный переход, а плавный скролл без смены
                  URL был невозможен. Теперь id на самом блоке, и
                  scroll-margin-top (style.css) опускает его под шапку. -->
+            <?php // Блок сборок скрывается целиком, если базовых сборок нет:
+                  // пустая секция с заголовком «Сборки ПК» выглядела бы
+                  // как сбой вывода, а не как отсутствие товара. ?>
+            <?php if (!empty($homeBuilds)): ?>
             <div class="container_pc" id="assembly">
-                <div class="builds-slider-wrap">
+                <div class="builds-slider-wrap<?= count($homeBuilds) > 3 ? ' is-slider' : '' ?>">
                     <button type="button" class="builds-slider__nav builds-slider__nav--prev"
                             data-action="scroll-builds" data-direction="-1"
                             aria-label="Предыдущая сборка"
@@ -279,7 +286,8 @@ if ($osList === []) {
                         </svg>
                     </button>
 
-                    <div class="container_select builds-slider" id="buildsSlider">
+                    <div class="container_select builds-slider" id="buildsSlider"
+                         data-count="<?= count($homeBuilds) ?>">
                         <?php foreach ($homeBuilds as $homeBuild): ?>
                             <?php
                             // Строка памяти собирается из колонок, а не из названия:
@@ -358,6 +366,7 @@ if ($osList === []) {
                     </button>
                 </div>
             </div>
+            <?php endif; ?>
 
 <section class="cfg" id="configurator">
                 <section class="cfg__container">

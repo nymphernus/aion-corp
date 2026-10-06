@@ -479,12 +479,19 @@ body::-webkit-scrollbar-thumb {
     .builds-slider-wrap {
         padding: 0;
     }
+    /* 1-3 сборки: grid, стрелок нет. 4+: flex со скроллом и стрелки.
+       Класс is-slider ставит PHP, когда сборок больше трёх. */
     .container_select.builds-slider {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         overflow: visible;
         /* сетка выравнивает по колонкам, snap здесь не нужен */
         scroll-snap-type: none;
+    }
+    .builds-slider-wrap.is-slider .container_select.builds-slider {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
     }
     .builds-slider .build {
         flex-basis: auto;
@@ -492,6 +499,10 @@ body::-webkit-scrollbar-thumb {
     /* стрелок на широком экране нет: листать нечего */
     .builds-slider__nav {
         display: none !important;
+    }
+    /* при 4+ сборках стрелки нужны */
+    .builds-slider-wrap.is-slider .builds-slider__nav {
+        display: block !important;
     }
 }
 
