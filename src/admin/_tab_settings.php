@@ -132,19 +132,21 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <label class="form-label" for="setSiteDescription">Описание</label>
-                                <textarea class="input" name="site_description" id="setSiteDescription"
-                                          rows="2" maxlength="300"><?= escape(site_setting($settings, 'site_description')) ?></textarea>
-                                <p class="form-hint">Подпись под названием на главной и meta-описание для поисковиков</p>
-                            </div>
+                            <div class="modal-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="setSiteDescription">Описание</label>
+                                    <textarea class="input" name="site_description" id="setSiteDescription"
+                                              rows="3" maxlength="300"><?= escape(site_setting($settings, 'site_description')) ?></textarea>
+                                    <p class="form-hint">Подпись под названием на главной и meta-описание для поисковиков</p>
+                                </div>
 
-                            <div class="form-group">
-                                <label class="form-label" for="setFoundedYear">Год основания</label>
-                                <input class="input" name="site_founded_year" id="setFoundedYear"
-                                       maxlength="4" inputmode="numeric" pattern="\d{4}"
-                                       value="<?= escape(site_setting($settings, 'site_founded_year', '2022')) ?>">
-                                <p class="form-hint">Отображается в подвале как «© 2022 Название».</p>
+                                <div class="form-group">
+                                    <label class="form-label" for="setFoundedYear">Год основания</label>
+                                    <input class="input" name="site_founded_year" id="setFoundedYear"
+                                           maxlength="4" inputmode="numeric" pattern="\d{4}"
+                                           value="<?= escape(site_setting($settings, 'site_founded_year', '2022')) ?>">
+                                    <p class="form-hint">Отображается в подвале как «© 2022 Название».</p>
+                                </div>
                             </div>
 
                             <div class="form-group">
