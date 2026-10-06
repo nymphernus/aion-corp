@@ -138,28 +138,48 @@ $homeSettings = site_settings($mysqlHome);
 
 $contactPhone     = site_setting($homeSettings, 'contact_phone');
 $contactEmail     = site_setting($homeSettings, 'contact_email');
-$contactVk        = site_setting($homeSettings, 'contact_vk');
-$contactTelegram  = site_setting($homeSettings, 'contact_telegram');
-$contactWhatsapp  = site_setting($homeSettings, 'contact_whatsapp');
 $mapSnapshot      = site_setting($homeSettings, 'map_snapshot_url');
 $mapAddress       = site_setting($homeSettings, 'map_address_text');
 $mapLat           = site_setting($homeSettings, 'map_lat', '55.7558');
 $mapLng           = site_setting($homeSettings, 'map_lng', '37.6173');
 $mapZoom          = site_setting($homeSettings, 'map_zoom', '15');
 
-// иконки соцсетей. Пустая ссылка это отсутствие иконки, а не
-// иконка в никуда, поэтому массив фильтруется. Здесь, а не в разметке:
-// переменная нужна до вывода, а при ошибке PHP в разметке страница
-// отдавалась бы с кодом 200 и надписью Warning посреди секции - это
-// выяснилось уже после того, как переменная потерялась при переносе
-// блока в .
-$socials = array_filter([
-    ['label' => 'VK',       'url' => $contactVk,       'icon' => '/assets/images/logo-vk.svg'],
-    ['label' => 'Telegram', 'url' => $contactTelegram, 'icon' => '/assets/images/logo-telegram.svg'],
-    ['label' => 'WhatsApp', 'url' => $contactWhatsapp, 'icon' => '/assets/images/logo-whatsapp.svg'],
-], static function ($item) {
-    return $item['url'] !== '';
-});
+// Иконки соцсетей берутся из таблицы social_links.
+//
+// Раньше здесь стоял массив из трёх элементов, собранный из ключей
+// contact_vk, contact_telegram и contact_whatsapp. Чтобы добавить
+// четвёртую площадку, приходилось заводить четвёртый ключ в
+// site_settings и дописывать строку в коде. Теперь строки читаются из
+// базы, и добавление соцсети - это запись в таблицу, а не правка PHP.
+//
+// Пустая ссылка и выключенная строка не выводятся: в таблице они
+// остаются, чтобы админ мог их заполнить или включить обратно.
+//
+// Ключи ответа совпадают с тем, что было в массиве: разметка ниже
+// использует $social['label'], $social['url'] и $social['icon'].
+//
+// Запрос идёт здесь, а не в разметке, по той же причине, что и раньше:
+// при ошибке PHP в разметке страница отдавалась бы с кодом 200 и
+// надписью Warning посреди секции.
+$socials = [];
+$stmtSocial = db_prepare(
+    $mysqlHome,
+    "SELECT link_name, link_url, link_icon
+       FROM social_links
+      WHERE is_active = 1 AND link_url != ''
+      ORDER BY link_id ASC",
+    ''
+);
+$stmtSocial->execute();
+$resultSocial = $stmtSocial->get_result();
+while ($row = $resultSocial->fetch_assoc()) {
+    $socials[] = [
+        'label' => $row['link_name'],
+        'url' => $row['link_url'],
+        'icon' => $row['link_icon'],
+    ];
+}
+$resultSocial->free();
 ?>
             <div id="main__container">
                 <div class="slider">
@@ -453,9 +473,9 @@ $socials = array_filter([
                         </div>
 <?php endif; ?>
 
-<?php // Пустая ссылка это отсутствие иконки, а не иконка в никуда.
-      // Иконки рисуются из массива: чтобы добавить площадку, достаточно
-      // одной строки здесь ?>
+<?php // Пустая ссылка и выключенная строка не попадают в выборку на
+      // сервере, поэтому здесь не нужен ни array_filter, ни проверка
+      // внутри цикла. Пустой $socials означает, что блока не будет. ?>
 <?php if ($socials): ?>
                         <div class="contacts__socials">
 <?php foreach ($socials as $social): ?>
