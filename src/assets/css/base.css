@@ -318,7 +318,7 @@ a {
     transition: background 150ms;
 }
 
-/* клик по строке заказов и пользователей (модалки 3.7-h-1/h-2) */
+/* клик по строке заказов и пользователей (модалки заказа и пользователя) */
 .table tbody tr[data-row] {
     cursor: pointer;
     transition: background 150ms;

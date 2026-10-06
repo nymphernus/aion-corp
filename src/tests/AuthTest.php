@@ -704,7 +704,7 @@ final class AuthTest extends AionTestCase
      * /admin.php?tab=dashboard.
      *
      * Проверяется разбором DOM, а не поиском по строке ответа: незакрытый
-     * HTML-комментарий в этом же подэтапе съел обе ссылки, и в ответе
+     * HTML-комментарий здесь же съел бы обе ссылки, и в ответе
      * сервера они были, а в меню - нет.
      */
     public function testSidebarLinksToProfileSections(): void
