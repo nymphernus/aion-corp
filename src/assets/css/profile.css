@@ -619,41 +619,72 @@ h1{
     border: 1px solid var(--border);
 }
 
-/* Stage 9: секция «Брендинг» внутри формы настроек.
-   Отступ сверху отделяет её от блока контактов - это всё одна форма,
-   отдельная .card была бы вложенной картой в карте. */
+/* ПРАВКА 3: «Контакты», «Брендинг» и «Карта» - три отдельные карточки.
+   Раньше брендинг был вложенным блоком с одним border-top и читался как
+   хвост карточки контактов; теперь у каждого раздела своя рамка, и их
+   видно раздельно, хотя под одним «Сохранить».
+
+   Стили скопированы с .card (фон, рамка, радиус, padding, overflow-x) -
+   иначе новые блоки выглядели бы из другой вселенной, чем карточки
+   пользователей и заказов на соседних вкладках. */
 .settings-block {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+    /* Как у .card: без этого длинное значение в поле уезжает за
+       границу и страница начинает скроллиться целиком. */
+    overflow-x: auto;
 }
+
+.settings-block:last-child {
+    margin-bottom: 0;
+}
+
 .settings-block__title {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 18px;
+    font-weight: 700;
     color: var(--text);
-    margin: 0 0 4px;
+    margin: 0 0 6px;
 }
+
+.settings-block__hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 20px;
+}
+
 .settings-block .form-group {
     margin-bottom: 14px;
 }
-/* Превью логотипа и favicon: рамка нужна, чтобы было видно границы
-   картинки на светлом фоне - сам логотип обычно прозрачный. */
+/* Превью логотипа: рамка нужна, чтобы было видно границы картинки на
+   светлом фоне - сам логотип обычно прозрачный.
+
+   ПРАВКА 4: бокс растягивался на всю ширину карточки (720px), а сам
+   логотип 137px сидел по центру - это читалось как пустая полоса с
+   картинкой. inline-flex вместо flex и max-width 280px прижимают бокс
+   к содержимому, то есть он обтекает картинку, а не наоборот. */
 .branding-preview {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 88px;
-    padding: 8px;
-    margin-bottom: 8px;
+    min-height: 80px;
+    max-width: 280px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
     background: var(--bg);
     border: 1px dashed var(--border);
-    border-radius: 8px;
+    border-radius: 12px;
 }
+
 .branding-preview img {
-    max-width: 200px;
-    max-height: 80px;
+    display: block;
+    max-width: 240px;
+    max-height: 60px;
     object-fit: contain;
 }
+
 .branding-preview img.is-loaded {
     border-radius: 4px;
 }
@@ -693,18 +724,25 @@ h1{
     gap: 4px;
 }
 
-/* Подпись поля: мелкая, заглавная, разрядка. Галочка «авто» живёт
-   внутри неё, поэтому у этой подписи text-transform не применяется
-   к вложенному span - иначе «АВТО» выглядело бы криком. */
+/* ПРАВКА 6: подписи полей favicon приведены к тому же виду, что и
+   .form-label остальных полей настроек - обычный регистр, тот же
+   размер и цвет. Раньше здесь стояли uppercase, 11px и разрядка, и
+   внутри одной секции «Название сайта» было строчными, а «Буква» и
+   «Фон» заглавными - читалось как разные формы.
+
+   Ширина label фиксирована: иначе подписи разной длины прыгали бы
+   при смене фокуса, а колонка пикеров съезжала бы. */
 .favicon-field__label {
-    font-size: 11px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 600;
     display: flex;
     align-items: center;
     gap: 6px;
+    margin-bottom: 6px;
+    /* Ровно как .form-label в base.css: 14px / 500 / --text-secondary.
+       Только display:flex вместо block - из-за вложенной галочки
+       «авто». */
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
     white-space: nowrap;
 }
 
@@ -755,25 +793,37 @@ h1{
 }
 
 /* Галочка «авто». span, а не label: подпись поля уже label, и вкладывать
-   в неё ещё один label нельзя. */
+   в неё ещё один label нельзя.
+
+   ПРАВКА 5: при 10px и gap 3px галочка читалась как точка и примыкала к
+   слову «Буква». Теперь 12px, gap 6px и отступ 10px - элемент виден и
+   явно отделён. Фон на hover подсказывает, что по нему можно кликнуть;
+   раньше кликабельность не была ничем не обозначена. */
 .favicon-auto {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    font-size: 10px;
+    gap: 6px;
+    margin-left: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
     color: var(--text-secondary);
-    font-weight: 400;
     text-transform: none;
     letter-spacing: 0;
     cursor: pointer;
-    margin-left: 2px;
+    transition: background 150ms;
+}
+
+.favicon-auto:hover {
+    background: var(--bg);
 }
 
 .favicon-auto input[type="checkbox"] {
     margin: 0;
     cursor: pointer;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     /* Акцент проекта - --accent; --primary в проекте не существует,
        и без фолбэка галочка красилась бы дефолтным синим. */
     accent-color: var(--accent, #2563EB);

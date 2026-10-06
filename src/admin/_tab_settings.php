@@ -39,19 +39,26 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
     }
 }
 ?>
-                <section class="card">
-                    <h2>Контакты</h2>
-                    <p class="form-hint">
-                        Эти значения подставляются в блок «Свяжитесь с нами»
-                        на главной. Пустую ссылку в соцсеть иконка не показывает.
-                    </p>
+                <?php // ПРАВКА 3: контакты и брендинг - две отдельные
+                      // карточки внутри одной формы. Форма вынесена выше
+                      // обеих: раньше она лежала внутри карточки контактов,
+                      // и брендинг оказывался вложенным блоком без границы -
+                      // читалось как «Контакты» с хвостом.
 
-                    <?php // enctype обязателен: в этой же форме загружаются
-                          // файлы бренда (логотип, favicon). Без него браузер
-                          // отправит только имена файлов, а $_FILES будет
-                          // пустым - и загрузка молча не сработала бы. ?>
-                    <form method="post" action="/admin.php?tab=settings"
-                          enctype="multipart/form-data">
+                      // enctype обязателен: в этой же форме загружаются
+                      // файлы бренда (логотип, favicon). Без него браузер
+                      // отправит только имена файлов, а $_FILES будет
+                      // пустым - и загрузка молча не сработала бы. ?>
+                <form method="post" action="/admin.php?tab=settings"
+                      enctype="multipart/form-data">
+
+                    <article class="settings-block">
+                        <h2 class="settings-block__title">Контакты</h2>
+                        <p class="settings-block__hint">
+                            Эти значения подставляются в блок «Свяжитесь с нами»
+                            на главной. Пустую ссылку в соцсеть иконка не показывает.
+                        </p>
+
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
 <?php if ($badMessages !== []): ?>
@@ -107,19 +114,21 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                         </div>
 
                         <!--
-                            Stage 9: брендинг. Секция внутри этой же формы,
+                            Stage 9: брендинг. Карточка внутри этой же формы,
                             а не отдельная вкладка: всё под одним «Сохранить».
                             Скрытые site_*_url нужны, когда картинку не
                             загружают заново - тогда в POST уходит прежнее
                             значение, и настройка не сбрасывается.
                         -->
-                        <div class="settings-block">
-                            <h3 class="settings-block__title">Брендинг</h3>
-                            <p class="form-hint">
-                                Название и картинки сайта. Применяются на всех
-                                страницах: в заголовке вкладки, шапке, подвале
-                                и на главной.
-                            </p>
+                    </article>
+
+                    <article class="settings-block">
+                        <h2 class="settings-block__title">Брендинг</h2>
+                        <p class="settings-block__hint">
+                            Название и картинки сайта. Применяются на всех
+                            страницах: в заголовке вкладки, шапке, подвале
+                            и на главной.
+                        </p>
 
                             <div class="modal-row">
                                 <div class="form-group">
@@ -232,18 +241,16 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
 
                             <input type="hidden" name="site_favicon_png_url" id="faviconUrlInput"
                                    value="<?= escape(site_setting($settings, 'site_favicon_png_url')) ?>">
-                        </div>
-                        </div>
+                    </article>
 
-                        <div class="modal-actions"><div class="modal-actions-right">
-                            <button type="submit" name="saveSettings" class="btn btn--primary">Сохранить</button>
-                        </div>
-                    </form>
-                </section>
+                    <div class="modal-actions"><div class="modal-actions-right">
+                        <button type="submit" name="saveSettings" class="btn btn--primary">Сохранить</button>
+                    </div></div>
+                </form>
 
-                <section class="card">
-                    <h2>Карта</h2>
-                    <p class="form-hint">
+                <article class="settings-block">
+                    <h2 class="settings-block__title">Карта</h2>
+                    <p class="settings-block__hint">
                         На главной карта показывается снимком — одним файлом,
                         без единого запроса к внешним сервисам. Снимок делается
                         один раз здесь и больше не обновляется сам.
@@ -273,11 +280,11 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
 
                     <div class="modal-actions"><div class="modal-actions-right">
                         <button type="button" class="btn btn--primary"
-                                data-action="open-modal" data-modal="mapSnapshotModal">
-                            Обновить карту
-                        </button>
-                    </div>
-                </section>
+                            data-action="open-modal" data-modal="mapSnapshotModal">
+                        Обновить карту
+                    </button>
+                </div>
+                </article>
 
                 <!--
                     5-f-2: модалка обновления карты. Геокодирование идёт через
