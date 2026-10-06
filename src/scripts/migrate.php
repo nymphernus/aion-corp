@@ -215,6 +215,26 @@ $tables = [
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+    // Соцсети вынесены из site_settings отдельной таблицей. В site_settings
+    // для трёх площадок понадобилось три ключа contact_* и по одной строке
+    // в коде главной на каждую: четвёртую соцсеть было не добавить без
+    // правки PHP.
+    //
+    // Составной индекс под порядок вывода: выборка на главной идёт всегда
+    // по (sort_order, is_active), а link_id в конце нужен, чтобы порядок не
+    // прыгал между строками с одинаковым sort_order.
+    'social_links' => "CREATE TABLE IF NOT EXISTS `social_links` (
+  `link_id` int NOT NULL AUTO_INCREMENT,
+  `link_name` varchar(50) NOT NULL,
+  `link_url` varchar(255) NOT NULL,
+  `link_icon` varchar(255) NOT NULL,
+  `sort_order` int NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`link_id`),
+  KEY `sort_active` (`sort_order`, `is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 ];
 
 mig_log('=== миграция схемы ===');
@@ -353,9 +373,12 @@ $settings = [
     'map_snapshot_url' => '',
     'contact_phone' => '+7 (987) 654-32-10',
     'contact_email' => 'mail@mail.ru',
-    'contact_vk' => 'https://github.com/nymphernus/aion-corp',
-    'contact_telegram' => 'https://github.com/nymphernus/aion-corp',
-    'contact_whatsapp' => 'https://github.com/nymphernus/aion-corp',
+    // contact_vk, contact_telegram и contact_whatsapp больше не в
+    // дефолтах: соцсети живут в таблице social_links, а эти три ключа
+    // переносятся в неё одноразовой миграцией ниже и удаляются. Пока
+    // дефолты оставались здесь, повторный запуск migrate.php на старой
+    // базе создавал бы ключи заново - и следующая миграция не имела бы
+    // права их удалить.
     // брендинг. Название одно - site_name. Раньше было два ключа
     // («короткое» и «полное»), но различать их было незачем: в шапке,
     // подвале, заголовке вкладки и на главной всё равно требовалось одно
@@ -396,6 +419,95 @@ foreach ($settings as $key => $value) {
     }
     mig_exec($mysql, $dryRun, "INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)", [$key, $value], "ss");
     mig_log("  [insert] setting $key");
+}
+
+// Одноразовая миграция: три ключа contact_* -> таблица social_links.
+//
+// Там, где три площадки, три ключа в site_settings и три строки в коде
+// главной: четвёртую соцсеть было не добавить без правки PHP.
+//
+// Порядок важен: сначала значения переносятся, и только потом старые
+// ключи удаляются - иначе потерялось бы и то, и другое.
+//
+// Пустые значения пропускаются. В site_settings пустая ссылка означала
+// «иконки нет»: array_filter() на главной её отбрасывал. Строка с пустым
+// URL в social_links - это то же самое, только теперь её ещё и видно в
+// админке, где её можно заполнить.
+$legacySocials = [
+    // ключ в site_settings => [название, иконка, порядок]
+    'contact_vk' => ['ВКонтакте', '/assets/images/social/vk.svg', 10],
+    'contact_telegram' => ['Telegram', '/assets/images/social/telegram.svg', 20],
+    'contact_whatsapp' => ['WhatsApp', '/assets/images/social/whatsapp.svg', 30],
+];
+
+// Таблицы social_links на dry-run нет: её создание идёт через mig_exec,
+// который в dry-run ничего не выполняет, а перенос читает таблицу обычным
+// SELECT. Заодно проверка страхует случай, когда создание не прошло.
+if (table_exists($mysql, 'social_links')) {
+    $legacyFound = false;
+    foreach ($legacySocials as $legacyKey => [$label, $icon, $sort]) {
+        $stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $legacyKey);
+        $stmt->execute();
+        $url = trim((string) ($stmt->get_result()->fetch_row()[0] ?? ''));
+
+        if ($url === '') {
+            continue;
+        }
+        $legacyFound = true;
+
+        // Идемпотентность по названию: повторный запуск на уже
+        // перенесённой базе не должен плодить вторую ВКонтакте.
+        $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM social_links WHERE link_name = ?", "s", $label);
+        $stmt->execute();
+        if ((int) $stmt->get_result()->fetch_row()[0] > 0) {
+            mig_log("  [skip] social_links $label уже есть");
+            continue;
+        }
+
+        mig_exec(
+            $mysql,
+            $dryRun,
+            "INSERT INTO social_links (link_name, link_url, link_icon, sort_order) VALUES (?, ?, ?, ?)",
+            [$label, $url, $icon, $sort],
+            'sssi'
+        );
+        mig_log("  [social] $label перенесён из $legacyKey");
+    }
+
+    // Ключи contact_* здесь НЕ удаляются, хотя перенос уже сделан.
+    //
+    // Удаление отложено до того подэтапа, где главная начнёт читать
+    // social_links. Проверено: пока index.php читает contact_vk, а ключа
+    // уже нет, site_setting() отдаёт пустую строку, array_filter() её
+    // отбрасывает - и иконки соцсетей молча исчезают с главной. Между
+    // переносом и правкой index.php сайт остался бы без них.
+    //
+    // Повторные запуски migrate.php этому не мешают: перенос идемпотентен
+    // по названию, пока строки лежат в site_settings.
+
+    // Свежая установка: переносить нечего, но админу нужны три готовые
+    // строки, чтобы он вписал адреса, а не заводил площадки с нуля.
+    //
+    // URL пустой намеренно. Прежние дефолты стояли ссылкой на репозиторий
+    // GitHub - и одинаковой для VK, Telegram и WhatsApp, то есть все три
+    // иконки вели в одно место. Такой «заполнитель» в таблице виден в
+    // админке как незаполненная строка, а не как готовый контакт.
+    if (!$legacyFound) {
+        $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM social_links", "");
+        $stmt->execute();
+        if ((int) $stmt->get_result()->fetch_row()[0] === 0) {
+            foreach ($legacySocials as [$label, $icon, $sort]) {
+                mig_exec(
+                    $mysql,
+                    $dryRun,
+                    "INSERT INTO social_links (link_name, link_url, link_icon, sort_order) VALUES (?, '', ?, ?)",
+                    [$label, $icon, $sort],
+                    'ssi'
+                );
+                mig_log("  [social] создана пустая строка $label");
+            }
+        }
+    }
 }
 
 // Одноразовая миграция: два названия -> одно.

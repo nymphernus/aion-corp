@@ -13,10 +13,19 @@ src/tests/.phpunit.result.cache
 
 src/tests/.phpunit.result.cache
 
-# 5-f-2: snimok karty delaet admin iz browsera - eto dannye vladelca, a ne
-# ishodniki proekta. Katalog nuzhen, fР°Р№Р» vnutri - net
-src/assets/uploads/*
-!src/assets/uploads/.gitkeep
+# Каталог нужен, файлы внутри нет: загружает админ, это данные владельца.
+#
+# Правило рекурсивное, а не ровно один уровень. Прежнее
+# «src/assets/uploads/*» исключало и саму подпапку social, а git в
+# исключённый каталог не заходит - значит .gitkeep внутри подпапки не
+# мог быть возвращён исключением и папка не попадала в репозиторий. На
+# свежей копии каталога для загрузки иконок просто не было бы.
+#
+# Порядок важен: сначала исключаем содержимое, потом возвращаем
+# каталоги (иначе git в них не зайдёт), потом .gitkeep.
+src/assets/uploads/**
+!src/assets/uploads/**/
+!src/assets/uploads/**/.gitkeep
 
 # ПРАВКА 4: иконку и логотип бренда делает админ - это данные владельца,
 # а не исходники. Каталог нужен, файлы внутри нет: миграция создаст
