@@ -56,9 +56,12 @@ $requiredSlots = assembly_required_slots();
 $asmComponentsByCategory = [];
 $stmt = db_prepare(
     $mysql,
-    'SELECT component_id, category_id, component_name, component_price, amount
-       FROM components
-      ORDER BY component_price ASC, component_id ASC',
+    'SELECT c.component_id, c.category_id, c.component_name, c.component_price, c.amount,
+            s.socket_type, c.ram_type, c.form_factor, c.interface, c.tdp,
+            c.capacity_gb, c.frequency_mhz
+       FROM components c
+       LEFT JOIN sockets s ON s.socket_id = c.socket_id
+      ORDER BY c.component_price ASC, c.component_id ASC',
     ''
 );
 $stmt->execute();
@@ -263,9 +266,40 @@ if ($asmRows !== []) {
                             <?= $asmIsRequired ? 'required' : '' ?>>
                         <option value="0">— не выбрано —</option>
         <?php foreach ($asmComponentsByCategory[$asmCategoryId] ?? [] as $asmComponent): ?>
+                        <?php
+                        // Характеристики в опции: знающий человек сам разберётся,
+                        // какой сокет подходит к какой плате. Полноценный каскад
+                        // (одно поле фильтрует другое) — отдельная задача.
+                        $asmSpecs = [];
+                        if (!empty($asmComponent['socket_type'])) {
+                            $asmSpecs[] = (string) $asmComponent['socket_type'];
+                        }
+                        if (!empty($asmComponent['ram_type'])) {
+                            $asmSpecs[] = (string) $asmComponent['ram_type'];
+                        }
+                        if (!empty($asmComponent['form_factor'])) {
+                            $asmSpecs[] = (string) $asmComponent['form_factor'];
+                        }
+                        if (!empty($asmComponent['interface'])) {
+                            $asmSpecs[] = (string) $asmComponent['interface'];
+                        }
+                        if (!empty($asmComponent['tdp'])) {
+                            $asmSpecs[] = 'TDP ' . (int) $asmComponent['tdp'] . ' Вт';
+                        }
+                        if (!empty($asmComponent['capacity_gb'])) {
+                            $asmSpecs[] = (int) $asmComponent['capacity_gb'] . ' ГБ';
+                        }
+                        if (!empty($asmComponent['frequency_mhz'])) {
+                            $asmSpecs[] = (int) $asmComponent['frequency_mhz'] . ' МГц';
+                        }
+                        if (!empty($asmComponent['wattage'])) {
+                            $asmSpecs[] = (int) $asmComponent['wattage'] . ' Вт';
+                        }
+                        ?>
                         <option value="<?= (int) $asmComponent['component_id'] ?>">
                             <?= escape((string) $asmComponent['component_name']) ?>
-                            (<?= number_format((int) $asmComponent['component_price'], 0, '.', ' ') ?> ₽)<?= (int) $asmComponent['amount'] > 0 ? '' : ' — нет на складе' ?>
+                            <?= $asmSpecs !== [] ? ' · ' . escape(implode(' · ', $asmSpecs)) : '' ?>
+                            · <?= number_format((int) $asmComponent['component_price'], 0, '.', ' ') ?> ₽<?= (int) $asmComponent['amount'] > 0 ? '' : ' — нет на складе' ?>
                         </option>
         <?php endforeach; ?>
                     </select>

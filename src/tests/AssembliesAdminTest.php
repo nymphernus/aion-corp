@@ -373,6 +373,42 @@ final class AssembliesAdminTest extends AionTestCase
         $this->assertStringContainsString('bad=comp_category', $r['location'], 'чужой компонент должен отклоняться');
     }
 
+    /**
+     * В опциях селектов есть характеристики.
+     *
+     * Полноценный каскад (одно поле фильтрует другое) отложен, но
+     * знающий человек должен видеть сокет, тип памяти и форм-фактор
+     * прямо в списке — иначе подбирать их приходится по каталогу.
+     */
+    public function testSelectOptionsShowSpecs(): void
+    {
+        $this->loginAsAdmin();
+
+        $page = $this->httpGet('/admin.php?tab=assemblies');
+        $this->assertSame(200, $page['code']);
+
+        // У процессора должен быть сокет
+        $this->assertMatchesRegularExpression(
+            '/<option value="\d+">[^<]*LGA\d+[^<]*<\/option>/',
+            $page['body'],
+            'у процессора в опциях должен быть сокет'
+        );
+
+        // У материнской платы должен быть тип памяти
+        $this->assertMatchesRegularExpression(
+            '/<option value="\d+">[^<]*DDR\d[^<]*<\/option>/',
+            $page['body'],
+            'у материнской платы в опциях должен быть тип памяти'
+        );
+
+        // У блока питания должна быть мощность
+        $this->assertMatchesRegularExpression(
+            '/<option value="\d+">[^<]*\d+ Вт[^<]*<\/option>/',
+            $page['body'],
+            'у блока питания в опциях должна быть мощность'
+        );
+    }
+
     public function testTabListsBaseAssembliesOnly(): void
     {
         $this->loginAsAdmin();
