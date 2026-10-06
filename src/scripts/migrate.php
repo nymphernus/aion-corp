@@ -235,6 +235,41 @@ $tables = [
   PRIMARY KEY (`link_id`),
   KEY `sort_active` (`sort_order`, `is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+    // Пресеты бюджета и операционные системы конфигуратора.
+    // И то и другое лежало в разметке главной и в коде configurator.php:
+    // четыре кнопки с data-budget и инлайновыми SVG плюс строки
+    // 'windows' => 11000. Чтобы поменять цену Windows, нужно было
+    // править PHP и выкатывать.
+    //
+    // Индекс sort_active под порядок вывода: главная выбирает всегда
+    // по (sort_order, is_active), а id в конце - чтобы порядок не
+    // прыгал между строками с одинаковым sort_order.
+    'configurator_presets' => "CREATE TABLE IF NOT EXISTS `configurator_presets` (
+  `preset_id` int NOT NULL AUTO_INCREMENT,
+  `preset_name` varchar(50) NOT NULL,
+  `preset_budget` int NOT NULL,
+  `preset_icon` varchar(30) NOT NULL DEFAULT 'monitor',
+  `sort_order` int NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`preset_id`),
+  KEY `sort_active` (`sort_order`, `is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+    // os_price добавляется к цене сборки сверх бюджета. Ноль означает
+    // бесплатно, а не «не задано»: Без ОС и Ubuntu стоят ноль, и
+    // различать их нечего.
+    'configurator_os' => "CREATE TABLE IF NOT EXISTS `configurator_os` (
+  `os_id` int NOT NULL AUTO_INCREMENT,
+  `os_name` varchar(100) NOT NULL,
+  `os_price` int NOT NULL DEFAULT 0,
+  `sort_order` int NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`os_id`),
+  KEY `sort_active` (`sort_order`, `is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 ];
 
 mig_log('=== миграция схемы ===');
@@ -419,6 +454,61 @@ foreach ($settings as $key => $value) {
     }
     mig_exec($mysql, $dryRun, "INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)", [$key, $value], "ss");
     mig_log("  [insert] setting $key");
+}
+
+// Начальные строки конфигуратора: пресеты бюджета и ОС.
+//
+// Проверка на пустоту таблицы, а не на конкретные значения: миграция
+// идёт при каждом развёртывании, и если админ уже добавил свой
+// пресет, добивать сверху дефолтными было бы неверно. Сравнение по
+// именам тоже не годится - админ вправе переименовать «Игры».
+//
+// Порядок и значения сняты с разметки главной (data-budget) и из
+// configurator.php, где стояло 'windows' => 11000.
+$configuratorSeed = [
+    // [название, бюджет, иконка, порядок]
+    'configurator_presets' => [
+        ['Офис',      20000,  'monitor', 10],
+        ['Игры',     100000,  'gamepad', 20],
+        ['Работа',   250000,  'chart',   30],
+        ['Максимум', 500000,  'zap',     40],
+    ],
+    // [название, цена, порядок]
+    'configurator_os' => [
+        ['Windows 10 Home', 11000, 10],
+        ['Ubuntu 24.04 LTS',    0, 20],
+        ['Без ОС',              0, 30],
+    ],
+];
+
+foreach ($configuratorSeed as $seedTable => $seedRows) {
+    if (!table_exists($mysql, $seedTable)) {
+        mig_log("  [skip] $seedTable: таблицы нет (dry-run?)");
+        continue;
+    }
+    $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM `$seedTable`");
+    $stmt->execute();
+    if ((int) $stmt->get_result()->fetch_row()[0] > 0) {
+        mig_log("  [skip] $seedTable: строки уже есть");
+        continue;
+    }
+    $inserted = 0;
+    foreach ($seedRows as $row) {
+        if ($seedTable === 'configurator_presets') {
+            // s,i,s,i - имя, бюджет, иконка, порядок. Порядок типов
+            // обязан совпадать с колонками: с "ssis" строка icon
+            // приходилась на целое, и пресеты создавались с
+            // preset_icon = 0 вместо 'monitor'.
+            $sql = "INSERT INTO `$seedTable` (preset_name, preset_budget, preset_icon, sort_order) VALUES (?, ?, ?, ?)";
+            $types = "sisi";
+        } else {
+            $sql = "INSERT INTO `$seedTable` (os_name, os_price, sort_order) VALUES (?, ?, ?)";
+            $types = "sis";
+        }
+        mig_exec($mysql, $dryRun, $sql, $row, $types);
+        $inserted++;
+    }
+    mig_log("  [insert] $seedTable: $inserted строк(и)");
 }
 
 // Одноразовая миграция: три ключа contact_* -> таблица social_links.
