@@ -294,7 +294,7 @@ $resultSocial->free();
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
                         <div class="cfg__presets">
-                            <button type="button" class="cfg-preset" data-budget="20000" data-pref="universal">
+                            <button type="button" class="cfg-preset" data-budget="20000">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <rect x="2" y="3" width="20" height="14" rx="2"></rect>
                                     <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -303,7 +303,7 @@ $resultSocial->free();
                                 <span class="cfg-preset__name">Офис</span>
                                 <span class="cfg-preset__price">от 20 000 ₽</span>
                             </button>
-                            <button type="button" class="cfg-preset" data-budget="100000" data-pref="games">
+                            <button type="button" class="cfg-preset" data-budget="100000">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <line x1="6" y1="12" x2="10" y2="12"></line>
                                     <line x1="8" y1="10" x2="8" y2="14"></line>
@@ -314,7 +314,7 @@ $resultSocial->free();
                                 <span class="cfg-preset__name">Игры</span>
                                 <span class="cfg-preset__price">от 100 000 ₽</span>
                             </button>
-                            <button type="button" class="cfg-preset" data-budget="250000" data-pref="work">
+                            <button type="button" class="cfg-preset" data-budget="250000">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <line x1="18" y1="20" x2="18" y2="10"></line>
                                     <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -323,7 +323,7 @@ $resultSocial->free();
                                 <span class="cfg-preset__name">Работа</span>
                                 <span class="cfg-preset__price">от 250 000 ₽</span>
                             </button>
-                            <button type="button" class="cfg-preset" data-budget="500000" data-pref="universal">
+                            <button type="button" class="cfg-preset" data-budget="500000">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                                 </svg>
@@ -355,48 +355,6 @@ $resultSocial->free();
                             <?php else: ?>
                                 <button type="submit" class="cfg__submit">Подобрать &rarr;</button>
                             <?php endif; ?>
-                        </div>
-
-<div class="cfg__prefs">
-                            <h3 class="cfg-prefs__title">Что важнее?</h3>
-                            <div class="cfg-prefs__row">
-                                <label class="cfg-pref">
-                                    <input type="radio" name="preference" value="games" checked>
-                                    <span class="cfg-pref__box">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                            <line x1="6" y1="12" x2="10" y2="12"></line>
-                                            <line x1="8" y1="10" x2="8" y2="14"></line>
-                                            <line x1="15" y1="13" x2="15.01" y2="13"></line>
-                                            <line x1="18" y1="11" x2="18.01" y2="11"></line>
-                                            <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"></path>
-                                        </svg>
-                                        <span>Игры</span>
-                                    </span>
-                                </label>
-                                <label class="cfg-pref">
-                                    <input type="radio" name="preference" value="work">
-                                    <span class="cfg-pref__box">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                            <line x1="18" y1="20" x2="18" y2="10"></line>
-                                            <line x1="12" y1="20" x2="12" y2="4"></line>
-                                            <line x1="6" y1="20" x2="6" y2="14"></line>
-                                        </svg>
-                                        <span>Работа</span>
-                                    </span>
-                                </label>
-                                <label class="cfg-pref">
-                                    <input type="radio" name="preference" value="universal">
-                                    <span class="cfg-pref__box">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                            <path d="M12 3v18"></path>
-                                            <path d="M5 7h14"></path>
-                                            <path d="M5 7l-3 6a4 4 0 0 0 6 0L5 7z"></path>
-                                            <path d="M19 7l-3 6a4 4 0 0 0 6 0L19 7z"></path>
-                                        </svg>
-                                        <span>Универсал</span>
-                                    </span>
-                                </label>
-                            </div>
                         </div>
 
                         <div class="cfg__os">

@@ -14,13 +14,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if (isset($_POST['price'])) {
-    // бюджет на железо, приоритет распределения и выбор ОС.
+    // бюджет на железо и выбор ОС.
     // ОС добавляется к цене сверх бюджета, сам configure() это учитывает.
-    // preference проверяем на строку: в массив приведённое значение дало бы
-    // предупреждение при приведении к строке, а не тихий откат на universal.
+    // Поле preference удалено вместе с блоком «Что важнее»: сборка
+    // собирается по бюджету, распределение всегда сбалансированное.
     configure(
         (int)$_POST['price'],
-        (isset($_POST['preference']) && is_string($_POST['preference'])) ? $_POST['preference'] : 'universal',
         (isset($_POST['choice_os']) && is_string($_POST['choice_os'])) ? $_POST['choice_os'] : 'none'
     );
     $idA = $_COOKIE['assemblyId'];

@@ -725,38 +725,30 @@ document.addEventListener('click', function(e) {
     // showModal вызывается в существующем обработчике open-modal
 });
 
-/* пресет задаёт и бюджет, и приоритет.
-   Раньше пресет и переключатель «Что важнее?» показывали одни и те же
-   слова - «Игры» и «Работа» были видны дважды, и выбор оставался
-   противоречивым. Теперь клик по пресету переключает и режим.
+    /* пресет задаёт бюджет.
+       Раньше пресет переключал и приоритет «Что важнее», но приоритет
+       убран: сборка собирается по бюджету, а распределение всегда
+       сбалансированное. Клик по пресету вписывает сумму в поле.
 
-   При ручном вводе суммы подсветка с пресетов снимается, если сумма не
-   совпала, но выбранный приоритет сохраняется: человек мог осознанно
-   изменить только бюджет. */
-document.addEventListener('click', function(e) {
-    const preset = e.target.closest('.cfg-preset');
-    if (!preset) return;
+       При ручном вводе суммы подсветка с пресетов снимается, если
+       сумма не совпала. */
+    document.addEventListener('click', function(e) {
+        const preset = e.target.closest('.cfg-preset');
+        if (!preset) return;
 
-    const budget = preset.dataset.budget;
-    if (!budget) return;
+        const budget = preset.dataset.budget;
+        if (!budget) return;
 
-    const pref = preset.dataset.pref;
+        document.querySelectorAll('.cfg-preset')
+            .forEach(p => p.classList.remove('is-active'));
+        preset.classList.add('is-active');
 
-    document.querySelectorAll('.cfg-preset')
-        .forEach(p => p.classList.remove('is-active'));
-    preset.classList.add('is-active');
-
-    const input = document.getElementById('cfgPrice');
-    if (input) {
-        input.value = budget;
-        input.focus();
-    }
-
-    if (pref) {
-        const radio = document.querySelector('input[name="preference"][value="' + pref + '"]');
-        if (radio) radio.checked = true;
-    }
-});
+        const input = document.getElementById('cfgPrice');
+        if (input) {
+            input.value = budget;
+            input.focus();
+        }
+    });
 
 document.addEventListener('input', function(e) {
     if (e.target.id !== 'cfgPrice') return;

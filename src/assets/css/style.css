@@ -1341,22 +1341,13 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 }
 
 
-/* === Радиокнопки: «Что важнее?» и ОС ===
-   Чекбоксы доп. опций убраны, вместо них выбор приоритета
-   и операционная система. Настоящие input скрыты, рисуется обёртка
-   .cfg-pref__box и .cfg-os-item__box.
+/* === Радиокнопки ОС ===
+   Настоящие input скрыты, рисуется обёртка .cfg-os-item__box.
+   Раньше рядом стоял блок «Что важнее?» с такой же разметкой, и часть
+   правил была общей на оба. Блок убран, правила переписаны только под ОС.
 
-   name=preference - новое поле, бэкенд его пока не читает, используется
-   будет на c-2. name=choice_os остался прежним, но теперь это radio со
-   значениями windows, linux и none. configurator.php:19 проверяет
-   $_POST['choice_os'] == '1', поэтому до правки бэкенда на c-2 ни одно
-   из трёх значений условию не удовлетворяет - ОС не подставится, а
-   бюджет не уменьшится на 11000. Для состояния «Без ОС» это то же, что
-   было при снятом чекбоксе, то есть регрессии нет. */
-.cfg__prefs {
-    margin-bottom: 24px;
-}
-.cfg-prefs__title,
+   name=choice_os - radio со значениями windows, linux и none.
+   ОС добавляется к цене сверх бюджета, а не вычитается из него. */
 .cfg-os__title {
     font-size: 14px;
     font-weight: 600;
@@ -1365,53 +1356,21 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     letter-spacing: 0.05em;
     margin: 0 0 12px;
 }
-.cfg-prefs__row,
 .cfg-os__row {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
 }
 @media (max-width: 640px) {
-    .cfg-prefs__row,
     .cfg-os__row {
         grid-template-columns: 1fr;
     }
 }
 
-.cfg-pref input,
 .cfg-os-item input {
     position: absolute;
     opacity: 0;
     pointer-events: none;
-}
-.cfg-pref__box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 16px 12px;
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    background: white;
-    cursor: pointer;
-    transition: 200ms;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text);
-}
-.cfg-pref__box svg {
-    width: 24px;
-    height: 24px;
-    color: var(--text-secondary);
-    transition: 200ms;
-}
-.cfg-pref input:checked + .cfg-pref__box {
-    border-color: var(--accent);
-    background: var(--accent-light);
-    color: var(--accent);
-}
-.cfg-pref input:checked + .cfg-pref__box svg {
-    color: var(--accent);
 }
 
 .cfg-os-item__box {
