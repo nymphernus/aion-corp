@@ -1455,14 +1455,19 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
 }
 
 
-/* === Радиокнопки ОС ===
-   Настоящие input скрыты, рисуется обёртка .cfg-os-item__box.
-   Раньше рядом стоял блок «Что важнее?» с такой же разметкой, и часть
-   правил была общей на оба. Блок убран, правила переписаны только под ОС.
+/* === Выбор операционной системы ===
+   Раньше здесь стояли три радиокнопки .cfg-os-item с обёртками
+   .cfg-os-item__box и заголовком h3. Теперь это <select>: список ОС
+   приходит из configurator_os, и на каждую новую строку больше не
+   нужен ни элемент разметки, ни правило checked-состояния.
 
-   name=choice_os - radio со значениями windows, linux и none.
+   Значение name=os_id - идентификатор строки, не название. Правила
+   для .cfg-os-item, .cfg-os-item__box и .cfg-os__row удалены вместе
+   с разметкой: при возврате к радиокнопкам их придётся писать заново.
+
    ОС добавляется к цене сверх бюджета, а не вычитается из него. */
 .cfg-os__title {
+    display: block;
     font-size: 14px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -1470,40 +1475,47 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     letter-spacing: 0.05em;
     margin: 0 0 12px;
 }
-.cfg-os__row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-}
-@media (max-width: 640px) {
-    .cfg-os__row {
-        grid-template-columns: 1fr;
-    }
-}
 
-.cfg-os-item input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.cfg-os-item__box {
-    display: block;
-    text-align: center;
-    padding: 12px 16px;
+.cfg-os__select {
+    width: 100%;
+    max-width: 420px;
+    /* Высота задана явно: без неё select в тёмной теме рисуется
+       рамкой браузера в 21px и серым фоном, а текст остаётся
+       системным чёрным - на тёмной подложке он не читался.
+       Замерено до правки: 242x21 при фоне rgb(59, 59, 59). */
+    height: 48px;
+    padding: 0 14px;
     border: 2px solid var(--border);
     border-radius: 10px;
     background: var(--bg-card);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px;
     cursor: pointer;
     transition: 150ms;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text);
 }
-.cfg-os-item input:checked + .cfg-os-item__box {
+.cfg-os__select:hover {
+    border-color: var(--text-secondary);
+}
+.cfg-os__select:focus-visible {
     border-color: var(--accent);
-    background: var(--accent-light);
-    color: var(--accent);
+    outline: 2px solid var(--accent-light);
+    outline-offset: 0;
+}
+@media (max-width: 640px) {
+    .cfg-os__select {
+        max-width: none;
+    }
+}
+
+/* Подпись под списком. color-muted, а не text-secondary: это
+   пояснение, а не подпись поля, и на фоне var(--bg) разница
+   заметна - замерено 5.0 против 7.5, оба выше порога, но здесь
+   нужен приглушённый тон. */
+.cfg-os__hint {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: var(--text-muted);
 }
 
 .cfg__os {

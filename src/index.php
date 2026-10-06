@@ -180,6 +180,58 @@ while ($row = $resultSocial->fetch_assoc()) {
     ];
 }
 $resultSocial->free();
+
+// Пресеты бюджета и операционные системы конфигуратора.
+//
+// Раньше четыре кнопки пресетов стояли в разметке с инлайновыми svg,
+// а операционные системы - тремя radio с подписями Windows, Linux и
+// «Без ОС», и цена 11000 была зашита в configurator.php. Поменять
+// бюджет пресета или стоимость ОС было нельзя, не правя PHP.
+//
+// Выключенные строки не выводятся, но остаются в таблице: админ может
+// вернуть их включёнными. Порядок - по добавлению (id), а не по
+// sort_order: поля «Порядок» в админке нет.
+$presets = [];
+$stmtPresets = db_prepare(
+    $mysqlHome,
+    "SELECT preset_name, preset_budget, preset_icon
+       FROM configurator_presets
+      WHERE is_active = 1
+      ORDER BY preset_id ASC",
+    ''
+);
+$stmtPresets->execute();
+$resultPresets = $stmtPresets->get_result();
+while ($row = $resultPresets->fetch_assoc()) {
+    $presets[] = $row;
+}
+$resultPresets->free();
+
+$osList = [];
+$stmtOs = db_prepare(
+    $mysqlHome,
+    "SELECT os_id, os_name, os_price
+       FROM configurator_os
+      WHERE is_active = 1
+      ORDER BY os_id ASC",
+    ''
+);
+$stmtOs->execute();
+$resultOs = $stmtOs->get_result();
+while ($row = $resultOs->fetch_assoc()) {
+    $osList[] = $row;
+}
+$resultOs->free();
+
+// Ни одной строки быть не должно. Без заглушки форма осталась бы с
+// пустым списком и кнопкой «Подобрать», которая собрала бы сборку с
+// нулевым бюджетом.
+if ($presets === []) {
+    $presets = [['preset_name' => 'Стандарт', 'preset_budget' => 50000, 'preset_icon' => 'monitor']];
+}
+if ($osList === []) {
+    $osList = [['os_id' => 0, 'os_name' => 'Без ОС', 'os_price' => 0]];
+}
 ?>
             <div id="main__container">
                 <div class="slider">
@@ -318,42 +370,14 @@ $resultSocial->free();
                         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
                         <div class="cfg__presets">
-                            <button type="button" class="cfg-preset" data-budget="20000">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                                    <line x1="8" y1="21" x2="16" y2="21"></line>
-                                    <line x1="12" y1="17" x2="12" y2="21"></line>
-                                </svg>
-                                <span class="cfg-preset__name">Офис</span>
-                                <span class="cfg-preset__price">от 20 000 ₽</span>
+    <?php foreach ($presets as $preset): ?>
+                            <button type="button" class="cfg-preset"
+                                    data-budget="<?= (int) $preset['preset_budget'] ?>">
+                                <?= render_preset_icon((string) $preset['preset_icon'], 28) ?>
+                                <span class="cfg-preset__name"><?= escape((string) $preset['preset_name']) ?></span>
+                                <span class="cfg-preset__price">от <?= number_format((int) $preset['preset_budget'], 0, '.', ' ') ?> ₽</span>
                             </button>
-                            <button type="button" class="cfg-preset" data-budget="100000">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <line x1="6" y1="12" x2="10" y2="12"></line>
-                                    <line x1="8" y1="10" x2="8" y2="14"></line>
-                                    <line x1="15" y1="13" x2="15.01" y2="13"></line>
-                                    <line x1="18" y1="11" x2="18.01" y2="11"></line>
-                                    <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"></path>
-                                </svg>
-                                <span class="cfg-preset__name">Игры</span>
-                                <span class="cfg-preset__price">от 100 000 ₽</span>
-                            </button>
-                            <button type="button" class="cfg-preset" data-budget="250000">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <line x1="18" y1="20" x2="18" y2="10"></line>
-                                    <line x1="12" y1="20" x2="12" y2="4"></line>
-                                    <line x1="6" y1="20" x2="6" y2="14"></line>
-                                </svg>
-                                <span class="cfg-preset__name">Работа</span>
-                                <span class="cfg-preset__price">от 250 000 ₽</span>
-                            </button>
-                            <button type="button" class="cfg-preset" data-budget="500000">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                                </svg>
-                                <span class="cfg-preset__name">Максимум</span>
-                                <span class="cfg-preset__price">от 500 000 ₽</span>
-                            </button>
+    <?php endforeach; ?>
                         </div>
 
                         <div class="cfg__divider">
@@ -382,21 +406,33 @@ $resultSocial->free();
                         </div>
 
                         <div class="cfg__os">
-                            <h3 class="cfg-os__title">Операционная система</h3>
-                            <div class="cfg-os__row">
-                                <label class="cfg-os-item">
-                                    <input type="radio" name="choice_os" value="windows">
-                                    <span class="cfg-os-item__box">Windows</span>
-                                </label>
-                                <label class="cfg-os-item">
-                                    <input type="radio" name="choice_os" value="linux">
-                                    <span class="cfg-os-item__box">Linux</span>
-                                </label>
-                                <label class="cfg-os-item">
-                                    <input type="radio" name="choice_os" value="none" checked>
-                                    <span class="cfg-os-item__box">Без ОС</span>
-                                </label>
-                            </div>
+                            <label class="cfg-os__title" for="cfgOs">Операционная система</label>
+                            <!--
+                                Список вместо трёх radio. Радиокнопки требовали
+                                правки и в разметке, и в CSS, и в обработчике
+                                при каждой новой ОС, а подписи в них были
+                                короче названий из базы («Windows» против
+                                «Windows 10 Home»).
+
+                                value - os_id, а не название и не строка:
+                                configure() перечитывает строку из базы и
+                                берёт цену оттуда. Строка в POST
+                                означала бы, что цену можно подделать
+                                прямо из формы.
+                            -->
+                            <select class="cfg-os__select" name="os_id" id="cfgOs">
+    <?php foreach ($osList as $cfgOsRow): ?>
+                                <option value="<?= (int) $cfgOsRow['os_id'] ?>">
+                                    <?= escape((string) $cfgOsRow['os_name']) ?>
+                                    <?php if ((int) $cfgOsRow['os_price'] > 0): ?>
+                                        (+<?= number_format((int) $cfgOsRow['os_price'], 0, '.', ' ') ?> ₽)
+                                    <?php endif; ?>
+                                </option>
+    <?php endforeach; ?>
+                            </select>
+                            <p class="cfg-os__hint">
+                                Стоимость ОС добавляется к цене сборки сверх бюджета.
+                            </p>
                         </div>
                     </form>
                 </section>
