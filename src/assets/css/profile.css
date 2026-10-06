@@ -1185,6 +1185,29 @@ h1{
     border-radius: var(--radius-sm);
 }
 
+/* Слоты сборки в модалке «Сборки»: девять выпадающих списков в один
+   столбец не помещались в модалку без прокрутки, а в две колонки
+   весь состав виден сразу. Тот же приём, что у .user-modal-grid, но
+   своё имя: класс той сетки привязан к модалке пользователя и к её
+   правилам ширины. */
+.asm-slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+    align-items: start;
+}
+
+.asm-slots .form-group {
+    margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+    .asm-slots {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+
 .modal-section h3 {
     margin: 0 0 12px;
     font-size: 14px;

@@ -60,7 +60,7 @@ if ($tab === '') {
     exit();
 }
 
-$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'files' => true, 'dashboard' => true, 'settings' => true, 'configurator' => true];
+$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'files' => true, 'dashboard' => true, 'settings' => true, 'configurator' => true, 'assemblies' => true];
 if (!isset($allowedTabs[$tab])) {
     http_response_code(404);
     exit('Раздел не найден');
@@ -318,7 +318,9 @@ if ($tab === 'components') {
 // $countSql приходил null, и db_prepare() умирал на типе аргумента.
 // configurator - то же самое: две короткие таблицы (4 пресета и
 // 3 ОС), пагинация им не нужна, а ключа в $countSql у них нет.
-if ($tab !== 'dashboard' && $tab !== 'settings' && $tab !== 'configurator') {
+// assemblies - список витрины, он заведомо короткий: по одной строке на
+// карточку главной, и делить его по страницам незачем.
+if ($tab !== 'dashboard' && $tab !== 'settings' && $tab !== 'configurator' && $tab !== 'assemblies') {
     $countSql = [
         'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $listWhere,
     'files' => 'SELECT 0',  // файлы считаются в _tab_files.php
@@ -1362,6 +1364,236 @@ if ($isAdmin && isset($_POST['osAction'])) {
     exit();
 }
 
+// Сборки витрины: добавление, правка и удаление.
+//
+// Отдельная форма с полем assemblyAction по той же причине, что у
+// пресетов и соцсетей: у сборки свой набор полей - девять списков
+// комплектующих, - и общая форма означала бы девять скрытых полей с
+// одним id в общей модалке.
+//
+// Обработчик стоит выше рендера вкладки, поэтому проверка CSRF не
+// обходится порядком блоков, как это было с useFaviconVariant.
+
+/**
+ * Проверка сборки из POST. Возвращает список кодов ошибок.
+ *
+ * @param array<string, mixed> $post
+ * @return string[]
+ */
+function cfg_bad_assembly(array $post): array
+{
+    $bad = [];
+
+    $name = trim((string) ($post['assembly_name'] ?? ''));
+    // Два символа - не опечатка, а граница: одна буква не имя, а в
+    // списке на главной она выглядит как сбой вывода.
+    if (mb_strlen($name, 'UTF-8') < 2 || mb_strlen($name, 'UTF-8') > 100) {
+        $bad[] = 'name';
+    }
+
+    if ((int) ($post['assembly_price'] ?? 0) < 0 || (int) ($post['assembly_price'] ?? 0) > 10000000) {
+        $bad[] = 'price';
+    }
+
+    foreach (assembly_required_slots() as $slot) {
+        $categoryId = assembly_slots()[$slot] ?? 0;
+        if ((int) ($post['comp_' . $categoryId] ?? 0) <= 0) {
+            $bad[] = $slot === 'cpu_id' ? 'cpu_required' : 'case_required';
+        }
+    }
+
+    return $bad;
+}
+
+/**
+ * Проверить, что каждый компонент попал в слот своей категории.
+ *
+ * Без неё в слот корпуса можно положить процессор: форма шлёт любой
+ * component_id, обработчик верит, а картинка на главной берётся из
+ * case_id - то есть с картинкой процессора. Проверка по всем слотам
+ * одной выборкой, а не девятью запросами.
+ *
+ * $parts - компоненты по именам колонок, как их читает обработчик.
+ * Ожидаемая категория берётся из assembly_slots(), а не из ключа
+ * массива: там колонка 'cpu_id', и сравнение с category_id из базы
+ * отвергало бы любую сборку.
+ *
+ * @param array<string, int> $parts колонка assembly => component_id
+ */
+function cfg_assembly_parts_in_category(mysqli $mysql, array $parts): bool
+{
+    $slots = assembly_slots();
+
+    // component_id => category_id, в которой он должен стоять
+    $expected = [];
+    foreach ($parts as $column => $componentId) {
+        if ($componentId > 0) {
+            $expected[$componentId] = $slots[$column] ?? 0;
+        }
+    }
+
+    if ($expected === []) {
+        return true;
+    }
+
+    $ids = array_keys($expected);
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = db_prepare(
+        $mysql,
+        "SELECT component_id, category_id FROM components WHERE component_id IN ($ph)",
+        str_repeat('i', count($ids)),
+        ...$ids
+    );
+    $stmt->execute();
+
+    $found = [];
+    foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+        $found[(int) $row['component_id']] = (int) $row['category_id'];
+    }
+    $stmt->close();
+
+    foreach ($expected as $componentId => $categoryId) {
+        // Компонента нет в таблице - тоже отказ: записать такой id
+        // нельзя, внешний ключ его не примет. Сюда же попадает один и
+        // тот же компонент в двух слотах: последняя категория не
+        // совпадёт с первой, и сборка будет отвергнута - процессором
+        // корпус быть не может.
+        if (!isset($found[$componentId]) || $found[$componentId] !== $categoryId) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+if ($isAdmin && isset($_POST['assemblyAction'])) {
+    csrf_verify();
+
+    $assemblyAction = (string) $_POST['assemblyAction'];
+    $assemblyId = (int) ($_POST['assemblyId'] ?? 0);
+    $asmSlots = assembly_slots();
+
+    if ($assemblyAction === 'delete') {
+        if ($assemblyId <= 0) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=assemblies&bad=not_found');
+            exit();
+        }
+
+        // Сборку из заказа или из избранного удалять нельзя: на неё
+        // ссылается внешний ключ, и MySQL ответил бы кодом 1451 без
+        // объяснения. То же проверяется в обработчике удаления
+        // компонента.
+        $stmt = db_prepare(
+            $mysql,
+            'SELECT (SELECT COUNT(*) FROM orders WHERE assembly_id = ?) AS o,
+                    (SELECT COUNT(*) FROM favorites WHERE assembly_id = ?) AS f',
+            'ii',
+            $assemblyId,
+            $assemblyId
+        );
+        $stmt->execute();
+        $usage = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ((int) ($usage['o'] ?? 0) > 0 || (int) ($usage['f'] ?? 0) > 0) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=assemblies&error=used');
+            exit();
+        }
+
+        $stmt = db_prepare($mysql, 'DELETE FROM assembly WHERE assembly_id = ?', 'i', $assemblyId);
+        $stmt->execute();
+        $deleted = $stmt->affected_rows;
+        $stmt->close();
+
+        csrf_rotate();
+        header('Location: /admin.php?tab=assemblies&' . ($deleted > 0 ? 'saved=1' : 'bad=not_found'));
+        exit();
+    }
+
+    if ($assemblyAction !== 'save') {
+        csrf_rotate();
+        header('Location: /admin.php?tab=assemblies&bad=action');
+        exit();
+    }
+
+    $assemblyBad = cfg_bad_assembly($_POST);
+    if ($assemblyBad !== []) {
+        csrf_rotate();
+        header('Location: /admin.php?tab=assemblies&bad=' . implode(',', array_unique($assemblyBad)));
+        exit();
+    }
+
+    // Состав собирается по списку слотов: имя поля в форме и колонка в
+    // базе связаны одним списком assembly_slots(), и разойтись они
+    // могут только в двух разных файлах.
+    $assemblyName = trim((string) $_POST['assembly_name']);
+    $assemblyPrice = (int) $_POST['assembly_price'];
+    $assemblyParts = [];
+    foreach ($asmSlots as $column => $categoryId) {
+        $assemblyParts[$column] = (int) ($_POST['comp_' . $categoryId] ?? 0);
+    }
+
+    if (!cfg_assembly_parts_in_category($mysql, $assemblyParts)) {
+        csrf_rotate();
+        header('Location: /admin.php?tab=assemblies&bad=comp_category');
+        exit();
+    }
+
+    if ($assemblyId > 0) {
+        $stmt = db_prepare($mysql, 'SELECT COUNT(*) FROM assembly WHERE assembly_id = ?', 'i', $assemblyId);
+        $stmt->execute();
+        if ((int) $stmt->get_result()->fetch_row()[0] === 0) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=assemblies&bad=not_found');
+            exit();
+        }
+    }
+
+    // Ноль в слоте означает «не выбрано» и пишется как NULL: колонки
+    // nullable, и сборка без видеокарты или второго накопителя -
+    // обычное дело. Ноль в поле означал бы компонент с id = 0, которого
+    // нет, и внешний ключ его не принял бы.
+    $partValues = [];
+    $partTypes = '';
+    foreach ($asmSlots as $column => $categoryId) {
+        $partValues[] = $assemblyParts[$column] > 0 ? $assemblyParts[$column] : null;
+        $partTypes .= 'i';
+    }
+
+    $partSet = implode(', ', array_map(static fn(string $c): string => "`$c` = ?", array_keys($asmSlots)));
+
+    if ($assemblyId > 0) {
+        // Значения собираются в один массив: в PHP нельзя передать
+        // позиционный аргумент после распаковки, а номер сборки в
+        // запросе идёт последним - после девяти слотов.
+        $stmt = db_prepare(
+            $mysql,
+            "UPDATE assembly
+                SET assembly_name = ?, assembly_price = ?, $partSet, is_base = 1
+              WHERE assembly_id = ?",
+            'si' . $partTypes . 'i',
+            ...array_merge([$assemblyName, $assemblyPrice], $partValues, [$assemblyId])
+        );
+        $stmt->execute();
+    } else {
+        $partCols = implode(', ', array_map(static fn(string $c): string => "`$c`", array_keys($asmSlots)));
+        $stmt = db_prepare(
+            $mysql,
+            "INSERT INTO assembly (assembly_name, assembly_price, $partCols, is_base)
+             VALUES (?, ?, " . implode(', ', array_fill(0, count($partValues), '?')) . ', 1)',
+            'si' . $partTypes,
+            ...array_merge([$assemblyName, $assemblyPrice], $partValues)
+        );
+        $stmt->execute();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=assemblies&saved=1');
+    exit();
+}
+
 // Соцсети: сохранение и удаление строк social_links.
 //
 // Отдельная форма с полем socialAction, а не часть формы настроек: у
@@ -1949,6 +2181,12 @@ if ($tab === 'settings') {
 if ($tab === 'configurator') {
     $extraJs[] = '/assets/js/admin-configurator.js';
 }
+// Скрипт вкладки сборок. Отдельный по той же причине, что и
+// admin-configurator.js: скрипт настроек подключается выше и только на
+// настройках, а эта вкладка - другая.
+if ($tab === 'assemblies') {
+    $extraJs[] = '/assets/js/admin-assemblies.js';
+}
 require __DIR__ . '/partials/header.php';
 ?>
         <div class="profile-layout">
@@ -1979,6 +2217,8 @@ if ($tab === 'dashboard') {
     require __DIR__ . '/admin/_tab_users.php';
 } elseif ($tab === 'configurator') {
     require __DIR__ . '/admin/_tab_configurator.php';
+} elseif ($tab === 'assemblies') {
+    require __DIR__ . '/admin/_tab_assemblies.php';
 } elseif ($tab === 'settings') {
     // настройки читаются один раз на страницу и уходят и в форму,
     // и в модалку снимка карты
