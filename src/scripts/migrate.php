@@ -85,7 +85,7 @@ $tables = [
   `user_regdate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `user_address` varchar(1000) DEFAULT NULL,
   `user_region` varchar(100) DEFAULT NULL,
-  `user_email` varchar(50) DEFAULT NULL,
+  `user_email` varchar(100) DEFAULT NULL,
   `user_number` varchar(13) DEFAULT NULL,
   `user_city` varchar(100) DEFAULT NULL,
   `user_street` varchar(150) DEFAULT NULL,
@@ -256,6 +256,46 @@ foreach ($columnMigrations as [$table, $column, $alter]) {
     mig_log("  [alter] {$table}.{$column}");
 }
 if ($columnMigrations === []) {
+    mig_log('  нет активных');
+}
+
+// Расширение типов существующих колонок. Отдельный список от
+// $columnMigrations: там проверка «колонка есть», а здесь надо «колонка
+// уже нужной длины». Проверка по existence пропустила бы миграцию на
+// любой базе, где колонка когда-то была создана, - то есть ровно там,
+// где она нужна.
+$columnWidenings = [
+    // email стал обязательным при регистрации, и 50 символов перестало
+    // хватать: реальные адреса с длинными доменами вроде
+    // very.long.subdomain@company-domain.example.com в них не влезали.
+    // Расширение varchar ничего не теряет, поэтому проверять, чем
+    // заполнены существующие строки, не нужно.
+    ['users', 'user_email', 100, "ALTER TABLE `users` MODIFY COLUMN `user_email` varchar(100) DEFAULT NULL"],
+];
+
+$columnLength = static function (mysqli $mysql, string $table, string $column): ?int {
+    $stmt = $mysql->prepare("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+    $stmt->bind_param('ss', $table, $column);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_row();
+    return $row ? (int) $row[0] : null;
+};
+
+mig_log('=== Расширение типов ===');
+foreach ($columnWidenings as [$table, $column, $target, $alter]) {
+    $current = $columnLength($mysql, $table, $column);
+    if ($current === null) {
+        mig_log("  [skip] {$table}.{$column} (колонки нет)");
+        continue;
+    }
+    if ($current >= $target) {
+        mig_log("  [skip] {$table}.{$column} (уже {$current})");
+        continue;
+    }
+    mig_exec($mysql, $dryRun, $alter);
+    mig_log("  [alter] {$table}.{$column} {$current} -> {$target}");
+}
+if ($columnWidenings === []) {
     mig_log('  нет активных');
 }
 

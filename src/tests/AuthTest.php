@@ -72,11 +72,229 @@ final class AuthTest extends AionTestCase
         $r = $this->httpPost('/validation/reg.php', [
             'user_name' => 'Tester',
             'user_login' => $login,
+            'user_email' => $login . '@test.local',
             'user_pass' => 'password123',
             'csrf_token' => $token,
         ]);
         $this->assertSame(302, $r['code']);
         $this->assertTrue($this->userExists($login));
+    }
+
+    /**
+     * Email при регистрации стал обязательным: без него письма о заказе
+     * уходили бы в никуда, и пользователь узнавал бы об отмене заказа
+     * только зайдя на сайт.
+     *
+     * Раньше форма вообще не спрашивала email, поэтому такой POST
+     * заканчивался успешным редиректом и создавал пользователя без адреса.
+     */
+    public function testRegistrationRequiresEmail(): void
+    {
+        $login = $this->uniqueLogin('no_mail_');
+        $this->trackCleanup($login);
+
+        $page = $this->httpGet('/profile.php');
+        $r = $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Без Почты',
+            'user_login' => $login,
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+
+        $this->assertSame(302, $r['code']);
+        $this->assertFalse(
+            $this->userExists($login),
+            'регистрация без email не должна создавать пользователя'
+        );
+    }
+
+    public function testRegistrationRejectsInvalidEmail(): void
+    {
+        $login = $this->uniqueLogin('bad_mail_');
+        $this->trackCleanup($login);
+
+        $page = $this->httpGet('/profile.php');
+        $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Битый Адрес',
+            'user_login' => $login,
+            'user_email' => 'не-почта',
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+
+        $this->assertFalse($this->userExists($login), 'некорректный email должен отклоняться');
+
+        $after = $this->httpGet('/profile.php');
+        $this->assertStringContainsString('Некорректный email', $after['body']);
+    }
+
+    /**
+     * Email должен быть уникальным, иначе письма о заказе одного человека
+     * приходят другому.
+     *
+     * Проверка идёт из гостевой сессии: успешная регистрация первого
+     * пользователя автологинит его, и следующая выборка отдала бы профиль
+     * вместо формы регистрации, где показывается текст ошибки.
+     */
+    public function testRegistrationRejectsDuplicateEmail(): void
+    {
+        $first = $this->uniqueLogin('mail_a_');
+        $second = $this->uniqueLogin('mail_b_');
+        $this->trackCleanup($first);
+        $this->trackCleanup($second);
+
+        $sharedEmail = $first . '@test.local';
+
+        $page = $this->httpGet('/profile.php');
+        $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Первый',
+            'user_login' => $first,
+            'user_email' => $sharedEmail,
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertTrue($this->userExists($first), 'первый пользователь должен создаться');
+
+        // гость пытается занять уже используемый адрес
+        $this->guestSession();
+        $guestPage = $this->httpGet('/profile.php');
+        $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Второй',
+            'user_login' => $second,
+            'user_email' => $sharedEmail,
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($guestPage['body']),
+        ]);
+
+        $this->assertFalse(
+            $this->userExists($second),
+            'второй пользователь с тем же email не должен создаваться'
+        );
+        $this->assertSame(
+            $sharedEmail,
+            $this->userField($first, 'user_email'),
+            'адрес первого пользователя не должен перетираться'
+        );
+
+        $after = $this->httpGet('/profile.php');
+        $this->assertStringContainsString('уже существует', $after['body']);
+    }
+
+    /**
+     * Совпадение email нечувствительно к регистру: MySQL сравнивает строки
+     * регистронезависимо, поэтому IvAn@x.local и ivan@x.local - один адрес.
+     */
+    public function testRegistrationRejectsDuplicateEmailIgnoringCase(): void
+    {
+        $first = $this->uniqueLogin('case_a_');
+        $second = $this->uniqueLogin('case_b_');
+        $this->trackCleanup($first);
+        $this->trackCleanup($second);
+
+        $page = $this->httpGet('/profile.php');
+        $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Первый',
+            'user_login' => $first,
+            'user_email' => $first . '@test.local',
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+        $this->assertTrue($this->userExists($first));
+
+        $page2 = $this->httpGet('/profile.php');
+        $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Второй',
+            'user_login' => $second,
+            'user_email' => strtoupper($first) . '@TEST.LOCAL',
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page2['body']),
+        ]);
+
+        $this->assertFalse($this->userExists($second), 'регистр email не должен обходить проверку');
+    }
+
+    /**
+     * Фамилия пишется в свою колонку, а не теряется.
+     *
+     * Отдельная проверка, а не часть testValidRegistrationCreatesUser:
+     * создание пользователя и запись фамилии - разные вещи, и падение
+     * второй не должно выглядеть как «регистрация сломалась».
+     */
+    public function testRegistrationSavesSurname(): void
+    {
+        $login = $this->uniqueLogin('surname_');
+        $this->trackCleanup($login);
+
+        $page = $this->httpGet('/profile.php');
+        $r = $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Иван',
+            'user_surname' => 'Петров-Водкин',
+            'user_login' => $login,
+            'user_email' => $login . '@test.local',
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+
+        $this->assertSame(302, $r['code']);
+        $this->assertSame('Петров-Водкин', $this->userField($login, 'user_surname'));
+        $this->assertSame('Иван', $this->userField($login, 'user_name'));
+        $this->assertSame($login . '@test.local', $this->userField($login, 'user_email'));
+    }
+
+    /**
+     * Фамилия необязательна: пустая строка это отсутствие значения, а не
+     * ошибка. Иначе форма перестанет работать у тех, кто фамилию не вводит.
+     */
+    public function testRegistrationAllowsEmptySurname(): void
+    {
+        $login = $this->uniqueLogin('nosurname_');
+        $this->trackCleanup($login);
+
+        $page = $this->httpGet('/profile.php');
+        $r = $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Без Фамилии',
+            'user_surname' => '',
+            'user_login' => $login,
+            'user_email' => $login . '@test.local',
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+
+        $this->assertSame(302, $r['code']);
+        $this->assertTrue($this->userExists($login));
+        $this->assertSame('', $this->userField($login, 'user_surname'));
+    }
+
+    /**
+     * Адрес длиннее 50 символов должен сохраниться целиком.
+     *
+     * Колонка user_email была varchar(50), и MySQL обрезал бы такой адрес
+     * молча: человек получил бы почту без последних букв домена, и письма
+     * перестали бы доходить. Поэтому проверка идёт на длину, которую старая
+     * колонка не вмещала.
+     */
+    public function testRegistrationKeepsLongEmail(): void
+    {
+        $login = $this->uniqueLogin('longmail_');
+        $this->trackCleanup($login);
+
+        $email = str_repeat('a', 40) . '@' . str_repeat('b', 20) . '.' . str_repeat('c', 20) . '.test.local';
+
+        $page = $this->httpGet('/profile.php');
+        $r = $this->httpPost('/validation/reg.php', [
+            'user_name' => 'Длинный Адрес',
+            'user_login' => $login,
+            'user_email' => $email,
+            'user_pass' => 'password123',
+            'csrf_token' => $this->extractCsrf($page['body']),
+        ]);
+
+        $this->assertSame(302, $r['code']);
+        $this->assertSame(
+            $email,
+            $this->userField($login, 'user_email'),
+            'адрес должен сохраниться целиком, без обрезки по длине колонки'
+        );
     }
 
     /**
@@ -98,6 +316,7 @@ final class AuthTest extends AionTestCase
         $r = $this->httpPost('/validation/reg.php', [
             'user_name' => 'Удаляемый',
             'user_login' => $login,
+            'user_email' => $login . '@test.local',
             'user_pass' => 'password123',
             'csrf_token' => $this->extractCsrf($page['body']),
         ]);
@@ -138,6 +357,7 @@ final class AuthTest extends AionTestCase
         $this->httpPost('/validation/reg.php', [
             'user_name' => 'Удаляемый',
             'user_login' => $login,
+            'user_email' => $login . '@test.local',
             'user_pass' => 'password123',
             'csrf_token' => $this->extractCsrf($page['body']),
         ]);
@@ -165,6 +385,7 @@ final class AuthTest extends AionTestCase
         $r = $this->httpPost('/validation/reg.php', [
             'user_name' => 'Tester',
             'user_login' => $login,
+            'user_email' => $login . '@test.local',
             'user_pass' => 'short',
             'csrf_token' => $token,
         ]);
@@ -246,6 +467,7 @@ final class AuthTest extends AionTestCase
         $r = $this->httpPost('/validation/reg.php', [
             'user_name' => 'Тест',
             'user_login' => $login,
+            'user_email' => $login . '@test.local',
             'user_pass' => '123',
             'csrf_token' => $this->extractCsrf($page['body']),
         ]);
@@ -324,6 +546,7 @@ final class AuthTest extends AionTestCase
         $r = $this->httpPost('/validation/reg.php', [
             'user_name' => 'Тестовый',
             'user_login' => $login,
+            'user_email' => $login . '@test.local',
             'user_pass' => 'password123',
             'csrf_token' => $this->extractCsrf($page['body']),
         ]);

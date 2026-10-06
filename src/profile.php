@@ -361,7 +361,14 @@ require __DIR__ . '/partials/header.php';
                     // значения предыдущей попытки (после редиректа $_POST пуст)
                     $oldLogin = $_SESSION['old_login'] ?? '';
                     $oldName = $_SESSION['old_name'] ?? '';
-                    unset($_SESSION['old_login'], $_SESSION['old_name']);
+                    $oldSurname = $_SESSION['old_surname'] ?? '';
+                    $oldEmail = $_SESSION['old_email'] ?? '';
+                    unset(
+                        $_SESSION['old_login'],
+                        $_SESSION['old_name'],
+                        $_SESSION['old_surname'],
+                        $_SESSION['old_email']
+                    );
                     $showRegForm = ($errorFrom === 'reg' && $errorMessage !== '');
                     ?>
                     <div class="auth-page">
@@ -398,15 +405,35 @@ require __DIR__ . '/partials/header.php';
                                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                 <div class="form-group">
                                     <label class="form-label" for="reg_name">Имя</label>
-                                    <input class="input" id="reg_name" type="text" name="user_name" placeholder="Введите имя" value="<?= escape($oldName) ?>" required>
+                                    <input class="input" id="reg_name" type="text" name="user_name" placeholder="Введите имя"
+                                           minlength="3" maxlength="20" required autocomplete="given-name"
+                                           value="<?= escape($oldName) ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="reg_surname">Фамилия</label>
+                                    <input class="input" id="reg_surname" type="text" name="user_surname" placeholder="Необязательно"
+                                           maxlength="30" autocomplete="family-name"
+                                           value="<?= escape($oldSurname) ?>">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="reg_login">Логин</label>
-                                    <input class="input" id="reg_login" type="text" name="user_login" placeholder="Введите логин" value="<?= escape($oldLogin) ?>" required>
+                                    <input class="input" id="reg_login" type="text" name="user_login" placeholder="Введите логин"
+                                           minlength="3" maxlength="25" required autocomplete="username"
+                                           value="<?= escape($oldLogin) ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="reg_email">Email</label>
+                                    <input class="input" id="reg_email" type="email" name="user_email" placeholder="Для уведомлений о заказе"
+                                           maxlength="100" required autocomplete="email"
+                                           value="<?= escape($oldEmail) ?>">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="reg_pass">Пароль</label>
-<?php password_field('user_pass', 'reg_pass', 'new-password', 'Минимум 8 символов', null, null, true, 36); ?>
+<?php // minlength/maxlength раньше были null: поле пропускало короткий
+      // пароль, и пользователь уходил по редиректу назад с ошибкой.
+      // Теперь браузер останавливает отправку сам. Сервер всё равно
+      // проверяет - правило одно и то же, 8 и 20 символов. ?>
+<?php password_field('user_pass', 'reg_pass', 'new-password', 'Минимум 8 символов', 8, 20, true, 36); ?>
                                 </div>
                                 <?php if ($errorFrom === 'reg' && $errorMessage !== ''): ?>
                                 <div class="alert alert--error"><?= escape($errorMessage) ?></div>

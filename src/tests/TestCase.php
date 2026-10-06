@@ -147,6 +147,29 @@ class AionTestCase extends PhpUnitTestCase
         return $exists;
     }
 
+    /**
+     * Значение одной колонки users по логину.
+     *
+     * Нужна для проверок регистрации: «пользователь создан» этого не
+     * доказывает - фамилия или email могут не записаться, и тест обязан
+     * видеть разницу. $column подставляется в запрос как есть, поэтому
+     * зовётся только литералами из тестов, а не пользовательским вводом.
+     */
+    protected function userField(string $login, string $column): ?string
+    {
+        $mysql = connect();
+        $stmt = db_prepare($mysql, "SELECT `{$column}` FROM users WHERE user_login = ?", 's', $login);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $mysql->close();
+
+        if (!$row) {
+            return null;
+        }
+
+        return $row[$column] === null ? null : (string) $row[$column];
+    }
+
     protected function loginAs(string $login, string $pass): array
     {
         $page = $this->httpGet('/profile.php');
@@ -334,6 +357,21 @@ class AionTestCase extends PhpUnitTestCase
         $this->loginAs($login, $pass);
 
         return $this->httpGet('/profile.php');
+    }
+
+    /**
+     * Чистая сессия без входа - «гость».
+     *
+     * Нужна там, где тест проверяет страницу формы входа или регистрации:
+     * успешная регистрация автологинит пользователя, и следующая же
+     * выборка отдаёт профиль вместо формы, где живёт текст ошибки.
+     */
+    protected function guestSession(): void
+    {
+        if (is_file($this->jar)) {
+            unlink($this->jar);
+        }
+        $this->jar = tempnam(sys_get_temp_dir(), 'aion_jar_');
     }
 
     /**
