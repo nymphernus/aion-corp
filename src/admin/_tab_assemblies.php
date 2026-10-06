@@ -242,7 +242,7 @@ if ($asmRows !== []) {
             <div class="form-group">
                 <label class="form-label" for="asPrice">Стоимость (₽)</label>
                 <input class="input" type="number" name="assembly_price" id="asPrice"
-                       min="0" max="10000000" step="100" required placeholder="150000">
+                       min="0" max="10000000" step="1" required placeholder="150000">
             </div>
         </div>
         <p class="settings-block__hint">
