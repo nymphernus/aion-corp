@@ -472,6 +472,87 @@ final class AssembliesAdminTest extends AionTestCase
         $this->assertStringContainsString('bad=os_not_found', $r['location'], 'выключенная или чужая ОС должна отклоняться');
     }
 
+    /**
+     * Тег карточки: сохранение, смена и очистка.
+     *
+     * До этой правки теги «Офис», «Игры», «Про» были хардкодом в
+     * index.php по номерам сборок: их нельзя было ни поменять, ни
+     * поставить четвёртой сборке.
+     */
+    public function testAssemblyTagLifecycle(): void
+    {
+        $this->loginAsAdmin();
+        $this->pickParts();
+
+        // Создаём сборку с тегом
+        $name = self::tmpName('tmp_tag_');
+        $create = $this->httpPost('/admin.php?tab=assemblies', array_merge(
+            ['csrf_token' => $this->freshToken()],
+            $this->formData($name, 150000),
+            ['assembly_tag' => 'ФЛАГМАН']
+        ));
+        $this->assertSame(302, $create['code']);
+
+        $mysql = connect();
+        $stmt = db_prepare($mysql, 'SELECT assembly_id, assembly_tag FROM assembly WHERE assembly_name = ?', 's', $name);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mysql->close();
+
+        $this->assertNotEmpty($row, 'сборка не создалась');
+        $this->assertSame('ФЛАГМАН', (string) $row['assembly_tag'], 'тег должен сохраниться');
+        $id = (int) $row['assembly_id'];
+        $this->createdIds[] = $id;
+
+        // Тег виден на главной
+        $home = $this->httpGet('/');
+        $this->assertSame(200, $home['code']);
+        $this->assertStringContainsString('ФЛАГМАН', $home['body'], 'тег должен показываться на карточке');
+
+        // Очистка: пустое поле обязано записать NULL
+        $clear = $this->httpPost('/admin.php?tab=assemblies', array_merge(
+            ['csrf_token' => $this->freshToken()],
+            $this->formData($name, 150000),
+            ['assembly_tag' => '', 'assemblyId' => (string) $id]
+        ));
+        $this->assertSame(302, $clear['code']);
+
+        $assembly = $this->assemblyRow($id);
+        $this->assertNotNull($assembly);
+        $this->assertNull($assembly['assembly_tag'], 'пустой тег должен записываться как NULL');
+
+        // На главной тег больше не выводится
+        $home2 = $this->httpGet('/');
+        $this->assertSame(200, $home2['code']);
+        $this->assertStringNotContainsString(
+            '<span class="build__tag">ФЛАГМАН</span>',
+            $home2['body'],
+            'сброшенный тег не должен выводиться'
+        );
+    }
+
+    /**
+     * Тег длиннее 30 символов отклоняется.
+     *
+     * Колонка varchar(30): без проверки база молча обрезала бы лишнее,
+     * и админ видел бы на карточке не то, что вводил.
+     */
+    public function testTooLongTagIsRejected(): void
+    {
+        $this->loginAsAdmin();
+        $this->pickParts();
+
+        $r = $this->httpPost('/admin.php?tab=assemblies', array_merge(
+            ['csrf_token' => $this->freshToken()],
+            $this->formData(self::tmpName('tmp_tag_'), 100000),
+            ['assembly_tag' => str_repeat('А', 31)]
+        ));
+
+        $this->assertSame(302, $r['code']);
+        $this->assertStringContainsString('bad=tag', $r['location'], 'длинный тег должен отклоняться');
+    }
+
     public function testSelectOptionsShowSpecs(): void
     {
         $this->loginAsAdmin();

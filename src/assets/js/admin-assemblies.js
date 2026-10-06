@@ -50,6 +50,9 @@
             document.getElementById('asName').value =
                 nameCell ? nameCell.textContent.trim() : '';
 
+            const tagInput = modal.querySelector('#asTag');
+            if (tagInput) tagInput.value = row.dataset.assemblyTag || '';
+
             /* Цена в таблице нарисована через number_format с
                неразрывным пробелом и знаком рубля. Цифры достаются
                регуляркой; если их не оказалось, поле остаётся пустым и
@@ -99,6 +102,9 @@
             document.getElementById('assemblyId').value = '';
             document.getElementById('asName').value = '';
             document.getElementById('asPrice').value = '';
+
+            const tagInput = modal.querySelector('#asTag');
+            if (tagInput) tagInput.value = '';
 
             const osSelect = modal.querySelector('#asOs');
             if (osSelect) osSelect.value = '0';

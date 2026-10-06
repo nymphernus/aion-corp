@@ -1391,6 +1391,13 @@ function cfg_bad_assembly(array $post): array
         $bad[] = 'name';
     }
 
+    // Тег не обязателен, но длиннее 30 символов быть не может: колонка
+    // varchar(30), и обрезка на уровне базы молча отрезала бы лишнее.
+    $tag = trim((string) ($post['assembly_tag'] ?? ''));
+    if (mb_strlen($tag, 'UTF-8') > 30) {
+        $bad[] = 'tag';
+    }
+
     if ((int) ($post['assembly_price'] ?? 0) < 0 || (int) ($post['assembly_price'] ?? 0) > 10000000) {
         $bad[] = 'price';
     }
@@ -1529,6 +1536,8 @@ if ($isAdmin && isset($_POST['assemblyAction'])) {
     // базе связаны одним списком assembly_slots(), и разойтись они
     // могут только в двух разных файлах.
     $assemblyName = trim((string) $_POST['assembly_name']);
+    $assemblyTag = trim((string) ($_POST['assembly_tag'] ?? ''));
+    $assemblyTag = $assemblyTag === '' ? null : $assemblyTag;
     $assemblyPrice = (int) $_POST['assembly_price'];
     $assemblyParts = [];
     foreach ($asmSlots as $column => $categoryId) {
@@ -1599,20 +1608,20 @@ if ($isAdmin && isset($_POST['assemblyAction'])) {
         $stmt = db_prepare(
             $mysql,
             "UPDATE assembly
-                SET assembly_name = ?, assembly_price = ?, os = ?, $partSet, is_base = 1
+                SET assembly_name = ?, assembly_tag = ?, assembly_price = ?, os = ?, $partSet, is_base = 1
               WHERE assembly_id = ?",
-            'sis' . $partTypes . 'i',
-            ...array_merge([$assemblyName, $assemblyPrice, $assemblyOsName], $partValues, [$assemblyId])
+            'ssis' . $partTypes . 'i',
+            ...array_merge([$assemblyName, $assemblyTag, $assemblyPrice, $assemblyOsName], $partValues, [$assemblyId])
         );
         $stmt->execute();
     } else {
         $partCols = implode(', ', array_map(static fn(string $c): string => "`$c`", array_keys($asmSlots)));
         $stmt = db_prepare(
             $mysql,
-            "INSERT INTO assembly (assembly_name, assembly_price, os, $partCols, is_base)
-             VALUES (?, ?, ?, " . implode(', ', array_fill(0, count($partValues), '?')) . ', 1)',
-            'sis' . $partTypes,
-            ...array_merge([$assemblyName, $assemblyPrice, $assemblyOsName], $partValues)
+            "INSERT INTO assembly (assembly_name, assembly_tag, assembly_price, os, $partCols, is_base)
+             VALUES (?, ?, ?, ?, " . implode(', ', array_fill(0, count($partValues), '?')) . ', 1)',
+            'ssis' . $partTypes,
+            ...array_merge([$assemblyName, $assemblyTag, $assemblyPrice, $assemblyOsName], $partValues)
         );
         $stmt->execute();
     }

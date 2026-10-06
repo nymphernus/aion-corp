@@ -50,7 +50,7 @@ mysqli_set_charset($mysqlHome, 'utf8');
 $homeBuilds = [];
 try {
     $stmtHome = db_prepare($mysqlHome, "
-        SELECT a.assembly_id, a.assembly_name, a.assembly_price,
+        SELECT a.assembly_id, a.assembly_name, a.assembly_price, a.assembly_tag,
                cpu.component_name AS cpu_name,
                gpu.component_name AS gpu_name,
                ram.component_name  AS ram_name,
@@ -79,18 +79,9 @@ try {
     $homeBuilds = [];
 }
 
-// Подписи к сборкам. В базе их нет, и придумывать их по названию нельзя,
-// поэтому здесь то, что сборки действительно собой представляют:
-// 1 - i3-10100F без видеокарты, бюджетная офисная машина;
-// 2 - Ryzen 5 5600G с Radeon RX 6500 XT, бюджетный игровой комплект;
-// Короткие метки под названием: по одному слову, без описания.
-// Подробности всё равно раскрываются в списке комплектующих, а длинный
-// текст под заголовком карточку перегружает.
-$homeSubtitles = [
-    1 => 'Офис',
-    2 => 'Игры',
-    3 => 'Про',
-];
+// Подписи к сборкам (теги карточек) живут в assembly.assembly_tag и
+// редактируются во вкладке «Сборки»: хардкод по номерам не позволял
+// ни поменять тег, ни поставить его четвёртой сборке.
 
 /**
  * Иконка комплектующего для карточки сборки.
@@ -327,8 +318,11 @@ if ($osList === []) {
                             <a class="build" href="/assembly.php?init=<?= $homeId ?>">
                                 <span class="build__accent"></span>
                                 <div class="build__image">
-                                    <?php if (!empty($homeSubtitles[$homeId])): ?>
-                                        <span class="build__tag"><?= escape($homeSubtitles[$homeId]) ?></span>
+                                    <?php // Тег из assembly_tag: хардкод «Офис/Игры/Про»
+                                          // по номерам 1-3 не позволял ни поменять тег,
+                                          // ни поставить его четвёртой сборке. ?>
+                                    <?php if (!empty($homeBuild['assembly_tag'])): ?>
+                                        <span class="build__tag"><?= escape($homeBuild['assembly_tag']) ?></span>
                                     <?php endif; ?>
                                     <?php if (!empty($homeBuild['case_image'])): ?>
                                         <img src="<?= escape($homeBuild['case_image']) ?>"

@@ -147,6 +147,7 @@ $tables = [
     'assembly' => "CREATE TABLE IF NOT EXISTS `assembly` (
   `assembly_id` int NOT NULL AUTO_INCREMENT,
   `assembly_name` varchar(255) NOT NULL,
+  `assembly_tag` varchar(30) NULL,
   `cpu_id` int NOT NULL,
   `gpu_id` int DEFAULT NULL,
   `motherboard_id` int NOT NULL,
@@ -299,6 +300,11 @@ $columnMigrations = [
     // cleanup_orphans.php удалял её через час как сироту. Флаг решает
     // это и заодно снимает хрупкое сравнение в пяти других местах кода.
     ['assembly', 'is_base', "ALTER TABLE `assembly` ADD COLUMN `is_base` tinyint(1) NOT NULL DEFAULT 0"],
+    // Тег карточки на главной («Офис», «Игры»). До этого был хардкодом
+    // в index.php, привязанным к номерам 1-3: тег нельзя было ни
+    // поменять, ни поставить четвёртой сборке. NULL - тега нет, карточка
+    // без него выглядит как обычная.
+    ['assembly', 'assembly_tag', "ALTER TABLE `assembly` ADD COLUMN `assembly_tag` varchar(30) NULL AFTER `assembly_name`"],
     // ['table', 'column', 'ALTER-выражение после ADD COLUMN']
     // пример будущей миграции:
     // ['users', 'two_factor', "ALTER TABLE `users` ADD COLUMN `two_factor` tinyint(1) NOT NULL DEFAULT '0'"],
@@ -335,6 +341,25 @@ foreach ($columnMigrations as [$table, $column, $alter]) {
             'UPDATE assembly SET is_base = 1 WHERE assembly_id IN (1, 2, 3)'
         );
         mig_log('  [data] сборки 1-3 помечены как базовые');
+    }
+
+    // Теги витрины - то же правило: привязаны к появлению колонки.
+    // Теги сидовых сборок были хардкодом в index.php («Офис», «Игры»,
+    // «Про»), и четвёртая базовая сборка тега получить не могла.
+    // На чистой базе номера 1-3 достаются сборкам админа, и без
+    // привязки миграция вписывала бы чужие теги в его сборки.
+    if ($table === 'assembly' && $column === 'assembly_tag') {
+        mig_exec(
+            $mysql,
+            $dryRun,
+            "UPDATE assembly SET assembly_tag = CASE assembly_id
+                WHEN 1 THEN 'Офис'
+                WHEN 2 THEN 'Игры'
+                WHEN 3 THEN 'Про'
+            END
+            WHERE assembly_id IN (1, 2, 3)"
+        );
+        mig_log('  [data] теги сборок 1-3 заполнены');
     }
 }
 if ($columnMigrations === []) {

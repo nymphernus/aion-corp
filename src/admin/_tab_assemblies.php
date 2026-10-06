@@ -21,6 +21,7 @@
  */
 $asmBadCodes = [
     'name' => 'Название сборки должно быть от 2 до 100 символов.',
+    'tag' => 'Тег не должен быть длиннее 30 символов.',
     'price' => 'С��оимость должна быть от 0 до 10 000 000 ₽.',
     'cpu_required' => 'Выберите процессор: без него сборка не запустится.',
     'case_required' => 'Выберите корпус: картинка на главной берётся из него.',
@@ -92,7 +93,7 @@ $stmt->close();
 $asmRows = [];
 $stmt = db_prepare(
     $mysql,
-    'SELECT a.assembly_id, a.assembly_name, a.assembly_price, a.is_base, a.os,
+    'SELECT a.assembly_id, a.assembly_name, a.assembly_price, a.is_base, a.os, a.assembly_tag,
             cs.component_name AS case_name, cs.image AS case_image
        FROM assembly a
        LEFT JOIN components cs ON cs.component_id = a.case_id
@@ -206,7 +207,8 @@ if ($asmRows !== []) {
         ?>
                     <tr data-assembly-id="<?= $asmId ?>"
                         data-parts="<?= escape(implode(',', $asmPartsStr)) ?>"
-                        data-assembly-os="<?= escape((string) ($asmRow['os'] ?? '')) ?>">
+                        data-assembly-os="<?= escape((string) ($asmRow['os'] ?? '')) ?>"
+                        data-assembly-tag="<?= escape((string) ($asmRow['assembly_tag'] ?? '')) ?>">
                         <td>
         <?php if (!empty($asmRow['case_image'])): ?>
                             <img src="<?= escape((string) $asmRow['case_image']) ?>" alt=""
@@ -215,6 +217,9 @@ if ($asmRows !== []) {
                         </td>
                         <td>
                             <span class="social-row__name" title="<?= escape((string) $asmRow['assembly_name']) ?>"><?= escape((string) $asmRow['assembly_name']) ?></span>
+        <?php if ((string) ($asmRow['assembly_tag'] ?? '') !== ''): ?>
+                            <span class="badge"><?= escape((string) $asmRow['assembly_tag']) ?></span>
+        <?php endif; ?>
                         </td>
                         <td>#<?= $asmId ?></td>
                         <td><?= number_format((int) $asmRow['assembly_price'], 0, '.', ' ') ?> ₽</td>
@@ -262,6 +267,15 @@ if ($asmRows !== []) {
                 <label class="form-label" for="asName">Название</label>
                 <input class="input" type="text" name="assembly_name" id="asName"
                        maxlength="100" required placeholder="Например, Игровая">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="asTag">Тег (необязательно)</label>
+                <input class="input" type="text" name="assembly_tag" id="asTag"
+                       maxlength="30" placeholder="Например: Офис, Игры, Про">
+                <p class="settings-block__hint">
+                    Показывается в углу карточки на главной. Оставьте
+                    пустым, чтобы не показывать.
+                </p>
             </div>
             <div class="form-group">
                 <label class="form-label" for="asPrice">Стоимость (₽)</label>
