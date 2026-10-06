@@ -635,7 +635,6 @@
         byId('socialLinkId').value = linkId > 0 ? linkId : '0';
         byId('socialName').value = '';
         byId('socialUrl').value = '';
-        byId('socialSort').value = '10';
         byId('socialActive').checked = true;
 
         // Своя иконка из прошлого открытия сбросается: без этого файл
@@ -667,7 +666,11 @@
         var cells = row.querySelectorAll('td');
         if (cells.length < 4) return;
 
-        byId('socialName').value = (cells[1].textContent || '').trim();
+        // Название - из .social-row__name, а не из текста ячейки: в той
+        // ячейке рядом с названием стоит бейдж «показ», и в поле
+        // попадало «ВКонтакте  показ».
+        var nameEl = cells[1].querySelector('.social-row__name');
+        byId('socialName').value = nameEl ? (nameEl.textContent || '').trim() : '';
         byId('socialUrl').value = row.getAttribute('data-link-url') || '';
 
         // Пустая ссылка остаётся пустой и в поле: обрезанного значения у
@@ -705,10 +708,19 @@
             var form = byId('deleteSocialForm');
             if (!form) return;
             var name = target.getAttribute('data-link-name') || 'соцсеть';
-            if (!window.confirm('Удалить «' + name + '»?\nИконка и ссылка исчезнут с главной.')) return;
-            form.querySelector('input[name="linkId"]').value =
-                target.getAttribute('data-link-id') || '0';
-            form.submit();
+            // Подтверждение - общая модалка, а не системный confirm.
+            // Системный выглядит чужеродно: все остальные удаления в
+            // админке (файлы, компоненты, заказы) спрашивают через
+            // #confirmModal из partials/header.php.
+            window.confirmAction(
+                'Удалить «' + name + '»?',
+                'Иконка и ссылка исчезнут с главной. Восстановить будет нельзя.',
+                function () {
+                    form.querySelector('input[name="linkId"]').value =
+                        target.getAttribute('data-link-id') || '0';
+                    form.submit();
+                }
+            );
         }
     });
 })();
