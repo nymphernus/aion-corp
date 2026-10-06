@@ -40,6 +40,12 @@ $extraJs = $extraJs ?? [];
         <span><?= escape($footerCopyright) ?></span>
         <span>Designed by <a href="https://github.com/nymphernus">Aleksey Schumann</a></span>
     </footer>
+<?php // Обработчик переключателя темы подключается здесь, а не
+     // постранично: кнопка живёт в шапке, а шапка есть на каждой
+     // странице. В $extraJs scripts.js перечисляют выборочно (главная,
+     // профиль, админка), и на странице сборки его нет - обработчик
+     // темы туда не попадал, хотя кнопка была нарисована. ?>
+    <script src="<?= escape(asset_url('/assets/js/theme.js')) ?>"></script>
 <?php foreach ($extraJs as $js): ?>
     <script src="<?= escape(asset_url($js)) ?>"></script>
 <?php endforeach; ?>

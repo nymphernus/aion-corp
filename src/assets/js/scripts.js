@@ -758,7 +758,6 @@ document.addEventListener('input', function(e) {
     });
 });
 
-
 /* 7: слайдер готовых сборок.
    На узком экране карточки не переносятся, а листаются по горизонтали.
    Стрелки по бокам появляются только когда есть куда листать: в начале
@@ -846,37 +845,6 @@ document.addEventListener('input', function(e) {
         scrollBy(parseInt(btn.dataset.direction, 10) || 1);
     });
 
-    /* 8: переключатель темы.
-       Текущую тему берём с data-theme, а если атрибута нет - из
-       prefers-color-scheme. Проверять атрибут на пустоту нельзя:
-       при первом заходе cookie ещё нет, атрибута нет, и «сейчас
-       светлая» было бы неверно на тёмной системе - первый клик
-       тогда ничего бы не поменял.
-
-       Выбор кладём в cookie, а не в localStorage: cookie читает
-       PHP при отдаче HTML и ставит data-theme на <html> в том же
-       ответе, поэтому при переходе на другую страницу тема уже
-       верная и вспышки белого не бывает. */
-    document.addEventListener('click', function(e) {
-        const btn = e.target.closest('[data-action="toggle-theme"]');
-        if (!btn) return;
-        e.preventDefault();
-
-        const current = document.documentElement.getAttribute('data-theme');
-        const isDark = (current === 'dark' || current === 'light')
-            ? current === 'dark'
-            : window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-        const next = isDark ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-
-        // год - достаточно, чтобы не пришлось выбирать заново.
-        // SameSite=Lax: cookie не уходит на сторонние запросы, но
-        // ходит по своему сайту, куда и нужен.
-        document.cookie = 'aion_theme=' + next
-            + '; path=/; max-age=31536000; SameSite=Lax';
-    });
-
     slider.addEventListener('scroll', updateNav, { passive: true });
     window.addEventListener('resize', updateNav);
 
@@ -889,7 +857,6 @@ document.addEventListener('input', function(e) {
     updateNav();
     requestAnimationFrame(updateNav);
 })();
-
 
 // 7: блок «Верификация» в модалке пользователя.
 //

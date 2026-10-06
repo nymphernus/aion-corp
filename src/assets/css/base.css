@@ -66,6 +66,11 @@
        а не становиться непрозрачной плитой. */
     --footer-bg: rgba(255, 255, 255, 0.9);
 
+   /* Подложка секции сборок. Полупрозрачная, сквозь неё видно
+      страницу, поэтому своя переменная, а не --bg: плотный цвет
+      сделал бы секцию непрозрачной плитой. */
+    --section-builds-bg: rgba(238, 240, 245, 0.8);
+
     /* Заливка под белым текстом - отдельная от --accent/--error.
        В тёмной теме --accent светлеет (#3B82F6), чтобы его было видно
        как цвет текста на тёмном фоне, но белым текстом по нему он
@@ -79,13 +84,12 @@
 }
 
 /* Тёмная тема.
-   Два одинаковых набора переменных - здесь и в @media ниже - не
-   повтор по недосмотру. Cookie aion_theme читает PHP и ставит
-   атрибут на <html>; пока выбора не было, атрибута нет, и тему
-   задаёт системная настройка браузера. Оба селектора обязательны:
-   сочетание @media с :root:not([data-theme]) поддерживается везде,
-   где есть prefers-color-scheme, то есть во всех браузерах, где
-   вообще имеет смысл тёмную тему. */
+   Раньше тёмные переменные дублировались ещё и в
+   @media (prefers-color-scheme: dark) с :root:not([data-theme]),
+   чтобы при пустой cookie тему задавала система. Блок убран:
+   по умолчанию сайт светлый, системная настройка не учитывается.
+   Cookie aion_theme читает PHP и ставит атрибут на <html>, так
+   что тёмная тема включается только явным выбором пользователя. */
 :root[data-theme="dark"] {
     --bg: #0F172A;
     --bg-card: #1E293B;
@@ -132,71 +136,9 @@
 
     --overlay-purple: #4c4a7a99;
     --footer-bg: rgba(15, 23, 42, 0.9);
+    --section-builds-bg: rgba(11, 18, 32, 0.8);
 
     color-scheme: dark;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) {
-    --bg: #0F172A;
-    --bg-card: #1E293B;
-    --text: #F1F5F9;
-    --text-secondary: #A8B8CC;
-    --text-muted: #7C8CA3;
-    --accent: #60A5FA;
-    --accent-hover: #60A5FA;
-    --accent-light: rgba(59, 130, 246, 0.15);
-    --border: #334155;
-    --success: #34D399;
-    --error: #F87171;
-    --accent-solid: #2563EB;
-    --accent-solid-hover: #1D4ED8;
-    --danger-solid: #DC2626;
-    --warning: #FBBF24;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-
-    --heading: #93B4E8;
-
-    --bg-gradient-1: #0F172A;
-    --bg-gradient-2: #1E293B;
-    --bg-gradient-3: #1E293B;
-
-    --surface-image-1: #1E293B;
-    --surface-image-2: #172033;
-
-    --badge-success-bg: rgba(52, 211, 153, 0.15);
-    --badge-success-text: #6EE7B7;
-    --badge-warning-bg: rgba(251, 191, 36, 0.15);
-    --badge-warning-text: #FCD34D;
-    --badge-error-bg: rgba(248, 113, 113, 0.15);
-    --badge-error-text: #FCA5A5;
-    --badge-neutral-bg: rgba(148, 163, 184, 0.15);
-
-    --alert-error-bg: rgba(248, 113, 113, 0.12);
-    --alert-error-text: #FCA5A5;
-    --alert-error-border: rgba(248, 113, 113, 0.3);
-    --alert-success-bg: rgba(52, 211, 153, 0.12);
-    --alert-success-text: #6EE7B7;
-    --alert-success-border: rgba(52, 211, 153, 0.3);
-
-    --overlay-purple: #4c4a7a99;
-    --footer-bg: rgba(15, 23, 42, 0.9);
-
-        color-scheme: dark;
-    }
-
-/* Кнопка «Подобрать» на главной. В тёмной теме полупрозрачная
-   тёмная заливка на тёмном фоне давала белому тексту контраст
-   3.42, поэтому здесь заливка непрозрачная и своя: та же логика,
-   что у --accent-solid, но своя переменная, потому что в светлой
-   теме здесь другой оттенок и другая рамка. */
-:root[data-theme="dark"] .cfg__submit {
-    background: var(--accent-solid);
-    border-color: var(--accent-solid);
-}
-:root[data-theme="dark"] .cfg__submit:hover {
-    background: var(--accent-solid-hover);
-}
 }
 
 * {
@@ -684,18 +626,19 @@ a {
 :root[data-theme="dark"] .theme-toggle__sun {
     display: block;
 }
-/* выбора ещё нет, тема системная — тёмная. Без этой пары иконка
-   врала бы на тёмной системе (показывала луну при тёмной
-   странице), а на светлой переключатель пропал бы вовсе: ни
-   :root[data-theme="light"], ни :root[data-theme="dark"] при
-   отсутствующем атрибуте не подходят. */
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) .theme-toggle__sun {
-        display: block;
-    }
-    :root:not([data-theme]) .theme-toggle__moon {
-        display: none;
-    }
+/* Пока выбора нет, атрибута data-theme на <html> не стоит, а тема
+   по умолчанию светлая: показывается луна - она верна и при пустой
+   cookie, и при cookie=light. */
+
+/* Отступы от соседей. Промежуток между пунктами меню замерён как
+   30px, а от иконки профиля кнопка стояла в 15px и упиралась в
+   правый край .nav - на скриншоте читалась как часть того же
+   ряда. Отступы подобраны под замер: 16px слева против 30px между
+   пунктами выглядит тем же шагом, но впритык к краю больше не
+   стоит. */
+.theme-toggle {
+    margin-left: 16px;
+    margin-right: 8px;
 }
 
 /* Адаптив (3.6.4) */
