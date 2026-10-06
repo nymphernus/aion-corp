@@ -689,33 +689,72 @@ h1{
     border-radius: 4px;
 }
 
-/* ПРАВКА 5: favicon в одну-две строки. До этого блок занимал три
-   экрана: превью в боксе с пунктирной рамкой, поля в столбик (колонка
-   админки 463px, а .form-row там переносится), плюс <label> «авто» был
-   вложен в <label> - невалидная вёрстка, из-за которой галочка липла
-   к подписи. Теперь всё в flex-строке с переносом, а «авто» это span
-   внутри подписи: вложенный label внутри label браузеры чинят
-   по-разному. */
+/* Favicon-редактор: слева превью, справа управления по секциям.
 
-.favicon-row {
+   ПРАВКА: в одной строке шли подписи «Буква» (текстовое поле) и
+   «Буква» (пикер цвета), и это путало - непонятно было, где писать
+   символ, а где задавать цвет. Теперь управления разнесены по секциям
+   «Содержимое», «Цвета» и «Действия», а подписи стали «Символ»,
+   «Фона» и «Буквы»: в одной секции два слова «Буква» уже не стоят
+   рядом, и читаются сверху вниз. */
+.favicon-editor {
     display: flex;
-    gap: 14px;
-    align-items: flex-end;
+    gap: 24px;
+    align-items: flex-start;
     flex-wrap: wrap;
-    padding: 10px 0 4px;
+    padding: 16px 0;
 }
 
-.favicon-preview-wrap {
+.favicon-editor__preview {
     flex-shrink: 0;
 }
 
 .favicon-preview {
     display: block;
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
     border: 1px solid var(--border);
     background: var(--bg);
+}
+
+.favicon-editor__controls {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.favicon-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.favicon-section--actions {
+    flex-direction: row;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+/* Заголовок секции - не поле, а разделитель: мелкий, заглавный, с
+   разрядкой. Его несрочность и отличает «Содержимое» от подписи поля
+   под ним. */
+.favicon-section__title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.favicon-section__row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
 }
 
 .favicon-field {
@@ -724,36 +763,21 @@ h1{
     gap: 4px;
 }
 
-/* ПРАВКА 6: подписи полей favicon приведены к тому же виду, что и
-   .form-label остальных полей настроек - обычный регистр, тот же
-   размер и цвет. Раньше здесь стояли uppercase, 11px и разрядка, и
-   внутри одной секции «Название сайта» было строчными, а «Буква» и
-   «Фон» заглавными - читалось как разные формы.
-
-   Ширина label фиксирована: иначе подписи разной длины прыгали бы
-   при смене фокуса, а колонка пикеров съезжала бы. */
 .favicon-field__label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 6px;
-    /* Ровно как .form-label в base.css: 14px / 500 / --text-secondary.
-       Только display:flex вместо block - из-за вложенной галочки
-       «авто». */
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-secondary);
-    white-space: nowrap;
 }
 
-/* Кнопки прижаты к низу строки, а не висят по центру: с flex-end они
-   встают вровень с полями, и строка читается как одна полоса. */
-.favicon-field--btn {
+/* Галочка «Авто по контрасту» - третий элемент в строке цветов, и
+   поднимать её к пикерам не нужно: у неё своя подпись и она ниже
+   пикеров стоит наравне с ними, а не над ними. */
+.favicon-field--check {
     justify-content: flex-end;
 }
 
 .input--compact {
-    width: 60px;
+    width: 70px;
     padding: 8px 10px;
     font-size: 14px;
     text-align: center;
@@ -762,7 +786,7 @@ h1{
 /* Свой input[type=color]: без appearance:none браузер рисует поверх
    свою рамку и служебную полосу, и пикер выглядит сломанным. */
 .favicon-color {
-    width: 60px;
+    width: 64px;
     height: 38px;
     padding: 3px;
     border: 1px solid var(--border);
@@ -792,26 +816,24 @@ h1{
     cursor: not-allowed;
 }
 
-/* Галочка «авто». span, а не label: подпись поля уже label, и вкладывать
-   в неё ещё один label нельзя.
-
-   ПРАВКА 5: при 10px и gap 3px галочка читалась как точка и примыкала к
-   слову «Буква». Теперь 12px, gap 6px и отступ 10px - элемент виден и
-   явно отделён. Фон на hover подсказывает, что по нему можно кликнуть;
-   раньше кликабельность не была ничем не обозначена. */
+/* Галочка «Авто по контрасту» поднята до 13px с рамкой при hover:
+   раньше это был 10px span внутри подписи «Буква» и читался как
+   часть слова. Теперь это самостоятельный элемент своей секции, и
+   height:38px совпадает с высотой пикеров рядом - блок встаёт в одну
+   линию. */
 .favicon-auto {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin-left: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
+    box-sizing: border-box;
+    height: 38px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-secondary);
-    text-transform: none;
-    letter-spacing: 0;
     cursor: pointer;
+    white-space: nowrap;
     transition: background 150ms;
 }
 
@@ -827,6 +849,14 @@ h1{
     /* Акцент проекта - --accent; --primary в проекте не существует,
        и без фолбэка галочка красилась бы дефолтным синим. */
     accent-color: var(--accent, #2563EB);
+}
+
+/* На узком экране превью уходит наверх, а управления занимают всю
+   ширину: иначе поля сжимаются до нескольких пикселей. */
+@media (max-width: 640px) {
+    .favicon-editor {
+        flex-direction: column;
+    }
 }
 
 @media (max-width: 700px) {

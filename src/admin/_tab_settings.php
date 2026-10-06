@@ -179,62 +179,73 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                         <div class="form-group">
                             <label class="form-label" for="faviconLetter">Favicon</label>
 
-                            <div class="favicon-row">
-                                <div class="favicon-preview-wrap">
+                            <div class="favicon-editor">
+                                <div class="favicon-editor__preview">
                                     <img src="<?= escape(site_setting($settings, 'site_favicon_png_url', '/assets/images/branding/favicon.png')) ?>"
                                          alt="Favicon" id="faviconPreview"
-                                         width="48" height="48" class="favicon-preview">
+                                         width="64" height="64" class="favicon-preview">
                                 </div>
 
-                                <div class="favicon-field">
-                                    <label class="favicon-field__label" for="faviconLetter">Буква</label>
-                                    <input class="input input--compact" name="favicon_letter" id="faviconLetter"
-                                           maxlength="1" inputmode="text" autocomplete="off"
-                                           value="<?= escape(site_setting($settings, 'favicon_letter', 'A')) ?>"
-                                           placeholder="A">
-                                </div>
+                                <div class="favicon-editor__controls">
 
-                                <div class="favicon-field">
-                                    <label class="favicon-field__label" for="faviconBg">Фон</label>
-                                    <input type="color" name="favicon_bg" id="faviconBg"
-                                           value="<?= escape(site_setting($settings, 'favicon_bg', '#C99CFF')) ?>"
-                                           class="favicon-color">
-                                </div>
+                                    <div class="favicon-section">
+                                        <div class="favicon-section__title">Содержимое</div>
+                                        <div class="favicon-section__row">
+                                            <div class="favicon-field">
+                                                <label class="favicon-field__label" for="faviconLetter">Символ</label>
+                                                <input class="input input--compact" name="favicon_letter" id="faviconLetter"
+                                                       maxlength="1" inputmode="text" autocomplete="off"
+                                                       value="<?= escape(site_setting($settings, 'favicon_letter', 'A')) ?>"
+                                                       placeholder="A">
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                <div class="favicon-field">
-                                    <label class="favicon-field__label" for="faviconText">
-                                        Буква
-                                        <span class="favicon-auto">
-                                            <input type="checkbox" name="favicon_auto_color"
-                                                   id="faviconAutoColor" value="1"
-                                                   <?= site_setting($settings, 'favicon_auto_color') === '1' ? 'checked' : '' ?>>
-                                            <span>авто</span>
-                                        </span>
-                                    </label>
-                                    <input type="color" name="favicon_text" id="faviconText"
-                                           value="<?= escape(site_setting($settings, 'favicon_text', '#000000')) ?>"
-                                           class="favicon-color">
-                                </div>
+                                    <div class="favicon-section">
+                                        <div class="favicon-section__title">Цвета</div>
+                                        <div class="favicon-section__row">
+                                            <div class="favicon-field">
+                                                <label class="favicon-field__label" for="faviconBg">Фона</label>
+                                                <input type="color" name="favicon_bg" id="faviconBg"
+                                                       value="<?= escape(site_setting($settings, 'favicon_bg', '#C99CFF')) ?>"
+                                                       class="favicon-color">
+                                            </div>
 
-                                <div class="favicon-field favicon-field--btn">
-                                    <button type="button" class="btn btn--secondary btn--sm" id="faviconGenerate"
-                                            data-action="generate-favicon">Сгенерировать</button>
-                                </div>
+                                            <div class="favicon-field">
+                                                <label class="favicon-field__label" for="faviconText">Буквы</label>
+                                                <input type="color" name="favicon_text" id="faviconText"
+                                                       value="<?= escape(site_setting($settings, 'favicon_text', '#000000')) ?>"
+                                                       class="favicon-color">
+                                            </div>
 
-                                <div class="favicon-field favicon-field--btn">
-                                    <label class="btn btn--secondary btn--sm">
-                                        <input type="file" id="faviconUploadInput"
-                                               name="favicon_upload"
-                                               accept="image/png,image/jpeg,image/webp"
-                                               style="display:none">
-                                        Загрузить свою
-                                    </label>
+                                            <div class="favicon-field favicon-field--check">
+                                                <label class="favicon-auto">
+                                                    <input type="checkbox" name="favicon_auto_color"
+                                                           id="faviconAutoColor" value="1"
+                                                           <?= site_setting($settings, 'favicon_auto_color') === '1' ? 'checked' : '' ?>>
+                                                    <span>Авто по контрасту</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="favicon-section favicon-section--actions">
+                                        <button type="button" class="btn btn--primary btn--sm" id="faviconGenerate"
+                                                data-action="generate-favicon">Сгенерировать</button>
+                                        <label class="btn btn--secondary btn--sm">
+                                            <input type="file" id="faviconUploadInput"
+                                                   name="favicon_upload"
+                                                   accept="image/png,image/jpeg,image/webp"
+                                                   style="display:none">
+                                            Загрузить свою
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
                             <p class="form-hint">
-                                Буква занимает 70% высоты, иконка 128×128 PNG. «Авто» подбирает
-                                цвет буквы по контрасту с фоном. Загруженная иконка важнее
+                                Символ занимает 70% высоты, иконка 128×128 PNG. «Авто по контрасту»
+                                подбирает цвет буквы под фон. Загруженная иконка важнее
                                 сгенерированной.
                             </p>
                             <p class="form-hint" id="faviconNotice"></p>
