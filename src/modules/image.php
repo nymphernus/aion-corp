@@ -276,6 +276,58 @@ if (!function_exists('store_favicon_upload')) {
      * держать два ключа, и после загрузки своей иконки старая
      * сгенерированная продолжала бы где-то использоваться.
      *
+     /**
+     * Текущая иконка загружена админом, а не нарисована генератором.
+     *
+     * Загрузка и генератор пишут в один и тот же файл, поэтому без этой
+     * метки нельзя отличить «буква A на синем» от «картинка, которую
+     * прислали». Читается напрямую из базы, а не через site_settings():
+     * тот кэширует результат в static на весь процесс, и в рамках одного
+     * HTTP-запроса вернул бы состояние до сохранения.
+     */
+    function favicon_is_custom_now(mysqli $mysql): bool
+    {
+        $stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = 'favicon_is_custom'", '');
+        $stmt->execute();
+        $value = $stmt->get_result()->fetch_row();
+
+        return isset($value[0]) && (string) $value[0] === '1';
+    }
+
+    /**
+     * Лежит ли файл иконки на диске.
+     *
+     * Нужна как страховка для favicon_is_custom: метка живёт в базе, а
+     * файл - на диске, и они могут разойтись (файл удалили вручную или
+     * перезаписали генератором). Если файла нет, терять нечего, поэтому
+     * иконку надо построить - иначе вкладка осталась бы без иконки
+     * молча, ровно как это происходило до появления метки.
+     */
+    function favicon_file_exists(): bool
+    {
+        return is_file(__DIR__ . '/../assets/images/branding/favicon.png');
+    }
+
+    /**
+     * Цвет из формы, приведённый к #RRGGBB.
+     *
+     * input type=color и сам браузер дают корректное значение, но POST не
+     * защищён от подделки: без проверки в site_settings попал бы мусор,
+     * а буква раскрасилась бы в произвольный цвет.
+     */
+    function favicon_normalize_hex(string $value, string $fallback): string
+    {
+        $value = trim($value);
+
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1 ? $value : $fallback;
+    }
+
+    function favicon_normalize_bg(string $value): string
+    {
+        return favicon_normalize_hex($value, '#C99CFF');
+    }
+
+    /**
      * @param array|null $file элемент $_FILES['...']
      * @return array{ok: bool, url: string, error: ?string}
      */

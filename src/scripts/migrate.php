@@ -376,6 +376,11 @@ $settings = [
     'favicon_bg' => '#C99CFF',
     'favicon_text' => '#000000',
     'favicon_auto_color' => '0',
+    // Текущий файл сгенерирован, а не загружен. Дефолт '0' обязателен:
+    // база, где ключа нет, читалась бы как «неизвестно», и обычное
+    // сохранение настроек затёрло бы загруженную иконку - ровно тот баг,
+    // ради которого ключ и заведён.
+    'favicon_is_custom' => '0',
 ];
 foreach ($settings as $key => $value) {
     $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = ?", "s", $key);

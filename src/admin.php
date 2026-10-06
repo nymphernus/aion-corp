@@ -681,7 +681,12 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
 // 5-f-2: сохранение контактов и текстовых настроек из формы вкладки
 // «Настройки сайта». Координаты и снимок карты сюда не попадают: их
 // пишет отдельный обработчик saveMapSnapshot, который проверяет PNG.
-if ($isAdmin && isset($_POST['saveSettings'])) {
+// saveSettings пропускается, если пришёл removeCustomFavicon: кнопка
+    // «Вернуть сгенерированную» означает «сделать только это». Проверка
+    // стоит именно здесь, а не только порядком блоков ниже: обработчик
+    // возврата расположен после preview_favicon, и без гарда он оказался
+    // бы недостижим - saveSettings успевает отредиректить и выйти.
+    if ($isAdmin && isset($_POST['saveSettings']) && !isset($_POST['removeCustomFavicon'])) {
     csrf_verify();
 
     // Ошибки показываются на странице после редиректа, а не роняют
@@ -703,6 +708,9 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
         'site_name', 'site_description', 'site_founded_year',
         'site_logo_url', 'site_favicon_png_url',
         'favicon_letter', 'favicon_bg', 'favicon_text', 'favicon_auto_color',
+        // Служебный флаг, см. ветку favicon_upload ниже: только код его
+        // пишет, из формы он не приходит.
+        'favicon_is_custom',
     ];
 
     $values = [];
@@ -768,19 +776,58 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     //
     // Загруженный файл важнее сгенерированного: если админ выбрал свою
     // иконку, генератор не должен тут же переписать её своей буквой.
+    //
+    // Загрузка и генератор пишут в ОДИН И ТОТ ЖЕ файл
+    // assets/images/branding/favicon.png - второй копии нет. Поэтому
+    // favicon_is_custom хранит единственное, что известно о происхождении
+    // файла, и без него обычное сохранение настроек стирало загруженную
+    // иконку. Проверено замером пикселя (64,64): после второго «Сохранить»
+    // он менялся с синего 0,0,255 (загруженный PNG) на 111,31,31
+    // (нарисованная буква). Форма отправляет favicon_letter и favicon_bg
+    // всегда - они в ней есть независимо от того, трогал их админ, - так
+    // что до генератора доходило любое сохранение, включая правку
+    // телефона в соседней карточке.
     $faviconUpload = store_favicon_upload($_FILES['favicon_upload'] ?? null);
     if ($faviconUpload['ok']) {
         $values['site_favicon_png_url'] = $faviconUpload['url'];
+        $values['favicon_is_custom'] = '1';
+
+        // Буква и цвета из формы сохраняются и при загрузке файла, хотя
+        // картинка их игнорирует. Без этого они остались бы от прошлого
+        // раза, и кнопка «Вернуть сгенерированную» нарисовала бы иконку
+        // по старым значениям: админ только что выбрал M и красный фон,
+        // загрузил свою картинку, потом вернулся к букве - и получил A.
+        $letter = trim((string) ($_POST['favicon_letter'] ?? ''));
+        if (favicon_letter_error($letter) === '') {
+            $auto = ($_POST['favicon_auto_color'] ?? '') === '1';
+            $values['favicon_letter'] = $letter;
+            $values['favicon_bg'] = favicon_normalize_bg((string) ($_POST['favicon_bg'] ?? ''));
+            $values['favicon_auto_color'] = $auto ? '1' : '0';
+            $values['favicon_text'] = $auto ? '' : favicon_normalize_hex((string) ($_POST['favicon_text'] ?? ''), '#000000');
+        }
     } elseif ($faviconUpload['error'] !== null) {
         // Загрузка была, но файл не подошёл. Генератор здесь не
         // запускается намеренно: иначе админ загрузил бы негодную
         // картинку, получил бы вместо неё иконку с буквой и потерял бы
         // прежнюю, ничего не поняв.
         $errors[] = $faviconUpload['error'];
-    } elseif (array_key_exists('favicon_letter', $_POST) || array_key_exists('favicon_bg', $_POST)) {
-        // Файла нет и блок иконки в форме трогали - значит иконку надо
-        // перегенерировать. Условие важно: при сохранении формы, где
-        // блок иконки не отправляли вовсе, иконка остаётся как была.
+    } elseif ((array_key_exists('favicon_letter', $_POST) || array_key_exists('favicon_bg', $_POST))
+        && !(favicon_is_custom_now($mysql) && favicon_file_exists())) {
+        // Файла нет, иконка не загружена и блок иконки в форме трогали -
+        // значит иконку надо перегенерировать. Первое условие важно: при
+        // сохранении формы, где блок иконки не отправляли вовсе, иконка
+        // остаётся как была.
+        //
+        // Второе - тоже: при загруженной иконке буква и цвета относятся к
+        // картинки, которой сейчас нет, и рисовать её значит тихо выбросить
+        // то, что админ загрузил. Перерисовывает файл только явная кнопка
+        // removeCustomFavicon.
+        //
+        // Исключение из исключения - favicon_file_exists(). Метка живёт в
+        // базе, а файл на диске, и они могут разойтись: файл удалили
+        // вручную или перезаписали генератором. Тогда терять нечего, а без
+        // файла иконка в вкладке исчезла бы молча.
+        //
         // Перегенерация идёт всегда, а не только при смене буквы: файл
         // могли удалить с диска, и тогда иконка в вкладке исчезла бы
         // молча.
@@ -822,6 +869,26 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
                 $values['favicon_auto_color'] = $auto ? '1' : '0';
                 $values['favicon_text'] = $auto ? '' : $text;
             }
+        }
+    } elseif (
+        favicon_is_custom_now($mysql)
+        && favicon_file_exists()
+        && (array_key_exists('favicon_letter', $_POST) || array_key_exists('favicon_bg', $_POST))
+    ) {
+        // Иконка загружена, а букву или цвета поменяли. Файл не трогаем -
+        // см. условие ветки выше, - но сами настройки сохраняем: они
+        // понадобятся генератору, когда админ вернётся к букве кнопкой
+        // removeCustomFavicon. Иначе он получил бы иконку по старым
+        // цветам и не понял бы почему.
+        $letter = trim((string) ($_POST['favicon_letter'] ?? ''));
+        if (favicon_letter_error($letter) === '') {
+            $auto = ($_POST['favicon_auto_color'] ?? '') === '1';
+            $values['favicon_letter'] = $letter;
+            $values['favicon_bg'] = favicon_normalize_bg((string) ($_POST['favicon_bg'] ?? ''));
+            $values['favicon_auto_color'] = $auto ? '1' : '0';
+            // При авто ручной цвет не пишется: иначе после снятия
+            // галочки пикер показал бы его вместо последнего введённого.
+            $values['favicon_text'] = $auto ? '' : favicon_normalize_hex((string) ($_POST['favicon_text'] ?? ''), '#000000');
         }
     }
 
@@ -896,6 +963,62 @@ if ($isAdmin && isset($_POST['preview_favicon'])) {
     header('Content-Type: image/png');
     header('Cache-Control: no-store');
     echo $bytes;
+    exit();
+}
+
+// Вернуть сгенерированную иконку после загрузки своей.
+//
+// Отдельное действие, а не следствие обычного «Сохранить»: пока файл
+// загружен, генератор молчит (см. ветку saveSettings), иначе он
+// затирал бы загруженную картинку при каждом сохранении. Явная кнопка
+// остаётся единственным способом вернуться к букве.
+//
+// Источник правды для буквы и цветов - сохранённые настройки, а не POST.
+// «Вернуть сгенерированную» читается как «вернуть ту, что настроена», а
+// не «придумать новую из текущего состояния формы»: поля могли быть не
+// тронуты, но могли быть изменены без сохранения.
+if ($isAdmin && isset($_POST['removeCustomFavicon'])) {
+    csrf_verify();
+
+    require_once __DIR__ . '/modules/site.php';
+
+    $st = db_prepare(
+        $mysql,
+        "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('favicon_letter', 'favicon_bg', 'favicon_text', 'favicon_auto_color')",
+        ''
+    );
+    $st->execute();
+    $saved = [];
+    foreach ($st->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+        $saved[(string) $row['setting_key']] = (string) $row['setting_value'];
+    }
+
+    $letter = trim($saved['favicon_letter'] ?? 'A');
+    // Пустая буква в настройках возможна только при испорченных данных, но
+    // проверка всё равно нужна: generate_favicon() вернул бы null, файл бы
+    // не тронулся, а флаг снялся бы - и интерфейс соврал бы, показав
+    // «Вернуть сгенерированную» у неверной иконки.
+    if (favicon_letter_error($letter) !== '') {
+        $letter = 'A';
+    }
+
+    $auto = ($saved['favicon_auto_color'] ?? '0') === '1';
+    $text = $auto ? 'auto' : favicon_normalize_hex($saved['favicon_text'] ?? '', '#000000');
+
+    $path = generate_favicon($letter, favicon_normalize_bg($saved['favicon_bg'] ?? ''), $text);
+    if ($path !== null) {
+        site_setting_save($mysql, [
+            'site_favicon_png_url' => $path,
+            'favicon_is_custom' => '0',
+        ]);
+    }
+
+    // Токен одноразовый в рамках загрузки страницы, а форма ниже получит
+    // страницу заново: без ротации следующий «Сохранить» получил бы 403 по
+    // CSRF-причине, ничего не объясняющей.
+    csrf_rotate();
+
+    header('Location: /admin.php?tab=settings&' . ($path !== null ? 'saved=1' : 'bad=favicon_generate'));
     exit();
 }
 

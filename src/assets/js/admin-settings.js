@@ -540,6 +540,31 @@
         previewGeneratedFavicon();
     });
 
+    // «Вернуть сгенерированную»: отдельный POST, а не часть обычного
+    // «Сохранить».
+    //
+    // Форма всегда отправляет favicon_letter и favicon_bg, и пока файл
+    // загружен, сервер их игнорирует - иначе иначе он перерисовывал бы
+    // загруженную картинку при каждом сохранении. Значит вернуть букву
+    // можно только отдельной кнопкой, отдельным запросом.
+    document.addEventListener('click', function (e) {
+        var target = e.target.closest ? e.target.closest('[data-action="remove-custom-favicon"]') : null;
+        if (!target) return;
+        e.preventDefault();
+
+        if (!window.confirm('Вернуть сгенерированную иконку?\nЗагруженная картинка будет удалена безвозвратно.')) return;
+
+        var form = target.closest('form');
+        if (!form) return;
+
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'removeCustomFavicon';
+        input.value = '1';
+        form.appendChild(input);
+        form.submit();
+    });
+
     // Enter в поле буквы отправлял бы форму целиком, то есть сохранял
     // настройки вместо предпросмотра.
     document.addEventListener('keydown', function (e) {
