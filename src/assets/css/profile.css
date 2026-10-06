@@ -2,7 +2,7 @@ h1{
     font-size: 45px;
     margin-bottom: 10px;
     margin-top: 10px;
-    color:rgb(39, 81, 159);
+    color: var(--heading);
 }
 /* .delBtn удалён вместе с блоком #userMonitor */
 .toggle_btn_monitor{
@@ -127,7 +127,7 @@ h1{
 }
 .userData form input[type="button"]{
     color: black;
-    background-color: white;
+    background-color: var(--bg-card);
     margin: 1% 0 1% 0;
 	width: 40%;
 	height: 45px;
@@ -159,7 +159,7 @@ h1{
     height: auto;
     margin-top: 100px;
     margin-bottom: 10px;
-    background-color: #9a90e688;
+    background-color: var(--overlay-purple);
     /* background-color: #aca2fb74; */
     backdrop-filter: blur(20px);
     border-radius: 20px;
@@ -283,7 +283,7 @@ h1{
     margin: 0 0 24px;
     font-size: 24px;
     font-weight: 700;
-    color: rgb(39, 81, 159);
+    color: var(--heading);
 }
 
 /* внутри flex-строки нижний отступ сдвинул бы кнопку */
@@ -851,7 +851,7 @@ h1{
    иначе новые блоки выглядели бы из другой вселенной, чем карточки
    пользователей и заказов на соседних вкладках. */
 .settings-block {
-    background: white;
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 24px;
@@ -1271,7 +1271,7 @@ h1{
 }
 
 .profile-sidebar {
-    background: white;
+    background: var(--bg-card);
     border-radius: var(--radius);
     border: 1px solid var(--border);
     padding: 20px;
@@ -2100,7 +2100,7 @@ button.profile-nav-item {
     margin-bottom: 24px;
 }
 .files-stat {
-    background: white;
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 16px 20px;
@@ -2135,7 +2135,7 @@ a.files-stat:hover {
     gap: 16px;
 }
 .file-card {
-    background: white;
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 12px;
@@ -2221,7 +2221,7 @@ a.files-stat:hover {
     width: 28px;
     height: 28px;
     border-radius: 6px;
-    background: rgba(255,255,255,0.92);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     color: var(--text-secondary);
     cursor: pointer;
@@ -2394,9 +2394,13 @@ a.files-stat:hover {
     flex-direction: column;
     gap: 6px;
     padding: 8px;
+    /* Раньше здесь стояли две строки подряд: background: var(--bg-card)
+       и сразу после неё background-color: white. Вторая перебивала
+       первую, и плитка оставалась белой в любой теме - из-за неё
+       подпись с именем файла (var(--text-secondary) на тёмном) давала
+       контраст 2.02. */
     background: var(--bg-card);
     border: 2px solid var(--border);
-    background-color: white;
     border-radius: 10px;
     cursor: pointer;
     transition: 150ms;

@@ -41,9 +41,25 @@ $siteFavicon = site_setting($settings, 'site_favicon_png_url', '/assets/images/b
 $extraCss = $extraCss ?? [];
 $bodyClass = $bodyClass ?? '';
 $isLoggedIn = isset($_SESSION['user_id']);
+
+// Тема оформления выбирается cookie aion_theme и приходит атрибутом
+// на <html>. Так вспышки белого нет вообще: атрибут есть в том же
+// HTML, что и стили, и браузер ни разу не рисует светлую страницу.
+//
+// Инлайн-скрипт перед <link> сделал бы то же, но CSP в .htaccess
+// запрещает script-src без 'unsafe-inline' и без nonce, а ослаблять
+// его ради одного скрипта не стоит.
+//
+// Пустое значение - намеренный случай: cookie ещё нет, и тему
+// решает prefers-color-scheme в base.css. Проверка на строгое
+// 'light'/'dark' нужна и для этого, и на случай подделки cookie:
+// иначе в атрибут попало бы что угодно из значения вида
+// aion_theme=x" onclick="...
+$themeCookie = $_COOKIE['aion_theme'] ?? '';
+$htmlTheme = ($themeCookie === 'light' || $themeCookie === 'dark') ? $themeCookie : '';
 ?>
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru"<?= $htmlTheme !== '' ? ' data-theme="' . escape($htmlTheme) . '"' : '' ?>>
 <head>
     <meta charset="utf-8">
 <?php // Заголовок вкладки. Если страница задала свой, он дополняется
@@ -121,6 +137,25 @@ $isLoggedIn = isset($_SESSION['user_id']);
                         </a>
                     </li>
                 </ul>
+                <!-- Переключатель темы. Обе иконки в разметке, видимость
+                     задаёт CSS по data-theme: в светлой показывается луна
+                     (что будет, если нажать), в тёмной - солнце. Так
+                     иконка остаётся верной при первом заходе, когда
+                     атрибута нет и тему задала система. -->
+                <button type="button" class="theme-toggle" data-action="toggle-theme"
+                        aria-label="Переключить тему" title="Переключить тему">
+                    <svg class="theme-toggle__sun" width="20" height="20" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+                    </svg>
+                    <svg class="theme-toggle__moon" width="20" height="20" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
             </div>
         </div>
     </header>

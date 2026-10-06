@@ -21,6 +21,182 @@
     --radius-sm: 8px;
     --radius: 12px;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+
+    /* Тема оформления. Файл читает значение из cookie aion_theme и
+       ставит data-theme на <html>, поэтому при явном выборе атрибут
+       есть всегда и браузеру не нужно гадать. */
+    --heading: #27519F;
+
+    /* Градиент фона страницы. Раньше четыре цвета стояли прямо в
+       правиле body - в тёмной теме они бы остались светлыми. */
+    --bg-gradient-1: #F8FAFC;
+    --bg-gradient-2: #E2E8F0;
+    --bg-gradient-3: #CBD5E1;
+
+    /* Подложка под фото товара: белый градиент в тёмной теме читался
+       бы как светлое пятно посреди тёмной карточки. */
+    --surface-image-1: #F8FAFC;
+    --surface-image-2: #EEF2F7;
+
+    /* Бейджи: фон берёт цвет с 10% прозрачности, текст - затемнённый
+       оттенок того же цвета. На тёмном фоне затемнение нечитаемо,
+       поэтому в тёмной теме текст светлее фона. */
+    --badge-success-bg: rgba(16, 185, 129, 0.1);
+    --badge-success-text: #059669;
+    --badge-warning-bg: rgba(245, 158, 11, 0.1);
+    --badge-warning-text: #D97706;
+    --badge-error-bg: rgba(239, 68, 68, 0.1);
+    --badge-error-text: #DC2626;
+    --badge-neutral-bg: rgba(107, 114, 128, 0.1);
+
+    /* Алерты. Бордер нужен отдельно от фона: в светлой теме он
+       заметен, в тёмной тот же rgba на тёмном не виден вовсе. */
+    --alert-error-bg: rgba(239, 68, 68, 0.1);
+    --alert-error-text: #991B1B;
+    --alert-error-border: rgba(239, 68, 68, 0.2);
+    --alert-success-bg: rgba(16, 185, 129, 0.1);
+    --alert-success-text: #065F46;
+    --alert-success-border: rgba(16, 185, 129, 0.2);
+
+    /* Затемнение декоративных блоков (карточка профиля на фото) */
+    --overlay-purple: #9a90e688;
+
+    /* Подложка футера. Отдельная переменная, а не --bg-card: футер
+       полупрозрачный, и в тёмной теме он должен просвечивать страницу,
+       а не становиться непрозрачной плитой. */
+    --footer-bg: rgba(255, 255, 255, 0.9);
+
+    /* Заливка под белым текстом - отдельная от --accent/--error.
+       В тёмной теме --accent светлеет (#3B82F6), чтобы его было видно
+       как цвет текста на тёмном фоне, но белым текстом по нему он
+       читается хуже: замеренный контраст падает с 5.17 до 3.68.
+       Поэтому кнопки берут --accent-solid и --danger-solid, которые
+       остаются тёмными в обеих темах. */
+    --accent-solid: #2563EB;
+    --danger-solid: #DC2626;
+
+    color-scheme: light;
+}
+
+/* Тёмная тема.
+   Два одинаковых набора переменных - здесь и в @media ниже - не
+   повтор по недосмотру. Cookie aion_theme читает PHP и ставит
+   атрибут на <html>; пока выбора не было, атрибута нет, и тему
+   задаёт системная настройка браузера. Оба селектора обязательны:
+   сочетание @media с :root:not([data-theme]) поддерживается везде,
+   где есть prefers-color-scheme, то есть во всех браузерах, где
+   вообще имеет смысл тёмную тему. */
+:root[data-theme="dark"] {
+    --bg: #0F172A;
+    --bg-card: #1E293B;
+    --text: #F1F5F9;
+    --text-secondary: #A8B8CC;
+    --text-muted: #7C8CA3;
+    --accent: #60A5FA;
+    --accent-hover: #60A5FA;
+    --accent-light: rgba(59, 130, 246, 0.15);
+    --border: #334155;
+    --success: #34D399;
+    --error: #F87171;
+    --accent-solid: #2563EB;
+    --accent-solid-hover: #1D4ED8;
+    --danger-solid: #DC2626;
+    --warning: #FBBF24;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+
+    --heading: #93B4E8;
+
+    --bg-gradient-1: #0F172A;
+    --bg-gradient-2: #1E293B;
+    --bg-gradient-3: #1E293B;
+
+    --surface-image-1: #1E293B;
+    --surface-image-2: #172033;
+
+    /* Здесь и в следующем блоке значения те же, что в @media ниже.
+       На тёмном фоне светлый текст, а не затемнённый. */
+    --badge-success-bg: rgba(52, 211, 153, 0.15);
+    --badge-success-text: #6EE7B7;
+    --badge-warning-bg: rgba(251, 191, 36, 0.15);
+    --badge-warning-text: #FCD34D;
+    --badge-error-bg: rgba(248, 113, 113, 0.15);
+    --badge-error-text: #FCA5A5;
+    --badge-neutral-bg: rgba(148, 163, 184, 0.15);
+
+    --alert-error-bg: rgba(248, 113, 113, 0.12);
+    --alert-error-text: #FCA5A5;
+    --alert-error-border: rgba(248, 113, 113, 0.3);
+    --alert-success-bg: rgba(52, 211, 153, 0.12);
+    --alert-success-text: #6EE7B7;
+    --alert-success-border: rgba(52, 211, 153, 0.3);
+
+    --overlay-purple: #4c4a7a99;
+    --footer-bg: rgba(15, 23, 42, 0.9);
+
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+    --bg: #0F172A;
+    --bg-card: #1E293B;
+    --text: #F1F5F9;
+    --text-secondary: #A8B8CC;
+    --text-muted: #7C8CA3;
+    --accent: #60A5FA;
+    --accent-hover: #60A5FA;
+    --accent-light: rgba(59, 130, 246, 0.15);
+    --border: #334155;
+    --success: #34D399;
+    --error: #F87171;
+    --accent-solid: #2563EB;
+    --accent-solid-hover: #1D4ED8;
+    --danger-solid: #DC2626;
+    --warning: #FBBF24;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+
+    --heading: #93B4E8;
+
+    --bg-gradient-1: #0F172A;
+    --bg-gradient-2: #1E293B;
+    --bg-gradient-3: #1E293B;
+
+    --surface-image-1: #1E293B;
+    --surface-image-2: #172033;
+
+    --badge-success-bg: rgba(52, 211, 153, 0.15);
+    --badge-success-text: #6EE7B7;
+    --badge-warning-bg: rgba(251, 191, 36, 0.15);
+    --badge-warning-text: #FCD34D;
+    --badge-error-bg: rgba(248, 113, 113, 0.15);
+    --badge-error-text: #FCA5A5;
+    --badge-neutral-bg: rgba(148, 163, 184, 0.15);
+
+    --alert-error-bg: rgba(248, 113, 113, 0.12);
+    --alert-error-text: #FCA5A5;
+    --alert-error-border: rgba(248, 113, 113, 0.3);
+    --alert-success-bg: rgba(52, 211, 153, 0.12);
+    --alert-success-text: #6EE7B7;
+    --alert-success-border: rgba(52, 211, 153, 0.3);
+
+    --overlay-purple: #4c4a7a99;
+    --footer-bg: rgba(15, 23, 42, 0.9);
+
+        color-scheme: dark;
+    }
+
+/* Кнопка «Подобрать» на главной. В тёмной теме полупрозрачная
+   тёмная заливка на тёмном фоне давала белому тексту контраст
+   3.42, поэтому здесь заливка непрозрачная и своя: та же логика,
+   что у --accent-solid, но своя переменная, потому что в светлой
+   теме здесь другой оттенок и другая рамка. */
+:root[data-theme="dark"] .cfg__submit {
+    background: var(--accent-solid);
+    border-color: var(--accent-solid);
+}
+:root[data-theme="dark"] .cfg__submit:hover {
+    background: var(--accent-solid-hover);
+}
 }
 
 * {
@@ -52,12 +228,14 @@ body {
     font-family: 'Ubuntu', system-ui, sans-serif;
     /* был почти незаметный вертикальный градиент; теперь
        диагональный с читаемым перепадом. --bg (F8FAFC) остаётся
-       цветом карточек и прочих поверхностей */
+       цветом карточек и прочих поверхностей.
+       Цвета вынесены в переменные: в тёмной теме градиент должен
+       стать тёмным, иначе светлая страница со светлым текстом. */
     background: linear-gradient(145deg,
-        #F8FAFC 0%,
-        #E2E8F0 30%,
-        #CBD5E1 65%,
-        #E2E8F0 100%);
+        var(--bg-gradient-1) 0%,
+        var(--bg-gradient-2) 30%,
+        var(--bg-gradient-3) 65%,
+        var(--bg-gradient-2) 100%);
     background-attachment: fixed;
     background-color: var(--bg);
     color: var(--text);
@@ -68,6 +246,9 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    /* фон и текст меняются при переключении темы, без перехода
+       страница дёргалась бы один кадр на каждом цвете */
+    transition: background-color 200ms, color 200ms;
 }
 
 .wrapper {
@@ -119,16 +300,16 @@ a {
 }
 
 .btn--primary {
-    background: var(--accent);
+    background: var(--accent-solid);
     color: white;
 }
 
 .btn--primary:hover {
-    background: var(--accent-hover);
+    background: var(--accent-solid-hover);
 }
 
 .btn--secondary {
-    background: white;
+    background: var(--bg-card);
     color: var(--text);
     border: 1px solid var(--border);
 }
@@ -143,7 +324,7 @@ a {
 }
 
 .btn--danger {
-    background: var(--error);
+    background: var(--danger-solid);
     color: white;
 }
 
@@ -154,7 +335,7 @@ a {
 }
 
 .btn--ghost--danger:hover {
-    background: rgba(239,68,68,0.1);
+    background: var(--badge-error-bg);
 }
 
 .btn--sm {
@@ -175,7 +356,7 @@ a {
     border-radius: var(--radius-sm);
     font-size: 15px;
     width: 100%;
-    background: white;
+    background: var(--bg-card);
     transition: 150ms;
     font-family: inherit;
 }
@@ -222,7 +403,7 @@ a {
     justify-content: center;
     /* фон непрозрачный намеренно: накрывает иконку менеджера паролей
        браузера, которая иначе просвечивает сквозь кнопку */
-    background: white;
+    background: var(--bg-card);
     border: none;
     cursor: pointer;
     color: var(--text-secondary);
@@ -265,7 +446,7 @@ a {
 /* Карточки */
 
 .card {
-    background: white;
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 24px;
@@ -378,7 +559,7 @@ a {
 }
 
 .pagination__item.is-active {
-    background: var(--accent);
+    background: var(--accent-solid);
     color: white;
     font-weight: 500;
 }
@@ -394,7 +575,7 @@ a {
     white-space: nowrap;
     /* базовый вид серый - модификатор не всегда есть,
        иначе бейдж выглядел бы как обычный чёрный текст */
-    background: rgba(107, 114, 128, 0.1);
+    background: var(--badge-neutral-bg);
     color: var(--text-secondary);
 }
 
@@ -416,18 +597,18 @@ a {
     display: none;
 }
 .badge--success {
-    background: rgba(16,185,129,0.1);
-    color: #059669;
+    background: var(--badge-success-bg);
+    color: var(--badge-success-text);
 }
 
 .badge--warning {
-    background: rgba(245,158,11,0.1);
-    color: #D97706;
+    background: var(--badge-warning-bg);
+    color: var(--badge-warning-text);
 }
 
 .badge--error {
-    background: rgba(239,68,68,0.1);
-    color: #DC2626;
+    background: var(--badge-error-bg);
+    color: var(--badge-error-text);
 }
 
 /* Алерты */
@@ -439,18 +620,82 @@ a {
 }
 
 .alert--error {
-    background: rgba(239,68,68,0.1);
-    color: #991B1B;
-    border: 1px solid rgba(239,68,68,0.2);
+    background: var(--alert-error-bg);
+    color: var(--alert-error-text);
+    border: 1px solid var(--alert-error-border);
 }
 
 /* успешное действие. Раньше класса не было, хотя .alert--error
    использовался в трёх местах - зелёной плашки «сохранено» нечем было
    нарисовать, пришлось бы показывать ошибкой то, что прошло успешно */
 .alert--success {
-    background: rgba(16,185,129,0.1);
-    color: #065F46;
-    border: 1px solid rgba(16,185,129,0.2);
+    background: var(--alert-success-bg);
+    color: var(--alert-success-text);
+    border: 1px solid var(--alert-success-border);
+}
+
+/* === Переключатель темы ===
+   Обе иконки лежат в разметке, а показывает CSS одну. Правила
+   разбиты на две группы, и порядок объявления здесь важен:
+
+   - правило с :not([data-theme]) ниже отключает обе иконки, когда
+     выбор ещё не сделан;
+   - следующие два правила включают нужную: в светлой - луну, в
+     тёмной - солнце. Иконка показывает то, что будет после клика,
+     поэтому в светлой теме это луна.
+
+   :not([data-theme]) вместо проверки только светлой темы: при
+   первом заходе cookie нет, атрибута нет, и без этого правила обе
+   иконки оказались бы видны сразу. */
+.theme-toggle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 200ms;
+    padding: 0;
+    flex-shrink: 0;
+}
+.theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+.theme-toggle:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+/* обе скрыты по умолчанию: пока не сработало ни одно из правил
+   ниже, видно не должно быть ничего */
+.theme-toggle__sun,
+.theme-toggle__moon {
+    display: none;
+}
+:root[data-theme="light"] .theme-toggle__moon,
+:root:not([data-theme]) .theme-toggle__moon {
+    display: block;
+}
+:root[data-theme="dark"] .theme-toggle__sun {
+    display: block;
+}
+/* выбора ещё нет, тема системная — тёмная. Без этой пары иконка
+   врала бы на тёмной системе (показывала луну при тёмной
+   странице), а на светлой переключатель пропал бы вовсе: ни
+   :root[data-theme="light"], ни :root[data-theme="dark"] при
+   отсутствующем атрибуте не подходят. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .theme-toggle__sun {
+        display: block;
+    }
+    :root:not([data-theme]) .theme-toggle__moon {
+        display: none;
+    }
 }
 
 /* Адаптив (3.6.4) */
