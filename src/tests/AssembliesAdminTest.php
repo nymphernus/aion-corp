@@ -378,8 +378,100 @@ final class AssembliesAdminTest extends AionTestCase
      *
      * Полноценный каскад (одно поле фильтрует другое) отложен, но
      * знающий человек должен видеть сокет, тип памяти и форм-фактор
-     * прямо в списке — иначе подбирать их приходится по каталогу.
+     * прямо в списке — иначе подбирать их пришлось бы по каталогу.
      */
+    /**
+     * Операционная система в модалке сборки.
+     *
+     * Колонка assembly.os - varchar с названием: конфигуратор кладёт
+     * туда имя, и редактор обязан писать то же самое. id пришёл бы в
+     * колонку строкой, и страница сборки показала бы «1» вместо
+     * «Windows 10 Home».
+     */
+    public function testOsSavesByNameAndClears(): void
+    {
+        $this->loginAsAdmin();
+        $this->pickParts();
+
+        // Берём активную ОС из справочника
+        $mysql = connect();
+        $stmt = db_prepare($mysql, 'SELECT os_id, os_name FROM configurator_os WHERE is_active = 1 ORDER BY os_id ASC LIMIT 1', '');
+        $stmt->execute();
+        $os = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mysql->close();
+        $this->assertNotEmpty($os, 'в справочнике должна быть хотя бы одна активная ОС');
+
+        $name = self::tmpName('tmp_os_asm_');
+        $create = $this->httpPost('/admin.php?tab=assemblies', array_merge(
+            ['csrf_token' => $this->freshToken()],
+            $this->formData($name, 150000),
+            ['os_id' => (string) (int) $os['os_id']]
+        ));
+        $this->assertSame(302, $create['code']);
+
+        $mysql = connect();
+        $stmt = db_prepare($mysql, 'SELECT assembly_id, os FROM assembly WHERE assembly_name = ?', 's', $name);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mysql->close();
+
+        $this->assertNotEmpty($row, 'сборка не создалась');
+        $this->assertSame((string) $os['os_name'], (string) $row['os'], 'в assembly.os должно лежать название, а не id');
+        $id = (int) $row['assembly_id'];
+        $this->createdIds[] = $id;
+
+        // Селект в таблице обязан нести название для заполнения формы
+        $page = $this->httpGet('/admin.php?tab=assemblies');
+        $this->assertSame(200, $page['code']);
+        $this->assertStringContainsString('data-assembly-os="' . escape((string) $os['os_name']) . '"', $page['body'], 'строка таблицы должна нести название ОС');
+
+        // Очистка: os_id = 0 обязан записать NULL, а не пустую строку
+        $clear = $this->httpPost('/admin.php?tab=assemblies', array_merge(
+            ['csrf_token' => $this->freshToken()],
+            $this->formData($name, 150000),
+            ['os_id' => '0', 'assemblyId' => (string) $id]
+        ));
+        $this->assertSame(302, $clear['code']);
+
+        $assembly = $this->assemblyRow($id);
+        $this->assertNotNull($assembly);
+        $this->assertNull($assembly['os'], 'сброс ОС должен записывать NULL');
+    }
+
+    /**
+     * Выключенная или несуществующая ОС отклоняется.
+     *
+     * Название перечитывается из базы, а не берётся из формы: иначе
+     * форма могла бы подставить удалённую ОС, и карточка на странице
+     * сборки показывала бы то, чего в справочнике нет.
+     */
+    public function testInactiveOsIsRejected(): void
+    {
+        $this->loginAsAdmin();
+        $this->pickParts();
+
+        // Выключенная ОС, если есть; иначе несуществующий id
+        $mysql = connect();
+        $stmt = db_prepare($mysql, 'SELECT os_id FROM configurator_os WHERE is_active = 0 ORDER BY os_id ASC LIMIT 1', '');
+        $stmt->execute();
+        $inactive = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mysql->close();
+
+        $badOsId = $inactive !== null ? (string) (int) $inactive['os_id'] : '999999';
+
+        $r = $this->httpPost('/admin.php?tab=assemblies', array_merge(
+            ['csrf_token' => $this->freshToken()],
+            $this->formData(self::tmpName('tmp_os_bad_'), 100000),
+            ['os_id' => $badOsId]
+        ));
+
+        $this->assertSame(302, $r['code']);
+        $this->assertStringContainsString('bad=os_not_found', $r['location'], 'выключенная или чужая ОС должна отклоняться');
+    }
+
     public function testSelectOptionsShowSpecs(): void
     {
         $this->loginAsAdmin();
@@ -438,9 +530,16 @@ final class AssembliesAdminTest extends AionTestCase
         }
 
         // У каждой строки есть состав в data-parts: без него правка
-        // открылась бы с пустыми списками.
+        // открылась бы с пустыми списками. Порядок атрибутов не важен,
+        // поэтому проверка двумя отдельными соответствиями, а не одной
+        // строкой.
         $this->assertMatchesRegularExpression(
-            '/data-assembly-id="\d+" data-parts="[0-9:,]*"/',
+            '/data-assembly-id="\d+"/',
+            $page['body'],
+            'в строках таблицы должен быть номер сборки'
+        );
+        $this->assertMatchesRegularExpression(
+            '/data-parts="[0-9:,]*"/',
             $page['body'],
             'в строках таблицы должен быть состав для заполнения формы правки'
         );

@@ -58,6 +58,28 @@
             const priceText = priceCell ? priceCell.textContent.replace(/[^\d]/g, '') : '';
             document.getElementById('asPrice').value = priceText;
 
+            /* ОС в сборке хранится названием, а не id: колонка
+               assembly.os - varchar, и конфигуратор кладёт туда то же
+               самое. Селект ищет подходящую опцию по началу текста:
+               точное совпадение не обязано совпасть, если ОС
+               переименовали в вкладке конфигуратора. */
+            const osSelect = modal.querySelector('#asOs');
+            if (osSelect) {
+                const currentOs = row.dataset.assemblyOs || '';
+                let matched = '';
+                for (let i = 0; i < osSelect.options.length; i++) {
+                    const opt = osSelect.options[i];
+                    if (opt.value !== '0' && opt.textContent.trim().indexOf(currentOs) === 0) {
+                        matched = opt.value;
+                        break;
+                    }
+                }
+                /* Название могло исчезнуть или смениться: пустой
+                   выбор честнее, чем тихо подставить чужую ОС - при
+                   сохранении поле просто очистится. */
+                osSelect.value = matched || '0';
+            }
+
             for (let i = 0; i < selects.length; i++) {
                 const select = selects[i];
                 const categoryId = select.name.replace('comp_', '');
@@ -77,6 +99,9 @@
             document.getElementById('assemblyId').value = '';
             document.getElementById('asName').value = '';
             document.getElementById('asPrice').value = '';
+
+            const osSelect = modal.querySelector('#asOs');
+            if (osSelect) osSelect.value = '0';
 
             for (let i = 0; i < selects.length; i++) {
                 selects[i].value = '0';

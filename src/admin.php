@@ -1535,6 +1535,34 @@ if ($isAdmin && isset($_POST['assemblyAction'])) {
         $assemblyParts[$column] = (int) ($_POST['comp_' . $categoryId] ?? 0);
     }
 
+    // Операционная система приходит id, а пишется названием: колонка
+    // assembly.os - varchar, и такое же значение туда кладёт
+    // конфигуратор. Id в колонке смешал бы два формата, а читают
+    // assembly.os ещё страница сборки и карточка на главной.
+    // Название перечитывается из базы, а не берётся из формы: цену и
+    // видимость решает админ во вкладке конфигуратора, и форма не
+    // должна иметь возможность подставить выключенную или удалённую ОС.
+    $assemblyOsName = null;
+    $assemblyOsId = (int) ($_POST['os_id'] ?? 0);
+    if ($assemblyOsId > 0) {
+        $stmt = db_prepare(
+            $mysql,
+            'SELECT os_name FROM configurator_os WHERE os_id = ? AND is_active = 1',
+            'i',
+            $assemblyOsId
+        );
+        $stmt->execute();
+        $osRow = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ($osRow === null) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=assemblies&bad=os_not_found');
+            exit();
+        }
+        $assemblyOsName = (string) $osRow['os_name'];
+    }
+
     if (!cfg_assembly_parts_in_category($mysql, $assemblyParts)) {
         csrf_rotate();
         header('Location: /admin.php?tab=assemblies&bad=comp_category');
@@ -1567,24 +1595,24 @@ if ($isAdmin && isset($_POST['assemblyAction'])) {
     if ($assemblyId > 0) {
         // Значения собираются в один массив: в PHP нельзя передать
         // позиционный аргумент после распаковки, а номер сборки в
-        // запросе идёт последним - после девяти слотов.
+        // запросе идёт последним - после девяти слотов и ОС.
         $stmt = db_prepare(
             $mysql,
             "UPDATE assembly
-                SET assembly_name = ?, assembly_price = ?, $partSet, is_base = 1
+                SET assembly_name = ?, assembly_price = ?, os = ?, $partSet, is_base = 1
               WHERE assembly_id = ?",
-            'si' . $partTypes . 'i',
-            ...array_merge([$assemblyName, $assemblyPrice], $partValues, [$assemblyId])
+            'sis' . $partTypes . 'i',
+            ...array_merge([$assemblyName, $assemblyPrice, $assemblyOsName], $partValues, [$assemblyId])
         );
         $stmt->execute();
     } else {
         $partCols = implode(', ', array_map(static fn(string $c): string => "`$c`", array_keys($asmSlots)));
         $stmt = db_prepare(
             $mysql,
-            "INSERT INTO assembly (assembly_name, assembly_price, $partCols, is_base)
-             VALUES (?, ?, " . implode(', ', array_fill(0, count($partValues), '?')) . ', 1)',
-            'si' . $partTypes,
-            ...array_merge([$assemblyName, $assemblyPrice], $partValues)
+            "INSERT INTO assembly (assembly_name, assembly_price, os, $partCols, is_base)
+             VALUES (?, ?, ?, " . implode(', ', array_fill(0, count($partValues), '?')) . ', 1)',
+            'sis' . $partTypes,
+            ...array_merge([$assemblyName, $assemblyPrice, $assemblyOsName], $partValues)
         );
         $stmt->execute();
     }

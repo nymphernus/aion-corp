@@ -25,6 +25,7 @@ $asmBadCodes = [
     'cpu_required' => 'Выберите процессор: без него сборка не запустится.',
     'case_required' => 'Выберите корпус: картинка на главной берётся из него.',
     'comp_category' => 'Компонент не принадлежит своей категории. Обновите страницу и выберите заново.',
+    'os_not_found' => 'Такой операционной системы нет или она выключена.',
     'not_found' => 'Такой сборки больше нет.',
     'action' => 'Неизвестное действие со сборкой.',
     'used' => 'Сборка есть в заказах или в избранном - удалить её нельзя.',
@@ -86,10 +87,12 @@ $stmt->close();
 // Сборки витрины с именем корпуса и его картинкой: обе колонки нужны
 // таблице, а второй запрос за ними означал бы обход строк на каждый
 // элемент списка. Порядок по id - порядок добавления.
+// assembly.os - название, а не id: колонка varchar, и так она
+// хранится с конфигуратора.
 $asmRows = [];
 $stmt = db_prepare(
     $mysql,
-    'SELECT a.assembly_id, a.assembly_name, a.assembly_price, a.is_base,
+    'SELECT a.assembly_id, a.assembly_name, a.assembly_price, a.is_base, a.os,
             cs.component_name AS case_name, cs.image AS case_image
        FROM assembly a
        LEFT JOIN components cs ON cs.component_id = a.case_id
@@ -101,6 +104,22 @@ $stmt->execute();
 $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
     $asmRows[] = $row;
+}
+$stmt->close();
+
+// Активные операционные системы для селекта в модалке. Выключенные
+// не показываются: их больше нельзя выбрать ни в конфигураторе, и
+// редактор сборок не должен предлагать то, что покупатель заказать
+// не сможет.
+$asmOsList = [];
+$stmt = db_prepare(
+    $mysql,
+    'SELECT os_id, os_name, os_price FROM configurator_os WHERE is_active = 1 ORDER BY os_id ASC',
+    ''
+);
+$stmt->execute();
+foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+    $asmOsList[] = $row;
 }
 $stmt->close();
 
@@ -185,7 +204,9 @@ if ($asmRows !== []) {
             }
         }
         ?>
-                    <tr data-assembly-id="<?= $asmId ?>" data-parts="<?= escape(implode(',', $asmPartsStr)) ?>">
+                    <tr data-assembly-id="<?= $asmId ?>"
+                        data-parts="<?= escape(implode(',', $asmPartsStr)) ?>"
+                        data-assembly-os="<?= escape((string) ($asmRow['os'] ?? '')) ?>">
                         <td>
         <?php if (!empty($asmRow['case_image'])): ?>
                             <img src="<?= escape((string) $asmRow['case_image']) ?>" alt=""
@@ -252,6 +273,21 @@ if ($asmRows !== []) {
             Стоимость показывается на главной как есть и никак не сверяется с
             суммой комплектующих.
         </p>
+
+        <div class="form-group" style="max-width: 360px;">
+            <label class="form-label" for="asOs">Операционная система</label>
+            <select class="input" name="os_id" id="asOs">
+                <option value="0">— не выбрано —</option>
+    <?php foreach ($asmOsList as $asmOs): ?>
+                <option value="<?= (int) $asmOs['os_id'] ?>">
+                    <?= escape((string) $asmOs['os_name']) ?><?= (int) $asmOs['os_price'] > 0 ? ' (+' . number_format((int) $asmOs['os_price'], 0, '.', ' ') . ' ₽)' : '' ?>
+                </option>
+    <?php endforeach; ?>
+            </select>
+            <p class="settings-block__hint">
+                Если выбрана — она идёт в комплекте со сборкой.
+            </p>
+        </div>
 
         <div class="modal-section">
             <h3>Состав сборки</h3>
