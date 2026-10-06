@@ -474,16 +474,52 @@ if (table_exists($mysql, 'social_links')) {
         mig_log("  [social] $label перенесён из $legacyKey");
     }
 
-    // Ключи contact_* здесь НЕ удаляются, хотя перенос уже сделан.
+    // Ключи contact_* удаляются, как только главная перестала их читать.
     //
-    // Удаление отложено до того подэтапа, где главная начнёт читать
-    // social_links. Проверено: пока index.php читает contact_vk, а ключа
-    // уже нет, site_setting() отдаёт пустую строку, array_filter() её
-    // отбрасывает - и иконки соцсетей молча исчезают с главной. Между
-    // переносом и правкой index.php сайт остался бы без них.
+    // Перенос значений уже сделан блоком выше, а index.php читает
+    // social_links. Раньше удалять было нельзя: пока index.php читал
+    // contact_vk, а ключ уже удалён, site_setting() возвращала пустую
+    // строку, и иконки соцсетей молча исчезали с главной - это было
+    // проверено и послужило причиной отложить удаление на этот подэтап.
     //
-    // Повторные запуски migrate.php этому не мешают: перенос идемпотентен
-    // по названию, пока строки лежат в site_settings.
+    // Непустой ключ удаляется только когда его копия точно лежит в
+    // social_links: иначе на базе, где перенос не сработал (таблица не
+    // создалась), удалялись бы единственные копии ссылок.
+    //
+    // Пустой ключ удаляется безусловно: пустая ссылка означала «иконки
+    // нет», переносить нечего, и держать пустой ключ незачем.
+    $deletedCount = 0;
+    foreach ($legacySocials as $legacyKey => [$label]) {
+        // Существование проверяется отдельно: fetch_row для
+        // отсутствующего ключа возвращает null, и после (string)
+        // получается пустая строка - неотличимо от пустого значения.
+        // Без этой проверки повторный запуск писал бы «удалён ключ»
+        // про ключ, которого уже нет, и DELETE затрагивал 0 строк.
+        $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = ?", "s", $legacyKey);
+        $stmt->execute();
+        if ((int) $stmt->get_result()->fetch_row()[0] === 0) {
+            continue;
+        }
+
+        $stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = ?", "s", $legacyKey);
+        $stmt->execute();
+        $value = (string) ($stmt->get_result()->fetch_row()[0] ?? '');
+        if (trim($value) !== '') {
+            $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM social_links WHERE link_name = ?", "s", $label);
+            $stmt->execute();
+            if ((int) $stmt->get_result()->fetch_row()[0] === 0) {
+                mig_log("  [social] ключ $legacyKey не удалён: в social_links нет «$label»");
+                continue;
+            }
+        }
+
+        mig_exec($mysql, $dryRun, "DELETE FROM site_settings WHERE setting_key = ?", [$legacyKey], "s");
+        mig_log("  [social] удалён ключ $legacyKey");
+        $deletedCount++;
+    }
+    if ($deletedCount > 0) {
+        mig_log("  [social] удалено legacy-ключей: $deletedCount");
+    }
 
     // Свежая установка: переносить нечего, но админу нужны три готовые
     // строки, чтобы он вписал адреса, а не заводил площадки с нуля.
