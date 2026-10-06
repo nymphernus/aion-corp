@@ -1,0 +1,160 @@
+<?php
+/**
+ * Сверка db_prepare: число плейсхолдеров = длина строки типов =
+ * число переданных значений.
+ *
+ * Класс ошибок повторился трижды за одну серию правок:
+ *   - 'ssis' вместо 'sisi' в миграции - иконка пресета записалась 0;
+ *   - 'sisii' при четырёх колонках в UPDATE пресета;
+ *   - VALUES с четырьмя плейсхолдерами при трёх колонках в INSERT ОС -
+ *     Fatal error у пользователя.
+ *
+ * Все три раза php -l был чист: ошибка объявляется только при
+ * выполнении запроса. Поэтому проверка живёт отдельно и запускается
+ * вручную перед коммитом, где меняются вызовы db_prepare.
+ *
+ * Запуск:  php scripts/check_prepare.php [файл.php ...]
+ * Код возврата: 1 при расхождении.
+ *
+ * Ограничение, о котором надо помнить: разбирается текст вызова, а не
+ * исполняемый запрос. Вызовы с SQL в переменной ($countSql, $sql)
+ * пропускаются - их плейсхолдеры считать не из чего.
+ */
+
+declare(strict_types=1);
+
+$files = array_slice($argv, 1);
+if ($files === []) {
+    $files = [__DIR__ . '/../admin.php'];
+}
+
+$totalChecked = 0;
+$totalBad = 0;
+
+foreach ($files as $file) {
+    if (!is_file($file)) {
+        fwrite(STDERR, "нет файла: {$file}\n");
+        exit(2);
+    }
+
+    $code = (string) file_get_contents($file);
+    $checked = 0;
+    $problems = [];
+
+    // Однострочный вызов: всё в одной строке.
+    $single = "/db_prepare\(\s*\\\$mysql,\s*'(?<sql>[^']+)',\s*'(?<types>[a-z]*)',\s*(?<args>.*)\);\s*$/m";
+    // Многострочный: SQL и типы на следующих строках.
+    $multi = "/db_prepare\(\s*\\\$mysql,\s*'(?<sql>[^']+)',\s*'(?<types>[a-z]*)',\s*(?<args>.*?)\s*\);/s";
+
+    if (preg_match_all($single, $code, $m1, PREG_SET_ORDER)) {
+        foreach ($m1 as $m) {
+            $checked++;
+            $sql = $m['sql'];
+            $types = $m['types'];
+            $args = $m['args'];
+
+            $q = substr_count($sql, '?');
+            $t = strlen($types);
+            $a = count_top_level_args($args);
+
+            if ($q !== $t || $q !== $a) {
+                $problems[] = sprintf(
+                    "  '?'=%d, типы=%d ('%s'), значений=%d\n    %s",
+                    $q,
+                    $t,
+                    $types,
+                    $a,
+                    preg_replace('/\s+/', ' ', $sql)
+                );
+            }
+        }
+    }
+
+    // Многострочные: вырезаем однострочные, чтобы не считать дважды
+    $rest = preg_replace($single, '', $code);
+    if ($rest !== null && preg_match_all($multi, $rest, $m2, PREG_SET_ORDER)) {
+        foreach ($m2 as $m) {
+            $checked++;
+            $sql = $m['sql'];
+            $types = $m['types'];
+            $args = $m['args'];
+
+            $q = substr_count($sql, '?');
+            $t = strlen($types);
+            $a = count_top_level_args($args);
+
+            if ($q !== $t || $q !== $a) {
+                $problems[] = sprintf(
+                    "  '?'=%d, типы=%d ('%s'), значений=%d\n    %s",
+                    $q,
+                    $t,
+                    $types,
+                    $a,
+                    preg_replace('/\s+/', ' ', $sql)
+                );
+            }
+        }
+    }
+
+    $totalChecked += $checked;
+    $totalBad += count($problems);
+
+    echo basename($file) . " : проверено {$checked}\n";
+    foreach ($problems as $p) {
+        echo "  РАСХОЖДЕНИЕ{$p}\n";
+    }
+}
+
+echo "\nвсего: {$totalChecked}, расхождений: {$totalBad}\n";
+exit($totalBad > 0 ? 1 : 0);
+
+/**
+ * Число аргументов через запятые верхнего уровня.
+ *
+ * Запятая внутри скобок не разделитель: array('a', 'b') и
+ * trim($x, ', ') содержат запятые, и наивный substr_count дал бы
+ * завышенный счёт - то есть проверка прошла бы сломанный вызов.
+ *
+ * @param string $s
+ * @return int
+ */
+function count_top_level_args(string $s): int
+{
+    $s = trim($s);
+    if ($s === '') {
+        return 0;
+    }
+
+    $count = 1;
+    $level = 0;
+    $len = strlen($s);
+
+    for ($i = 0; $i < $len; $i++) {
+        $ch = $s[$i];
+
+        if ($ch === "'" || $ch === '"') {
+            // Пропускаем строковый литерал целиком
+            $quote = $ch;
+            for ($i++; $i < $len; $i++) {
+                if ($s[$i] === '\\') {
+                    $i++;
+                    continue;
+                }
+                if ($s[$i] === $quote) {
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if ($ch === '(' || $ch === '[') {
+            $level++;
+        } elseif ($ch === ')' || $ch === ']') {
+            $level--;
+        } elseif ($ch === ',' && $level === 0) {
+            $count++;
+        }
+    }
+
+    return $count;
+}

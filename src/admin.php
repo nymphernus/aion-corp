@@ -1230,7 +1230,7 @@ if ($isAdmin && isset($_POST['osAction'])) {
         $stmt = db_prepare(
             $mysql,
             'INSERT INTO configurator_os (os_name, os_price, is_active)
-             VALUES (?, ?, ?, ?)',
+             VALUES (?, ?, ?)',
             'sii',
             $name,
             $price,
