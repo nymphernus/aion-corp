@@ -105,6 +105,12 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
         'orders' => ['/admin.php?tab=orders', 'Заказы'],
         'components' => ['/admin.php?tab=components', 'Комплектующие'],
         'files' => ['/admin.php?tab=files', 'Изображения'],
+        // Конфигуратор - последний в аккордеоне, после Изображений.
+        // Пресеты и ОС относятся к тому же, что комплектующие и
+        // заказы: это содержимое витрины, а не настройки сайта, поэтому
+        // ключа settings тут нет и «Настройки сайта» стоят вне
+        // аккордеона отдельным пунктом, как и было решено.
+        'configurator' => ['/admin.php?tab=configurator', 'Конфигуратор'],
     ];
     foreach ($adminLinks as $key => [$href, $label]):
 ?>

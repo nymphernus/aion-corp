@@ -55,7 +55,7 @@ if ($tab === '') {
     exit();
 }
 
-$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'files' => true, 'dashboard' => true, 'settings' => true];
+$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'files' => true, 'dashboard' => true, 'settings' => true, 'configurator' => true];
 if (!isset($allowedTabs[$tab])) {
     http_response_code(404);
     exit('Раздел не найден');
@@ -311,7 +311,9 @@ if ($tab === 'components') {
 // то же для settings - это форма на пару экранов, а не таблица.
 // Без этой правки вкладка падала: в $countSql нет ключа settings,
 // $countSql приходил null, и db_prepare() умирал на типе аргумента.
-if ($tab !== 'dashboard' && $tab !== 'settings') {
+// configurator - то же самое: две короткие таблицы (4 пресета и
+// 3 ОС), пагинация им не нужна, а ключа в $countSql у них нет.
+if ($tab !== 'dashboard' && $tab !== 'settings' && $tab !== 'configurator') {
     $countSql = [
         'components' => 'SELECT COUNT(*) FROM components WHERE 1=1' . $listWhere,
     'files' => 'SELECT 0',  // файлы считаются в _tab_files.php
@@ -1006,6 +1008,258 @@ if ($isAdmin && isset($_POST['useFaviconVariant'])) {
         : 'bad=favicon_variant'));
     exit();
 }
+// Конфигуратор: пресеты бюджета и операционные системы.
+//
+// Два независимых обработчика с разными полями (presetAction и
+// osAction), а не один с полем-типом: у сущностей разные наборы
+// полей и разные проверки, и общий обработчик разросся бы в ветки
+// с проверкой «а что мы вообще правим».
+//
+// Стоят выше рендера вкладки - поэтому проверка CSRF не обходится
+// порядком блоков, как это было с useFaviconVariant.
+
+/**
+ * Проверка строки пресета из POST. Возвращает список кодов ошибок.
+ *
+ * @param array<string, mixed> $post
+ * @return string[]
+ */
+function cfg_bad_preset(array $post): array
+{
+    $bad = [];
+
+    // Галочка не присылается, когда снята: отсутствие поля и есть «нет».
+    $name = trim((string) ($post['preset_name'] ?? ''));
+    $budget = (int) ($post['preset_budget'] ?? 0);
+    $icon = trim((string) ($post['preset_icon'] ?? ''));
+    $sort = (int) ($post['sort_order'] ?? 0);
+    $active = !empty($post['is_active']) ? 1 : 0;
+
+    if ($name === '') {
+        $bad[] = 'preset_name';
+    } elseif (mb_strlen($name, 'UTF-8') > 50) {
+        $bad[] = 'preset_name_long';
+    }
+
+    // Нижняя граница 1000, а не 1: конфигуратор подбирает железо на
+    // проценты от бюджета, и при тысяче рублей не набирается даже
+    // процессор - сборка выходит пустой и деньги списаны в никуда.
+    if ($budget < 1000 || $budget > 10000000) {
+        $bad[] = 'preset_budget';
+    }
+
+    // Иконка сверяется с белым списком, а не ищется в массиве: строка
+    // из POST не должна попасть в вывод разметки как есть. Без
+    // проверки в пресет записался бы ключ вида '"><script>'.
+    if (!array_key_exists($icon, cfg_preset_icons())) {
+        $bad[] = 'preset_icon';
+        $icon = 'monitor';
+    }
+
+    if ($sort < 0 || $sort > 999) {
+        $bad[] = 'preset_sort';
+    }
+
+    return $bad;
+}
+
+if ($isAdmin && isset($_POST['presetAction'])) {
+    csrf_verify();
+
+    $presetAction = (string) $_POST['presetAction'];
+    $presetId = (int) ($_POST['presetId'] ?? 0);
+
+    if ($presetAction === 'delete') {
+        if ($presetId > 0) {
+            $stmt = db_prepare($mysql, 'DELETE FROM configurator_presets WHERE preset_id = ?', 'i', $presetId);
+            $stmt->execute();
+            csrf_rotate();
+            header('Location: /admin.php?tab=configurator&saved=1');
+        } else {
+            // presetId = 0 означал бы «удалить строку, которой нет»
+            csrf_rotate();
+            header('Location: /admin.php?tab=configurator&bad=preset_not_found');
+        }
+        exit();
+    }
+
+    if ($presetAction !== 'save') {
+        csrf_rotate();
+        header('Location: /admin.php?tab=configurator&bad=preset_action');
+        exit();
+    }
+
+    $presetBad = cfg_bad_preset($_POST);
+    if ($presetBad !== []) {
+        csrf_rotate();
+        header('Location: /admin.php?tab=configurator&bad=' . implode(',', array_unique($presetBad)));
+        exit();
+    }
+
+    $name = trim((string) $_POST['preset_name']);
+    $budget = (int) $_POST['preset_budget'];
+    $icon = trim((string) $_POST['preset_icon']);
+    $sort = (int) $_POST['sort_order'];
+    $active = !empty($_POST['is_active']) ? 1 : 0;
+
+    // Редактирование несуществующей строки сообщает об ошибке, а не
+    // молча создаёт новую: иначе рассинхронизация между id в форме и
+    // строкой в таблице выглядела бы как «изменения не сохранились».
+    if ($presetId > 0) {
+        $stmt = db_prepare($mysql, 'SELECT COUNT(*) FROM configurator_presets WHERE preset_id = ?', 'i', $presetId);
+        $stmt->execute();
+        if ((int) $stmt->get_result()->fetch_row()[0] === 0) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=configurator&bad=preset_not_found');
+            exit();
+        }
+
+        $stmt = db_prepare(
+            $mysql,
+            'UPDATE configurator_presets
+                SET preset_name = ?, preset_budget = ?, preset_icon = ?, sort_order = ?, is_active = ?
+              WHERE preset_id = ?',
+            'sisiii',
+            $name,
+            $budget,
+            $icon,
+            $sort,
+            $active,
+            $presetId
+        );
+        $stmt->execute();
+    } else {
+        $stmt = db_prepare(
+            $mysql,
+            'INSERT INTO configurator_presets (preset_name, preset_budget, preset_icon, sort_order, is_active)
+             VALUES (?, ?, ?, ?, ?)',
+            'sisii',
+            $name,
+            $budget,
+            $icon,
+            $sort,
+            $active
+        );
+        $stmt->execute();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=configurator&saved=1');
+    exit();
+}
+
+/**
+ * Проверка строки ОС из POST. Возвращает список кодов ошибок.
+ *
+ * @param array<string, mixed> $post
+ * @return string[]
+ */
+function cfg_bad_os(array $post): array
+{
+    $bad = [];
+
+    $name = trim((string) ($post['os_name'] ?? ''));
+    // Отрицательная цена осмысленна как «минус от бюджета» только
+    // теоретически: под неё нет ни одной проверки ниже по коду, и
+    // сборка уехала бы в минус. Поэтому ноль - минимум.
+    $price = (int) ($post['os_price'] ?? 0);
+    $sort = (int) ($post['sort_order'] ?? 0);
+
+    if ($name === '') {
+        $bad[] = 'os_name';
+    } elseif (mb_strlen($name, 'UTF-8') > 100) {
+        $bad[] = 'os_name_long';
+    }
+
+    if ($price < 0 || $price > 1000000) {
+        $bad[] = 'os_price';
+    }
+
+    if ($sort < 0 || $sort > 999) {
+        $bad[] = 'os_sort';
+    }
+
+    return $bad;
+}
+
+if ($isAdmin && isset($_POST['osAction'])) {
+    csrf_verify();
+
+    $osAction = (string) $_POST['osAction'];
+    $osId = (int) ($_POST['osId'] ?? 0);
+
+    if ($osAction === 'delete') {
+        if ($osId > 0) {
+            $stmt = db_prepare($mysql, 'DELETE FROM configurator_os WHERE os_id = ?', 'i', $osId);
+            $stmt->execute();
+            csrf_rotate();
+            header('Location: /admin.php?tab=configurator&saved=1');
+        } else {
+            csrf_rotate();
+            header('Location: /admin.php?tab=configurator&bad=os_not_found');
+        }
+        exit();
+    }
+
+    if ($osAction !== 'save') {
+        csrf_rotate();
+        header('Location: /admin.php?tab=configurator&bad=os_action');
+        exit();
+    }
+
+    $osBad = cfg_bad_os($_POST);
+    if ($osBad !== []) {
+        csrf_rotate();
+        header('Location: /admin.php?tab=configurator&bad=' . implode(',', array_unique($osBad)));
+        exit();
+    }
+
+    $name = trim((string) $_POST['os_name']);
+    $price = (int) $_POST['os_price'];
+    $sort = (int) $_POST['sort_order'];
+    $active = !empty($_POST['is_active']) ? 1 : 0;
+
+    if ($osId > 0) {
+        $stmt = db_prepare($mysql, 'SELECT COUNT(*) FROM configurator_os WHERE os_id = ?', 'i', $osId);
+        $stmt->execute();
+        if ((int) $stmt->get_result()->fetch_row()[0] === 0) {
+            csrf_rotate();
+            header('Location: /admin.php?tab=configurator&bad=os_not_found');
+            exit();
+        }
+
+        $stmt = db_prepare(
+            $mysql,
+            'UPDATE configurator_os
+                SET os_name = ?, os_price = ?, sort_order = ?, is_active = ?
+              WHERE os_id = ?',
+            'siiii',
+            $name,
+            $price,
+            $sort,
+            $active,
+            $osId
+        );
+        $stmt->execute();
+    } else {
+        $stmt = db_prepare(
+            $mysql,
+            'INSERT INTO configurator_os (os_name, os_price, sort_order, is_active)
+             VALUES (?, ?, ?, ?)',
+            'siii',
+            $name,
+            $price,
+            $sort,
+            $active
+        );
+        $stmt->execute();
+    }
+
+    csrf_rotate();
+    header('Location: /admin.php?tab=configurator&saved=1');
+    exit();
+}
+
 // Соцсети: сохранение и удаление строк social_links.
 //
 // Отдельная форма с полем socialAction, а не часть формы настроек: у
@@ -1591,6 +1845,12 @@ if ($tab === 'settings') {
     $extraJs[]  = '/assets/vendor/leaflet/leaflet.js';
     $extraJs[]  = '/assets/js/admin-settings.js';
 }
+// Скрипт вкладки конфигуратора. Отдельный, а не дописанный в
+// admin-settings.js: тот подключается выше, только на настройках, и на
+// этой вкладке его просто не было бы.
+if ($tab === 'configurator') {
+    $extraJs[] = '/assets/js/admin-configurator.js';
+}
 require __DIR__ . '/partials/header.php';
 ?>
         <div class="profile-layout">
@@ -1619,6 +1879,8 @@ if ($tab === 'dashboard') {
     require __DIR__ . '/admin/_tab_orders.php';
 } elseif ($tab === 'users') {
     require __DIR__ . '/admin/_tab_users.php';
+} elseif ($tab === 'configurator') {
+    require __DIR__ . '/admin/_tab_configurator.php';
 } elseif ($tab === 'settings') {
     // настройки читаются один раз на страницу и уходят и в форму,
     // и в модалку снимка карты
