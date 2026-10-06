@@ -702,7 +702,14 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     // «© {site_founded_year} {site_name}».
     $allowed = [
         'contact_phone', 'contact_email',
-        'contact_vk', 'contact_telegram', 'contact_whatsapp',
+        // contact_vk, contact_telegram и contact_whatsapp убраны из
+        // списка. Соцсети живут в таблице social_links, а форма контактов
+        // их полей больше не содержит - иначе одна и та же ссылка
+        // редактировалась бы в двух местах.
+        //
+        // Сами ключи в site_settings пока лежат: их читает index.php, и
+        // переключение главной на social_links - следующий подэтап.
+        // Удаление ключей - там же.
         'map_address_text',
         'site_name', 'site_description', 'site_founded_year', 'site_home_title',
         'site_logo_url', 'site_favicon_png_url',
@@ -732,16 +739,10 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     // можно было бы заставить админа кликнуть по иконке соцсети и
     // выполнить произвольный скрипт. Пустая строка допустима - значит
     // иконку не показываем вовсе.
-    foreach (['contact_vk', 'contact_telegram', 'contact_whatsapp'] as $linkKey) {
-        if (($values[$linkKey] ?? '') === '') {
-            continue;
-        }
-        if (!filter_var($values[$linkKey] ?? '', FILTER_VALIDATE_URL)) {
-            $values[$linkKey] = '';
-        } elseif (!preg_match('#^https?://#i', $values[$linkKey] ?? '')) {
-            $values[$linkKey] = '';
-        }
-    }
+    //
+    // Проверка переехала в обработчик socialAction вместе с самими
+    // соцсетями: в форме контактов этих полей больше нет, а правило
+    // «ссылка должна быть http(s)» нужно таблице в первую очередь.
 
     // Пути к картинкам бренда - только внутри сайта. Внешний URL здесь
     // опасен: значение попадает в src логотипа и favicon, то есть в

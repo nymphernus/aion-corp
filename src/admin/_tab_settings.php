@@ -152,33 +152,107 @@ if (is_dir($socialIconDir)) {
                             </div>
                         </div>
 
-                        <div class="modal-row">
-                            <div class="form-group">
-                                <label class="form-label" for="setVk">VK</label>
-                                <input class="input" type="url" name="contact_vk" id="setVk"
-                                       value="<?= escape(site_setting($settings, 'contact_vk')) ?>"
-                                       placeholder="https://vk.com/aioncorp">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="setTelegram">Telegram</label>
-                                <input class="input" type="url" name="contact_telegram" id="setTelegram"
-                                       value="<?= escape(site_setting($settings, 'contact_telegram')) ?>"
-                                       placeholder="https://t.me/aioncorp">
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="setWhatsapp">WhatsApp</label>
-                            <input class="input" type="url" name="contact_whatsapp" id="setWhatsapp"
-                                   value="<?= escape(site_setting($settings, 'contact_whatsapp')) ?>"
-                                   placeholder="https://wa.me/79999999999">
-                        </div>
-
                         <div class="form-group">
                             <label class="form-label" for="setAddress">Адрес (текстом)</label>
                             <input class="input" name="map_address_text" id="setAddress"
                                    value="<?= escape(site_setting($settings, 'map_address_text')) ?>"
                                    placeholder="Москва, ул. Победы, д. 15">
+                        </div>
+
+                        <!--
+                            Соцсети - подраздел внутри «Контактов»,
+                            а не отдельная карточка. Раньше одна и та же
+                            ссылка показывалась в двух местах сразу: в
+                            поле «VK» здесь и в таблице ниже. Теперь у
+                            контактов один список, и телефон, почта и адрес
+                            видны в нём же.
+
+                            Кнопка объявлена type="button" и не отправляет
+                            форму настроек: соцсети сохраняются отдельной
+                            формой в модалке, иначе правка телефона
+                            затирала бы иконки.
+                        -->
+                        <div class="settings-subsection">
+                            <div class="settings-subsection__header">
+                                <h3 class="settings-subsection__title">Соцсети</h3>
+                                <button type="button" class="btn btn--primary btn--sm"
+                                        data-action="add-social">
+                                    + Добавить соцсеть
+                                </button>
+                            </div>
+                            <p class="settings-subsection__hint">
+                                Показываются в блоке «Свяжитесь с нами» на главной,
+                                в порядке поля «Порядок». С пустой ссылкой не
+                                выводятся, выключенные скрываются, но остаются здесь.
+                            </p>
+    <?php if ($socialLinks): ?>
+                        <div class="table-wrap">
+                            <table class="table social-table">
+                                <thead>
+                                    <tr>
+                                        <th class="social-table__icon" title="Иконка"></th>
+                                        <th>Название</th>
+                                        <th class="social-table__url">Ссылка</th>
+                                        <th class="social-table__sort">Порядок</th>
+                                        <th class="social-table__actions"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+    <?php foreach ($socialLinks as $social): ?>
+                                    <tr data-link-id="<?= (int) $social['link_id'] ?>"
+                                        data-link-url="<?= escape((string) $social['link_url']) ?>">
+                                        <td>
+                                            <img class="social-row__icon"
+                                                 src="<?= escape(asset_url((string) $social['link_icon'])) ?>"
+                                                 alt="" width="24" height="24">
+                                        </td>
+                                        <td>
+                                            <span class="social-row__name" title="<?= escape((string) $social['link_name']) ?>"><?= escape((string) $social['link_name']) ?></span>
+    <?php // Бейдж стоит рядом с названием, а не своей колонкой: карточка
+         // настроек шириной 413px, шесть колонок в неё не помещались -
+         // таблица выходила на 783px и кнопки правки уезжали за край.
+         if ((int) $social['is_active'] === 1): ?>
+                                            <span class="badge badge--success">показ</span>
+    <?php else: ?>
+                                            <span class="badge">скрыта</span>
+    <?php endif; ?>
+                                        </td>
+                                        <td class="social-table__url">
+    <?php if ((string) $social['link_url'] !== ''): ?>
+                                            <a href="<?= escape((string) $social['link_url']) ?>"
+                                               target="_blank" rel="noopener noreferrer"
+                                               class="link-muted"
+                                               title="<?= escape((string) $social['link_url']) ?>"><?= escape((string) $social['link_url']) ?></a>
+    <?php else: ?>
+                                            <span class="settings-list__hint">не задана</span>
+    <?php endif; ?>
+                                        </td>
+                                        <td class="social-table__sort"><?= (int) $social['sort_order'] ?></td>
+                                        <td class="social-table__actions">
+                                            <button type="button" class="btn-icon btn-icon--muted"
+                                                    data-action="edit-social"
+                                                    data-link-id="<?= (int) $social['link_id'] ?>"
+                                                    title="Редактировать"
+                                                    aria-label="Редактировать <?= escape((string) $social['link_name']) ?>">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                            </button>
+                                            <button type="button" class="btn-icon btn-icon--danger"
+                                                    data-action="delete-social"
+                                                    data-link-id="<?= (int) $social['link_id'] ?>"
+                                                    data-link-name="<?= escape((string) $social['link_name']) ?>"
+                                                    title="Удалить"
+                                                    aria-label="Удалить <?= escape((string) $social['link_name']) ?>">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+    <?php else: ?>
+                        <p class="settings-list__hint">Пока ни одной соцсети не заведено.</p>
+    <?php endif; ?>
                         </div>
 
                         <!--
@@ -406,97 +480,16 @@ if (is_dir($socialIconDir)) {
                 </article>
 
                 <!--
-                    Соцсети. Карточка стоит ВНЕ формы настроек, как и карта:
-                    у неё своя форма с полем socialAction и свой multipart
-                    для загрузки иконки. Вложенная форма недопустима в HTML,
-                    и закрывать её пришлось бы перед этим блоком, ломая
-                    разметку брендинга.
+                    Модалка соцсети и форма удаления остались здесь,
+                    после карточки «Карта», а не рядом с таблицей.
+
+                    Таблица теперь стоит внутри формы настроек, а обе
+                    эти части содержат <form>. Вложенная форма в HTML
+                    недопустима, и вынести их в форму контактов было бы
+                    нельзя: закрывать форму настроек посреди брендинга
+                    невозможно. Кнопка в таблице объявлена type="button",
+                    поэтому отправки формы настроек не происходит.
                 -->
-                <article class="settings-block">
-                    <h2 class="settings-block__title">Соцсети</h2>
-                    <p class="settings-block__hint">
-                        Показываются в блоке «Свяжитесь с нами» на главной.
-                        Порядок вывода — по полю «Порядок», потом по ID.
-                        Соцсеть с пустой ссылкой не выводится вовсе, а
-                        выключенная скрывается, но остаётся в списке.
-                    </p>
-
-<?php if ($socialLinks): ?>
-                    <div class="table-wrap">
-                        <table class="table social-table">
-                            <thead>
-                                <tr>
-                                    <th class="social-table__icon" title="Иконка"></th>
-                                    <th>Название</th>
-                                    <th class="social-table__url">Ссылка</th>
-                                    <th class="social-table__sort">Порядок</th>
-                                    <th class="social-table__actions"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-<?php foreach ($socialLinks as $social): ?>
-                                <tr data-link-id="<?= (int) $social['link_id'] ?>"
-                                    data-link-url="<?= escape((string) $social['link_url']) ?>">
-                                    <td>
-                                        <img class="social-row__icon"
-                                             src="<?= escape(asset_url((string) $social['link_icon'])) ?>"
-                                             alt="" width="24" height="24">
-                                    </td>
-                                    <td>
-                                        <span class="social-row__name" title="<?= escape((string) $social['link_name']) ?>"><?= escape((string) $social['link_name']) ?></span>
-<?php // Бейдж стоит рядом с названием, а не своей колонкой: карточка
-     // настроек шириной 413px, шесть колонок в неё не помещались -
-     // таблица выходила на 783px и кнопки правки уезжали за край.
-     if ((int) $social['is_active'] === 1): ?>
-                                        <span class="badge badge--success">показ</span>
-<?php else: ?>
-                                        <span class="badge">скрыта</span>
-<?php endif; ?>
-                                    </td>
-                                    <td class="social-table__url">
-<?php if ((string) $social['link_url'] !== ''): ?>
-                                        <a href="<?= escape((string) $social['link_url']) ?>"
-                                           target="_blank" rel="noopener noreferrer"
-                                           class="link-muted"
-                                           title="<?= escape((string) $social['link_url']) ?>"><?= escape((string) $social['link_url']) ?></a>
-<?php else: ?>
-                                        <span class="settings-list__hint">не задана</span>
-<?php endif; ?>
-                                    </td>
-                                    <td class="social-table__sort"><?= (int) $social['sort_order'] ?></td>
-                                    <td class="social-table__actions">
-                                        <button type="button" class="btn-icon btn-icon--muted"
-                                                data-action="edit-social"
-                                                data-link-id="<?= (int) $social['link_id'] ?>"
-                                                title="Редактировать"
-                                                aria-label="Редактировать <?= escape((string) $social['link_name']) ?>">
-                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                                        </button>
-                                        <button type="button" class="btn-icon btn-icon--danger"
-                                                data-action="delete-social"
-                                                data-link-id="<?= (int) $social['link_id'] ?>"
-                                                data-link-name="<?= escape((string) $social['link_name']) ?>"
-                                                title="Удалить"
-                                                aria-label="Удалить <?= escape((string) $social['link_name']) ?>">
-                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                        </button>
-                                    </td>
-                                </tr>
-<?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-<?php else: ?>
-                    <p class="settings-list__hint">Пока ни одной соцсети не заведено.</p>
-<?php endif; ?>
-
-                    <div class="modal-actions"><div class="modal-actions-right">
-                        <button type="button" class="btn btn--primary"
-                                data-action="add-social">
-                            + Добавить соцсеть
-                        </button>
-                    </div></div>
-                </article>
 
                 <!--
                     модалка обновления карты. Геокодирование идёт через
