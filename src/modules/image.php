@@ -240,7 +240,107 @@ if (!function_exists('generate_favicon')) {
      * Записать сгенерированный favicon на диск.
      *
      * Путь фиксированный: branding/favicon.png. Один путь, одна
-     * настройка site_favicon_png_url, без варианта с именем из POST.
+     /**
+     * Три файла иконки: сгенерированная, загруженная и активная.
+     *
+     * Раньше загрузка и генератор писали в один и тот же favicon.png, и
+     * вернуться к сгенерированной иконке было нельзя - она уже была
+     * стёрта. Теперь у каждого варианта своя копия, а активная является
+     * копией одного из них.
+     *
+     * Имя активного файла остаётся прежним намеренно: HTML и браузер не
+     * знают про внутренние имена, и переключение не требует правки
+     * разметки, site_settings и перезагрузки - меняется только содержимое
+     * файла по тому же URL.
+     */
+    if (!function_exists('favicon_dir')) {
+        function favicon_dir(): string
+        {
+            return __DIR__ . '/../assets/images/branding';
+        }
+
+        /** Активная иконка. Её адрес знает браузер. */
+        function favicon_path_active(): string
+        {
+            return favicon_dir() . '/favicon.png';
+        }
+
+        function favicon_path_generated(): string
+        {
+            return favicon_dir() . '/favicon-generated.png';
+        }
+
+        function favicon_path_custom(): string
+        {
+            return favicon_dir() . '/favicon-custom.png';
+        }
+
+        function favicon_has_generated(): bool
+        {
+            return is_file(favicon_path_generated());
+        }
+
+        function favicon_has_custom(): bool
+        {
+            return is_file(favicon_path_custom());
+        }
+
+        /**
+         * Сделать вариант активным, вернув адрес или null.
+         *
+         * Копирование, а не перерисовка: зачем заново генерировать PNG,
+         * который уже лежит рядом и который админ видел на превью. И
+         * главное - переключение не может испортить файл: генератор
+         * может вернуть null на негодной букве, а копия либо есть целиком,
+         * либо её нет.
+         *
+         * @param string $which 'generated' или 'custom'
+         */
+        function favicon_activate(string $which): ?string
+        {
+            $src = $which === 'custom' ? favicon_path_custom() : favicon_path_generated();
+            if (!is_file($src)) {
+                return null;
+            }
+            if (!@copy($src, favicon_path_active())) {
+                return null;
+            }
+            return '/assets/images/branding/favicon.png';
+        }
+
+        /**
+         * Разложить текущий favicon.png по двум вариантам при первом
+         * запуске после перехода на три файла.
+         *
+         * Иначе переключатель остался бы невидимым у всех, кто обновляет
+         * проект поверх существующей базы: файлов ещё нет, а создать их
+         * можно только из того, что уже есть. Активная иконка - это
+         * ровно один из двух вариантов, какой именно показывает флаг
+         * favicon_is_custom.
+         *
+         * @return array{generated: bool, custom: bool} что удалось создать
+         */
+        function favicon_seed_variants(bool $isCustom): array
+        {
+            $done = ['generated' => false, 'custom' => false];
+            $active = favicon_path_active();
+            if (!is_file($active)) {
+                return $done;
+            }
+
+            $target = $isCustom ? favicon_path_custom() : favicon_path_generated();
+            if (is_file($target)) {
+                return $done;
+            }
+            if (@copy($active, $target)) {
+                $done[$isCustom ? 'custom' : 'generated'] = true;
+            }
+            return $done;
+        }
+    }
+
+    /**
+     * Настройка site_favicon_png_url, без варианта с именем из POST.
      *
      * @param string $letter    буква или цифра
      * @param string $bgColor   фон, #rrggbb
@@ -254,12 +354,22 @@ if (!function_exists('generate_favicon')) {
             return null;
         }
 
-        $fullPath = __DIR__ . '/../assets/images/branding/favicon.png';
-        $dir = dirname($fullPath);
+        $fullPath = favicon_path_active();
+        $dir = favicon_dir();
         if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
             return null;
         }
         if (@file_put_contents($fullPath, $bytes) === false) {
+            return null;
+        }
+
+        // Своя копия варианта. Без неё переключатель не показал бы
+        // кнопку «Загруженная»: файла просто нет. Пишем всегда - по
+        // смыслу favicon-generated.png и есть «то, что даёт генератор на
+        // текущих букве и цветах». А попадает генератор сюда только когда
+        // активная иконка сгенерированная: при загруженной saveSettings
+        // молчит, чтобы не затереть чужую картинку.
+        if (@file_put_contents(favicon_path_generated(), $bytes) === false) {
             return null;
         }
 
@@ -269,12 +379,17 @@ if (!function_exists('generate_favicon')) {
 
 if (!function_exists('store_favicon_upload')) {
     /**
-     * Загруженная пользователем иконка: сжать в квадрат 64x64 и положить
-     * на место сгенерированной.
+     * Загруженная пользователем иконка: вписать в квадрат 128x128 и
+     * положить в свой вариант, затем сделать активной.
      *
-     * Тот же путь, что у генератора - иначе в site_settings пришлось бы
-     * держать два ключа, и после загрузки своей иконки старая
-     * сгенерированная продолжала бы где-то использоваться.
+     * Свой вариант - favicon-custom.png, рядом лежит и
+     * favicon-generated.png от генератора. Раньше оба писали в один
+     * favicon.png, и вернуться к сгенерированной иконке было уже не
+     *льзя: она исчезала сразу при загрузке.
+     *
+     * Активной остаётся всё та же favicon.png: её адрес уже прописан в
+     * разметке и в site_settings, и переключение не должно требовать
+     * правки HTML.
      *
      /**
      * Текущая иконка загружена админом, а не нарисована генератором.
@@ -397,14 +512,25 @@ if (!function_exists('store_favicon_upload')) {
         );
         imagedestroy($src);
 
-        $fullPath = __DIR__ . '/../assets/images/branding/favicon.png';
-        $dir = dirname($fullPath);
+        $fullPath = favicon_path_custom();
+        $dir = favicon_dir();
         if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
             imagedestroy($im);
             return ['ok' => false, 'url' => '', 'error' => 'branding_dir'];
         }
-        imagepng($im, $fullPath, 9);
+        if (!imagepng($im, $fullPath, 9)) {
+            imagedestroy($im);
+            return ['ok' => false, 'url' => '', 'error' => 'branding_dir'];
+        }
         imagedestroy($im);
+
+        // Копия становится активной. Порядок важен: сначала пишем свой
+        // вариант, и только потом делаем активным - тогда даже падение
+        // копирования оставит загруженную картинку на месте, и её можно
+        // будет вернуть кнопкой, вместо того чтобы потерять.
+        if (!@copy($fullPath, favicon_path_active())) {
+            return ['ok' => false, 'url' => '', 'error' => 'branding_dir'];
+        }
 
         return ['ok' => true, 'url' => '/assets/images/branding/favicon.png', 'error' => null];
     }

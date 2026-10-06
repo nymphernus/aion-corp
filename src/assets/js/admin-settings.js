@@ -565,6 +565,42 @@
         form.submit();
     });
 
+    // Переключение варианта иконки: показать сгенерированную или
+    // загруженную. Отдельный POST, а не часть обычного «Сохранить».
+    //
+    // Форма всегда отправляет favicon_letter и favicon_bg, и пока активна
+    // загруженная картинка, сервер их игнорирует - иначе он
+    // перерисовывал бы загруженную картинку при каждом сохранении. Значит
+    // сменить вариант можно только отдельной кнопкой.
+    //
+    // Значение варианта кладётся в data-variant, а не берётся из текста
+    // кнопки: текст меняется вместе с переводом интерфейса, и опираться
+    // на него было бы хрупко.
+    document.addEventListener('click', function (e) {
+        var target = e.target.closest ? e.target.closest('[data-action="use-favicon-variant"]') : null;
+        if (!target) return;
+        e.preventDefault();
+
+        var variant = target.getAttribute('data-variant');
+        if (variant !== 'generated' && variant !== 'custom') return;
+
+        var form = target.closest('form');
+        if (!form) return;
+
+        if (!window.confirm(
+            variant === 'generated'
+                ? 'Показать сгенерированную иконку?\nЗагруженная картинка сохранится.'
+                : 'Показать загруженную иконку?\nСгенерированная сохранится.'
+        )) return;
+
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'useFaviconVariant';
+        input.value = variant;
+        form.appendChild(input);
+        form.submit();
+    });
+
     // Enter в поле буквы отправлял бы форму целиком, то есть сохранял
     // настройки вместо предпросмотра.
     document.addEventListener('keydown', function (e) {

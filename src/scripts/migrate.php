@@ -524,5 +524,36 @@ if (file_exists($faviconFile)) {
     }
 }
 
+// Варианты иконки. Генератор и загрузка держат свои копии
+// (favicon-generated.png и favicon-custom.png), а активная favicon.png -
+// копия одного из них. На старой установке файлов вариантов ещё нет, и
+// без добивки переключатель остался бы невидимым ни у кого.
+//
+// Активная иконка - это ровно один из двух вариантов, какой показывает
+// флаг favicon_is_custom. Других источников взять неоткуда, поэтому
+// второй вариант на этом шаге не появляется: он появится сам при первом
+// переключении или после загрузки своей картинки.
+$stmt = db_prepare($mysql, "SELECT setting_value FROM site_settings WHERE setting_key = 'favicon_is_custom'", "");
+$stmt->execute();
+$favIsCustom = ((string) ($stmt->get_result()->fetch_row()[0] ?? '0')) === '1';
+
+if (function_exists('favicon_seed_variants')) {
+    $seeded = $dryRun
+        ? ['generated' => !favicon_has_generated(), 'custom' => !favicon_has_custom()]
+        : favicon_seed_variants($favIsCustom);
+
+    foreach ($seeded as $which => $made) {
+        if (!$made) {
+            continue;
+        }
+        mig_log($dryRun
+            ? "  [favicon] был бы создан вариант $which"
+            : "  [favicon] создан вариант $which из активной иконки");
+    }
+    if (!$seeded['generated'] && !$seeded['custom']) {
+        mig_log('  [skip] варианты иконки уже на диске');
+    }
+}
+
 $mysql->close();
 mig_log('=== migrate завершён ===');

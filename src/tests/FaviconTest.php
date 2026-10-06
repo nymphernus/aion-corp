@@ -21,6 +21,20 @@ final class FaviconTest extends AionTestCase
     /** Куда кладёт иконку генератор и что лежит в site_settings. */
     private const GENERATED = '/assets/images/branding/favicon.png';
 
+    /**
+     * Все три файла иконки.
+     *
+     * Тесты и перезаписывают настройки, и создают файлы, а файлы в git
+     * не положить. Раньше файл был один, теперь три, и забытый
+     * favicon-custom.png пережил бы прогон и показался бы кнопкой
+     * следующему тесту.
+     */
+    private const ICON_FILES = [
+        '/assets/images/branding/favicon.png',
+        '/assets/images/branding/favicon-generated.png',
+        '/assets/images/branding/favicon-custom.png',
+    ];
+
     /** Ключи, которые меняют тесты. */
     private const TOUCHED = ['favicon_letter', 'favicon_bg', 'favicon_text', 'favicon_auto_color', 'site_favicon_png_url', 'favicon_is_custom'];
 
@@ -56,11 +70,17 @@ final class FaviconTest extends AionTestCase
         $path = dirname(__DIR__) . self::GENERATED;
         $file = is_file($path) ? (string) file_get_contents($path) : null;
 
-        return ['settings' => $settings, 'file' => $file];
+        $files = [];
+        foreach (self::ICON_FILES as $rel) {
+            $p = dirname(__DIR__) . $rel;
+            $files[$rel] = is_file($p) ? (string) file_get_contents($p) : null;
+        }
+
+        return ['settings' => $settings, 'file' => $file, 'files' => $files];
     }
 
     /**
-     * @param array{settings: array<string,string>, file: ?string} $snap
+     * @param array{settings: array<string,string>, file: ?string, files: array<string,?string>} $snap
      */
     private function restore(array $snap): void
     {
@@ -69,11 +89,13 @@ final class FaviconTest extends AionTestCase
         site_setting_save($mysql, $snap['settings']);
         $mysql->close();
 
-        $path = dirname(__DIR__) . self::GENERATED;
-        if ($snap['file'] === null) {
-            @unlink($path);
-        } else {
-            @file_put_contents($path, $snap['file']);
+        foreach ($snap['files'] ?? [] as $rel => $bytes) {
+            $p = dirname(__DIR__) . $rel;
+            if ($bytes === null) {
+                @unlink($p);
+            } else {
+                @file_put_contents($p, $bytes);
+            }
         }
     }
 
@@ -787,26 +809,108 @@ final class FaviconTest extends AionTestCase
         }
     }
 
-    /**
-     * Возврат к сгенерированной иконке перерисовывает файл и снимает метку.
+/**
+     * Генератор держит свою копию иконки.
      *
-     * Проверяется и файл, и настройка: пометки «0» без новой картинки
-     * было бы достаточно, чтобы кнопка исчезла, а картинка осталась бы
-     * загруженной - интерфейс говорил бы «сгенерированная», стояла бы
-     * чужая.
+     * Без неё переключатель не показал бы кнопку «Загруженная»: файла
+     * просто нет, и копировать было бы нечего.
      */
-    public function testRemoveCustomRegenerates(): void
+    public function testGenerateCreatesGeneratedFile(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+        $this->markGeneratedFavicon();
+
+        try {
+            $page = $this->httpGet('/admin.php?tab=settings');
+            $r = $this->saveSettings($this->extractCsrf($page['body']), [
+                'favicon_letter' => 'Q',
+                'favicon_bg' => '#0EA5E9',
+                'favicon_text' => '#ffffff',
+            ]);
+            $this->assertSame(302, $r['code']);
+
+            require_once dirname(__DIR__) . '/modules/image.php';
+            $this->assertTrue(
+                favicon_has_generated(),
+                'после генерации должен появиться favicon-generated.png'
+            );
+            $this->assertSame(
+                (string) file_get_contents(favicon_path_generated()),
+                (string) file_get_contents(favicon_path_active()),
+                'активная иконка должна быть копией сгенерированной'
+            );
+        } finally {
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Загрузка держит свою копию иконки.
+     *
+     * Главное здесь - что копия не пропадает. Раньше загрузка
+     * перезаписывала сгенерированный файл, и вернуться к букве было уже
+     * нечем. Теперь загруженная лежит отдельно.
+     */
+    public function testUploadCreatesCustomFile(): void
     {
         $this->loginAsAdmin();
         $snap = $this->snapshot();
 
-        $png = sys_get_temp_dir() . '/favicon-remove-custom.png';
+        $png = sys_get_temp_dir() . '/favicon-upload-variant.png';
         $im = imagecreatetruecolor(128, 128);
-        imagefill($im, 0, 0, imagecolorallocate($im, 0x00, 0x00, 0xFF));
+        imagefill($im, 0, 0, imagecolorallocate($im, 0x00, 0xFF, 0x00));
         imagepng($im, $png);
         imagedestroy($im);
 
         try {
+            $page = $this->httpGet('/admin.php?tab=settings');
+            $this->httpPostMultipart('/admin.php?tab=settings', [
+                'csrf_token' => $this->extractCsrf($page['body']),
+                'saveSettings' => '1',
+                'favicon_letter' => 'M',
+                'favicon_bg' => '#ef4444',
+                'favicon_upload' => [
+                    'name' => 'favicon-upload-variant.png',
+                    'type' => 'image/png',
+                    'tmp_name' => $png,
+                ],
+            ]);
+
+            require_once dirname(__DIR__) . '/modules/image.php';
+            $this->assertTrue(favicon_has_custom(), 'после загрузки должен появиться favicon-custom.png');
+            $this->assertSame('1', $this->freshSettings()['favicon_is_custom']);
+            $this->assertSame(
+                ['r' => 0x00, 'g' => 0xFF, 'b' => 0x00],
+                $this->pngPixelColor((string) file_get_contents(favicon_path_active()), 64, 64),
+                'активной должна стать загруженная картинка'
+            );
+        } finally {
+            @unlink($png);
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Переключение на сгенерированную не уничтожает загруженную.
+     *
+     * Ровно то, ради чего затевались три файла: раньше возврат к букве
+     * означал, что загруженная картинка стёрта навсегда.
+     */
+    public function testSwitchToGeneratedKeepsCustom(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        $png = sys_get_temp_dir() . '/favicon-switch-generated.png';
+        $im = imagecreatetruecolor(128, 128);
+        imagefill($im, 0, 0, imagecolorallocate($im, 0x00, 0xFF, 0x00));
+        imagepng($im, $png);
+        imagedestroy($im);
+
+        try {
+            require_once dirname(__DIR__) . '/modules/image.php';
+
             $page = $this->httpGet('/admin.php?tab=settings');
             $this->httpPostMultipart('/admin.php?tab=settings', [
                 'csrf_token' => $this->extractCsrf($page['body']),
@@ -815,199 +919,99 @@ final class FaviconTest extends AionTestCase
                 'favicon_bg' => '#ef4444',
                 'favicon_text' => '#ffffff',
                 'favicon_upload' => [
-                    'name' => 'favicon-remove-custom.png',
+                    'name' => 'favicon-switch-generated.png',
                     'type' => 'image/png',
                     'tmp_name' => $png,
                 ],
             ]);
-            $this->assertSame('1', $this->freshSettings()['favicon_is_custom']);
-            $this->assertSame(
-                ['r' => 0x00, 'g' => 0x00, 'b' => 0xFF],
-                $this->pngPixelColor((string) file_get_contents(dirname(__DIR__) . self::GENERATED), 64, 64),
-                'после загрузки на диске должна лежать синяя картинка'
-            );
+            $this->assertTrue(favicon_has_generated(), 'нужен сгенерированный вариант до переключения');
 
-            // теперь возвращаем сгенерированную: буква M на #ef4444
             $page2 = $this->httpGet('/admin.php?tab=settings');
             $r = $this->saveSettings($this->extractCsrf($page2['body']), [
-                'removeCustomFavicon' => '1',
+                'useFaviconVariant' => 'generated',
             ]);
 
             $this->assertSame(302, $r['code']);
             $this->assertSame('0', $this->freshSettings()['favicon_is_custom']);
+            $this->assertSame(
+                (string) file_get_contents(favicon_path_generated()),
+                (string) file_get_contents(favicon_path_active()),
+                'активной должна стать сгенерированная иконка'
+            );
+            $this->assertSame(
+                ['r' => 0x00, 'g' => 0xFF, 'b' => 0x00],
+                $this->pngPixelColor((string) file_get_contents(favicon_path_custom()), 64, 64),
+                'загруженная картинка должна остаться на месте после переключения'
+            );
+        } finally {
+            @unlink($png);
+            $this->restore($snap);
+        }
+    }
 
-            // Сравнение байт с эталоном, а не «цвет пикселя»: точка (64,64)
-            // попадает то в штрих буквы M, то в фон, то на сглаженный край -
-            // в зависимости от того, как лёг штрих. Один пиксель давал
-            // плавающий результат (239 у фона, 255 у штриха, 111 на краю).
+    /**
+     * Переключение на загруженную не уничтожает сгенерированную.
+     *
+     * Обратное направление: без него буква была бы одноразовой —
+     * загрузил картинку, вернулся к букве, и назад уже некуда.
+     */
+    public function testSwitchToCustomKeepsGenerated(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        $png = sys_get_temp_dir() . '/favicon-switch-custom.png';
+        $im = imagecreatetruecolor(128, 128);
+        imagefill($im, 0, 0, imagecolorallocate($im, 0x00, 0x00, 0xFF));
+        imagepng($im, $png);
+        imagedestroy($im);
+
+        try {
             require_once dirname(__DIR__) . '/modules/image.php';
-            $expected = favicon_png_bytes('M', '#ef4444', '#ffffff');
-            $this->assertNotNull($expected, 'эталон должен строиться');
-            $this->assertSame(
-                $expected,
-                (string) file_get_contents(dirname(__DIR__) . self::GENERATED),
-                'файл должен быть перерисован генератором по сохранённым букве и цветам'
-            );
-        } finally {
-            @unlink($png);
-            $this->restore($snap);
-        }
-    }
 
-    /**
-     * Кнопка возврата есть только у загруженной иконки.
-     *
-     * Два состояния проверяются в одном тесте намеренно: кнопка, которая
-     * появляется всегда, обещает действие, которого делать не над чем, а
-     * кнопка, которая не появляется никогда, оставляет загруженную иконку
-     * без пути назад.
-     */
-    public function testRemoveCustomButtonOnlyWhenCustom(): void
-    {
-        $this->loginAsAdmin();
-        $snap = $this->snapshot();
-
-        $png = sys_get_temp_dir() . '/favicon-button-state.png';
-        $im = imagecreatetruecolor(128, 128);
-        imagefill($im, 0, 0, imagecolorallocate($im, 0x00, 0x00, 0xFF));
-        imagepng($im, $png);
-        imagedestroy($im);
-
-        try {
-            // сгенерированная иконка - кнопки нет
-            $page = $this->httpGet('/admin.php?tab=settings');
-            $this->assertStringNotContainsString(
-                'data-action="remove-custom-favicon"',
-                $page['body'],
-                'у сгенерированной иконки кнопки возврата быть не должно'
-            );
-
-            $this->httpPostMultipart('/admin.php?tab=settings', [
-                'csrf_token' => $this->extractCsrf($page['body']),
-                'saveSettings' => '1',
-                'favicon_letter' => 'M',
-                'favicon_bg' => '#ef4444',
-                'favicon_upload' => [
-                    'name' => 'favicon-button-state.png',
-                    'type' => 'image/png',
-                    'tmp_name' => $png,
-                ],
-            ]);
-
-            $afterUpload = $this->httpGet('/admin.php?tab=settings');
-            $this->assertStringContainsString(
-                'data-action="remove-custom-favicon"',
-                $afterUpload['body'],
-                'после загрузки кнопка возврата обязана появиться'
-            );
-
-            $this->saveSettings($this->extractCsrf($afterUpload['body']), ['removeCustomFavicon' => '1']);
-
-            $afterReturn = $this->httpGet('/admin.php?tab=settings');
-            $this->assertStringNotContainsString(
-                'data-action="remove-custom-favicon"',
-                $afterReturn['body'],
-                'после возврата кнопка обязана исчезнуть'
-            );
-        } finally {
-            @unlink($png);
-            $this->restore($snap);
-        }
-    }
-
-    /**
-     * Генерация снимает метку загруженной иконки.
-     *
-     * Проверяется на явном действии «Вернуть сгенерированную», а не на
-     * обычном «Сохранить»: второе теперь намеренно файл не трогает.
-     */
-    public function testGenerateClearsCustomFlag(): void
-    {
-        $this->loginAsAdmin();
-        $snap = $this->snapshot();
-
-        $png = sys_get_temp_dir() . '/favicon-clear-flag.png';
-        $im = imagecreatetruecolor(128, 128);
-        imagefill($im, 0, 0, imagecolorallocate($im, 0x00, 0x00, 0xFF));
-        imagepng($im, $png);
-        imagedestroy($im);
-
-        try {
             $page = $this->httpGet('/admin.php?tab=settings');
             $this->httpPostMultipart('/admin.php?tab=settings', [
                 'csrf_token' => $this->extractCsrf($page['body']),
                 'saveSettings' => '1',
                 'favicon_letter' => 'M',
                 'favicon_bg' => '#ef4444',
+                'favicon_text' => '#ffffff',
                 'favicon_upload' => [
-                    'name' => 'favicon-clear-flag.png',
+                    'name' => 'favicon-switch-custom.png',
                     'type' => 'image/png',
                     'tmp_name' => $png,
                 ],
             ]);
-            $this->assertSame('1', $this->freshSettings()['favicon_is_custom']);
 
-            $this->saveSettings($this->extractCsrf($this->httpGet('/admin.php?tab=settings')['body']), [
-                'removeCustomFavicon' => '1',
+            $page2 = $this->httpGet('/admin.php?tab=settings');
+            $this->saveSettings($this->extractCsrf($page2['body']), [
+                'useFaviconVariant' => 'generated',
             ]);
-
             $this->assertSame('0', $this->freshSettings()['favicon_is_custom']);
-        } finally {
-            @unlink($png);
-            $this->restore($snap);
-        }
-    }
 
-    /**
-     * Нечитаемый файл не затирает текущую иконку и объясняет ошибку.
-     *
-     * Проверяется именно содержимое файла на диске: при отказе загрузки
-     * генератор отработал бы (файла нет) и записал бы свою букву, и админ
-     * увидел бы «всё сохранилось», потеряв иконку без единого слова.
-     */
-    public function testBrokenUploadDoesNotSilentlyRegenerate(): void
-    {
-        $this->loginAsAdmin();
-        $snap = $this->snapshot();
-
-        $bad = sys_get_temp_dir() . '/favicon-not-an-image.png';
-        file_put_contents($bad, 'это не картинка');
-
-        try {
-            $before = $snap['file'];
-
-            $page = $this->httpGet('/admin.php?tab=settings');
-            $r = $this->httpPostMultipart('/admin.php?tab=settings', [
-                'csrf_token' => $this->extractCsrf($page['body']),
-                'saveSettings' => '1',
-                'favicon_letter' => 'Z',
-                'favicon_bg' => '#00FF00',
-                'favicon_upload' => [
-                    'name' => 'favicon-not-an-image.png',
-                    'type' => 'image/png',
-                    'tmp_name' => $bad,
-                ],
+            $page3 = $this->httpGet('/admin.php?tab=settings');
+            $r = $this->saveSettings($this->extractCsrf($page3['body']), [
+                'useFaviconVariant' => 'custom',
             ]);
 
             $this->assertSame(302, $r['code']);
-            $this->assertStringContainsString(
-                'bad=',
-                $r['location'],
-                'ошибка загрузки должна быть показана в адресе'
-            );
-
-            $path = dirname(__DIR__) . self::GENERATED;
-            $after = is_file($path) ? (string) file_get_contents($path) : null;
+            $this->assertSame('1', $this->freshSettings()['favicon_is_custom']);
             $this->assertSame(
-                $before,
-                $after,
-                'при неудачной загрузке прежняя иконка должна остаться нетронутой'
+                (string) file_get_contents(favicon_path_custom()),
+                (string) file_get_contents(favicon_path_active()),
+                'активной должна стать загруженная картинка'
+            );
+            $this->assertNotSame(
+                (string) file_get_contents(favicon_path_custom()),
+                (string) file_get_contents(favicon_path_generated()),
+                'тест бессмысленен, если оба варианта совпали'
             );
         } finally {
-            @unlink($bad);
+            @unlink($png);
             $this->restore($snap);
         }
     }
+
 
     /**
      * Код ошибки переводится в текст на странице.
