@@ -28,8 +28,8 @@ $badCodes = [
     'branding_image' => 'Файл не читается как изображение.',
     'branding_dir' => 'Не удалось создать каталог для файлов бренда.',
     'favicon_generate' => 'Не удалось создать favicon.',
-    'favicon_letter_empty' => 'Укажите букву или цифру для иконки.',
-    'favicon_letter_unsupported' => 'Иконка рисуется только латиницей или цифрой. Для кириллицы загрузите свою картинку.',
+    'favicon_letter_empty' => 'Укажите букву для иконки.',
+    'favicon_letter_unsupported' => 'Генератор рисует одну букву. Для этого варианта загрузите свою картинку.',
 ];
 $badMessages = [];
 foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
@@ -144,7 +144,7 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                                 <input class="input" name="site_founded_year" id="setFoundedYear"
                                        maxlength="4" inputmode="numeric" pattern="\d{4}"
                                        value="<?= escape(site_setting($settings, 'site_founded_year', '2022')) ?>">
-                                <p class="form-hint">Отображается в подвале как «© 2022 Название». Проект основан один раз — год не должен уезжать вперёд сам.</p>
+                                <p class="form-hint">Отображается в подвале как «© 2022 Название».</p>
                             </div>
 
                             <div class="modal-row">
@@ -184,7 +184,20 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                                         <div class="form-group">
                                             <label class="form-label" for="faviconBg">Цвет фона</label>
                                             <input type="color" name="favicon_bg" id="faviconBg"
-                                                   value="<?= escape(site_setting($settings, 'favicon_bg', '#7C3AED')) ?>">
+                                                   value="<?= escape(site_setting($settings, 'favicon_bg', '#C99CFF')) ?>">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label" for="faviconText">
+                                                Цвет буквы
+                                                <label class="favicon-auto-label">
+                                                    <input type="checkbox" name="favicon_auto_color"
+                                                           id="faviconAutoColor" value="1"
+                                                           <?= site_setting($settings, 'favicon_auto_color') === '1' ? 'checked' : '' ?>>
+                                                    авто
+                                                </label>
+                                            </label>
+                                            <input type="color" name="favicon_text" id="faviconText"
+                                                   value="<?= escape(site_setting($settings, 'favicon_text', '#000000')) ?>">
                                         </div>
                                         <div class="form-group">
                                             <label class="form-label" for="faviconGenerateSpacer">&nbsp;</label>
@@ -192,6 +205,12 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                                                     data-action="generate-favicon">Сгенерировать</button>
                                         </div>
                                     </div>
+
+                                    <p class="form-hint">
+                                        «Авто» подбирает цвет буквы по контрасту с фоном (тёмный
+                                        фон → светлая буква, светлый → тёмная). Снимите галочку,
+                                        чтобы задать цвет вручную.
+                                    </p>
 
                                     <label class="btn btn--secondary btn--sm">
                                         <input type="file" id="faviconUploadInput"
@@ -203,13 +222,6 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                                     <input type="hidden" name="site_favicon_png_url"
                                            id="faviconUrlInput"
                                            value="<?= escape(site_setting($settings, 'site_favicon_png_url')) ?>">
-
-                                    <p class="form-hint">
-                                        Генератор делает PNG 64×64 из буквы и цвета — одна латинская
-                                        буква или цифра, кириллица встроенным шрифтом GD не рисуется.
-                                        Свою иконку можно загрузить: она уменьшится до 64×64 и
-                                        сохранится в PNG. Загруженная иконка важнее сгенерированной.
-                                    </p>
                                     <p class="form-hint" id="faviconNotice"></p>
                                 </div>
                             </div>

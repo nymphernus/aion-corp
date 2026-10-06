@@ -664,6 +664,29 @@ h1{
     border-radius: 4px;
 }
 
+/* ПРАВКА 5: галочка «авто» рядом с подписью «Цвет буквы». Она часть
+   подписи, а не отдельное поле, поэтому text-transform: none - в
+   подписях формы буквы заглавные, а слово «авто» так и пишется.
+   Выключенный пикер цвета показывает, что ручной цвет не действует:
+   просто серый input вводил бы в заблуждение - выглядит рабочим. */
+.favicon-auto-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-left: 6px;
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.favicon-auto-label input[type="checkbox"] {
+    vertical-align: middle;
+    margin: 0 3px 0 0;
+}
+#faviconText:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 @media (max-width: 700px) {
     .map-preview {
         height: 280px;

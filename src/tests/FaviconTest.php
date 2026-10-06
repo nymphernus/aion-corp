@@ -22,7 +22,7 @@ final class FaviconTest extends AionTestCase
     private const GENERATED = '/assets/images/branding/favicon.png';
 
     /** Ключи, которые меняют тесты. */
-    private const TOUCHED = ['favicon_letter', 'favicon_bg', 'site_favicon_png_url'];
+    private const TOUCHED = ['favicon_letter', 'favicon_bg', 'favicon_text', 'favicon_auto_color', 'site_favicon_png_url'];
 
     private function loginAsAdmin(): string
     {
@@ -158,12 +158,16 @@ final class FaviconTest extends AionTestCase
     }
 
     /**
-     * Файл иконки отдаётся как PNG 64x64 и существует по настройке.
+     * Файл иконки отдаётся как PNG 128x128 и существует по настройке.
+     *
+     * 128, а не 64: на экранах с удвоенной плотностью пикселей вкладка
+     * берёт иконку из файла как есть, и половинный размер выглядел бы
+     * мыльным.
      *
      * MIME проверяется по ответу, а не по расширению: с кодом 200 и
      * чужим Content-Type браузер просто не показал бы иконку.
      */
-    public function testFaviconFileIsPng64(): void
+    public function testFaviconFileIsPng128(): void
     {
         $page = $this->httpGet('/');
         $href = $this->xpathAttrs($page['body'], '//link[@rel="icon"]')['href'] ?? '';
@@ -181,8 +185,8 @@ final class FaviconTest extends AionTestCase
 
         $info = getimagesizefromstring($icon['body']);
         $this->assertNotFalse($info, 'PNG не читается');
-        $this->assertSame(64, (int) $info[0], 'ширина иконки 64px');
-        $this->assertSame(64, (int) $info[1], 'высота иконки 64px');
+        $this->assertSame(128, (int) $info[0], 'ширина иконки 128px (Retina)');
+        $this->assertSame(128, (int) $info[1], 'высота иконки 128px (Retina)');
     }
 
     /**
@@ -281,6 +285,7 @@ final class FaviconTest extends AionTestCase
                 'preview_favicon' => '1',
                 'favicon_letter' => 'M',
                 'favicon_bg' => '#ef4444',
+                'favicon_text' => '#ffffff',
             ]);
 
             $this->assertSame(200, $r['code'], 'предпросмотр должен отвечать 200');
@@ -288,7 +293,7 @@ final class FaviconTest extends AionTestCase
 
             $info = getimagesizefromstring($r['body']);
             $this->assertNotFalse($info);
-            $this->assertSame(64, (int) $info[0]);
+            $this->assertSame(128, (int) $info[0]);
 
             // В ответе не должно быть редиректа на страницу: иначе это
             // не предпросмотр, а обычное сохранение под видом превью.
@@ -325,11 +330,13 @@ final class FaviconTest extends AionTestCase
                 'preview_favicon' => '1',
                 'favicon_letter' => 'M',
                 'favicon_bg' => '#ef4444',
+                'favicon_text' => '#ffffff',
             ]);
 
             $this->assertSame(200, $r['code']);
-            // 6px от левого-нижнего угла: скругление там ещё не началось.
-            $color = $this->pngPixelColor($r['body'], 6, 58);
+            // 12px от левого-нижнего угла: скругление там ещё не началось
+            // (радиус 24px при размере 128).
+            $color = $this->pngPixelColor($r['body'], 12, 116);
             $this->assertSame(
                 ['r' => 0xEF, 'g' => 0x44, 'b' => 0x44],
                 $color,
@@ -341,28 +348,44 @@ final class FaviconTest extends AionTestCase
     }
 
     /**
-     * Кириллица и пустая буква отклоняются с кодом ошибки, а не рисуются.
+     * Пустая буква и две буквы отклоняются с кодом ошибки, кириллица рисуется.
      *
-     * Встроенный шрифт GD рисует только ASCII. Раньше предполагалось
-     * рисовать вместо буквы знак вопроса, но он выглядит как рабочая
-     * иконка: сменил букву на «Ж», увидел «?» и решил, что так и
-     * задумано. Поэтому отказ явный.
+     * Кириллица проходит через TTF-шрифт (ПРАВКА 5): DejaVuSans-Bold
+     * умеет любые глифы, и «Ж» на иконке - рабочая буква, а не отказ.
+     * Без шрифта кириллица не рисуется (встроенный шрифт GD - ASCII), и
+     * тогда отказ остаётся: тихая заглушка «?» выглядела бы рабочей
+     * иконкой и молча осталась бы после смены буквы.
      */
-    public function testPreviewRejectsUnsupportedLetter(): void
+    public function testPreviewLetterValidation(): void
     {
         $this->loginAsAdmin();
         $token = $this->extractCsrf($this->httpGet('/admin.php?tab=settings')['body']);
 
-        foreach ([['Ж', 'favicon_letter_unsupported'], ['', 'favicon_letter_empty'], ['AB', 'favicon_letter_unsupported']] as [$letter, $code]) {
+        foreach ([['', 'favicon_letter_empty'], ['AB', 'favicon_letter_unsupported']] as [$letter, $code]) {
             $r = $this->httpPost('/admin.php?tab=settings', [
                 'csrf_token' => $token,
                 'preview_favicon' => '1',
                 'favicon_letter' => $letter,
-                'favicon_bg' => '#7C3AED',
+                'favicon_bg' => '#C99CFF',
             ]);
 
             $this->assertSame(422, $r['code'], 'буква «' . $letter . '» должна отклоняться');
             $this->assertSame($code, trim($r['body']), 'в теле должен быть код ошибки');
+        }
+
+        // Кириллица: PNG, если шрифт на месте.
+        $r = $this->httpPost('/admin.php?tab=settings', [
+            'csrf_token' => $token,
+            'preview_favicon' => '1',
+            'favicon_letter' => 'Ж',
+            'favicon_bg' => '#C99CFF',
+        ]);
+        if (favicon_font_path() !== null) {
+            $this->assertSame(200, $r['code'], 'кириллица должна рисоваться через TTF-шрифт');
+            $this->assertStringStartsWith("\x89PNG", $r['body']);
+        } else {
+            $this->assertSame(422, $r['code'], 'без шрифта кириллица не рисуется');
+            $this->assertSame('favicon_letter_unsupported', trim($r['body']));
         }
     }
 
@@ -378,6 +401,7 @@ final class FaviconTest extends AionTestCase
             'preview_favicon' => '1',
             'favicon_letter' => 'M',
             'favicon_bg' => '#ef4444',
+            'favicon_text' => '#ffffff',
         ]);
 
         $this->assertNotSame(200, $r['code'], 'предпросмотр без верного CSRF не должен работать');
@@ -404,6 +428,7 @@ final class FaviconTest extends AionTestCase
             $r = $this->saveSettings($token, [
                 'favicon_letter' => 'M',
                 'favicon_bg' => '#ef4444',
+                'favicon_text' => '#ffffff',
             ]);
             $this->assertSame(302, $r['code'], 'сохранение должно редиректить');
             $this->assertStringNotContainsString('bad=', $r['location'], 'сохранение прошло без ошибок');
@@ -414,7 +439,9 @@ final class FaviconTest extends AionTestCase
             $settings = $this->freshSettings();
 
             $this->assertSame('M', $settings['favicon_letter'], 'буква должна сохраниться');
-            $this->assertSame('#ef4444', $settings['favicon_bg'], 'цвет должен сохраниться');
+            $this->assertSame('#ef4444', $settings['favicon_bg'], 'фон должен сохраниться');
+            $this->assertSame('#ffffff', $settings['favicon_text'], 'цвет буквы должен сохраниться');
+            $this->assertSame('0', $settings['favicon_auto_color'], 'ручной цвет должен записаться как выключенное авто');
             $this->assertSame(
                 self::GENERATED,
                 $settings['site_favicon_png_url'],
@@ -422,23 +449,64 @@ final class FaviconTest extends AionTestCase
             );
 
             // Файл совпадает с эталоном - теми же байтами, что рисует
-            // favicon_png_bytes для той же буквы и цвета. Сравнение
-            // «отличается от прежнего» не годится: буква и цвет могли
+            // favicon_png_bytes для той же буквы и цветов. Сравнение
+            // «отличается от прежнего» не годится: буква и цвета могли
             // не меняться, и перерисованная иконка совпала бы с
             // прежней байт в байт.
             require_once dirname(__DIR__) . '/modules/image.php';
-            $expected = favicon_png_bytes('M', '#ef4444');
+            $expected = favicon_png_bytes('M', '#ef4444', '#ffffff');
             $this->assertNotFalse($expected, 'эталон должен строиться');
             $this->assertSame(
                 $expected,
                 file_get_contents(dirname(__DIR__) . self::GENERATED),
-                'файл должен быть перерисован из сохранённых буквы и цвета'
+                'файл должен быть перерисован из сохранённых буквы и цветов'
             );
 
             $info = getimagesize(dirname(__DIR__) . self::GENERATED);
             $this->assertNotFalse($info);
-            $this->assertSame(64, (int) $info[0]);
-            $this->assertSame(64, (int) $info[1]);
+            $this->assertSame(128, (int) $info[0]);
+            $this->assertSame(128, (int) $info[1]);
+        } finally {
+            $this->restore($snap);
+        }
+    }
+
+    /**
+     * Авто-цвет буквы: галочка сохраняется, цвет вычисляется по фону.
+     *
+     * Тёмный фон (#1E3A8A) должен дать белую букву, светлый (#C99CFF) -
+     * чёрную. Ручной цвет при включённом авто не сохраняется: пикер
+     * выключен, и его значение - мусор, который затёрся бы дефолтом при
+     * следующем сохранении.
+     */
+    public function testAutoColorPickTextByContrast(): void
+    {
+        $this->loginAsAdmin();
+        $snap = $this->snapshot();
+
+        try {
+            $token = $this->extractCsrf($this->httpGet('/admin.php?tab=settings')['body']);
+
+            // Тёмный фон -> белая буква.
+            $this->saveSettings($token, [
+                'favicon_letter' => 'A',
+                'favicon_bg' => '#1E3A8A',
+                'favicon_auto_color' => '1',
+                'favicon_text' => '#123456',
+            ]);
+            $settings = $this->freshSettings();
+            $this->assertSame('1', $settings['favicon_auto_color'], 'галочка должна сохраниться');
+            $this->assertSame('', $settings['favicon_text'], 'ручной цвет при авто должен очищаться');
+
+            $expected = favicon_png_bytes('A', '#1E3A8A', 'auto');
+            $this->assertSame(
+                $expected,
+                file_get_contents(dirname(__DIR__) . self::GENERATED),
+                'при авто буква рисуется вычисленным цветом, а не ручным'
+            );
+            // Авто по яркости BT.601: тёмный фон -> белый текст.
+            $this->assertSame('#ffffff', favicon_text_color_auto('#1E3A8A'));
+            $this->assertSame('#000000', favicon_text_color_auto('#C99CFF'));
         } finally {
             $this->restore($snap);
         }
@@ -458,19 +526,25 @@ final class FaviconTest extends AionTestCase
             $r = $this->saveSettings($token, [
                 'favicon_letter' => 'A',
                 'favicon_bg' => 'не-цвет',
+                'favicon_text' => 'тоже не цвет',
             ]);
             $this->assertSame(302, $r['code']);
 
             // Читается мимо кэша site_settings(): static-кэш переживает
             // весь процесс PHPUnit.
-            $bg = $this->freshSettings()['favicon_bg'];
+            $settings = $this->freshSettings();
 
             $this->assertMatchesRegularExpression(
                 '/^#[0-9a-fA-F]{6}$/',
-                $bg,
+                $settings['favicon_bg'],
                 'в настройке должен остаться цвет в формате #rrggbb'
             );
-            $this->assertSame('#7C3AED', $bg, 'некорректный цвет должен заменяться дефолтным');
+            $this->assertSame('#C99CFF', $settings['favicon_bg'], 'некорректный фон должен заменяться дефолтным');
+            $this->assertSame(
+                '#000000',
+                $settings['favicon_text'],
+                'некорректный цвет буквы должен заменяться дефолтным (чёрный, как в оригинальном SVG)'
+            );
         } finally {
             $this->restore($snap);
         }
@@ -515,8 +589,8 @@ final class FaviconTest extends AionTestCase
 
             $info = getimagesize($path);
             $this->assertNotFalse($info);
-            $this->assertSame(64, (int) $info[0], 'загруженная иконка должна быть 64px');
-            $this->assertSame(64, (int) $info[1], 'загруженная иконка должна быть квадратной');
+            $this->assertSame(128, (int) $info[0], 'загруженная иконка должна быть 128px (Retina)');
+            $this->assertSame(128, (int) $info[1], 'загруженная иконка должна быть квадратной');
             $this->assertSame('image/png', (string) ($info['mime'] ?? ''), 'на выходе всегда PNG');
 
             // Пиксель из загруженной картинки: зелёный, который был в JPG.
@@ -524,7 +598,7 @@ final class FaviconTest extends AionTestCase
             // ресемплинг добавляет ещё немного - цвет 0x11 0x99 0x55
             // на выходе даёт 18/153/86. Требовать точного равенства -
             // значит привязать тест к конкретной реализации GD.
-            $color = $this->pngPixelColor((string) file_get_contents($path), 32, 32);
+            $color = $this->pngPixelColor((string) file_get_contents($path), 64, 64);
             foreach (['r' => 0x11, 'g' => 0x99, 'b' => 0x55] as $ch => $want) {
                 $this->assertLessThanOrEqual(
                     1,
@@ -551,7 +625,7 @@ final class FaviconTest extends AionTestCase
         $snap = $this->snapshot();
 
         $png = sys_get_temp_dir() . '/favicon-upload-beats.png';
-        $im = imagecreatetruecolor(64, 64);
+        $im = imagecreatetruecolor(128, 128);
         imagefill($im, 0, 0, imagecolorallocate($im, 0x00, 0x00, 0xFF));
         imagepng($im, $png);
         imagedestroy($im);
@@ -572,8 +646,8 @@ final class FaviconTest extends AionTestCase
 
             $color = $this->pngPixelColor(
                 (string) file_get_contents(dirname(__DIR__) . self::GENERATED),
-                32,
-                32
+                64,
+                64
             );
             $this->assertSame(
                 ['r' => 0x00, 'g' => 0x00, 'b' => 0xFF],
@@ -650,7 +724,7 @@ final class FaviconTest extends AionTestCase
         $this->assertSame(200, $r['code']);
 
         $this->assertStringContainsString(
-            'только латиницей или цифрой',
+            'загрузите свою картинку',
             $r['body'],
             'код ошибки должен превратиться в понятный текст'
         );

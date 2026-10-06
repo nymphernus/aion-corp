@@ -417,7 +417,7 @@
         });
     });
 
-    // --- ПРАВКА 4: предпросмотр сгенерированного favicon ---
+    // --- ПРАВКА 4/5: предпросмотр сгенерированного favicon ---
     //
     // Предпросмотр спрашивает сервер и получает готовый PNG, а не рисует
     // его в браузере: рисовать дважды - значит поддерживать два разных
@@ -430,22 +430,34 @@
     async function previewGeneratedFavicon() {
         var letterInput = byId('faviconLetter');
         var bgInput = byId('faviconBg');
+        var textInput = byId('faviconText');
+        var autoInput = byId('faviconAutoColor');
         var preview = byId('faviconPreview');
         var tokenField = document.querySelector('input[name="csrf_token"]');
         if (!letterInput || !bgInput || !preview || !tokenField) return;
 
         var letter = letterInput.value.trim();
 
+        // Ручной цвет передаётся только при снятой галочке «авто»:
+        // сервер считает авто пустым цветом буквы, и передавать
+        // выключенное поле значением было бы враньём.
+        var params = {
+            csrf_token: tokenField.value,
+            preview_favicon: '1',
+            favicon_letter: letter,
+            favicon_bg: bgInput ? bgInput.value : '#C99CFF'
+        };
+        if (autoInput && autoInput.checked) {
+            params.favicon_auto_color = '1';
+        } else if (textInput) {
+            params.favicon_text = textInput.value;
+        }
+
         var resp = await fetch('/admin.php?tab=settings', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                csrf_token: tokenField.value,
-                preview_favicon: '1',
-                favicon_letter: letter,
-                favicon_bg: bgInput.value
-            }).toString()
+            body: new URLSearchParams(params).toString()
         });
 
         if (!resp.ok) {
@@ -473,10 +485,10 @@
 
     function faviconNoticeText(code, letter) {
         if (code === 'favicon_letter_unsupported') {
-            return 'Генератор рисует только латиницу и цифры. Для «' + letter + '» загрузите свою картинку.';
+            return 'Генератор рисует одну букву. Для «' + letter + '» загрузите свою картинку.';
         }
         if (code === 'favicon_letter_empty') {
-            return 'Введите букву или цифру.';
+            return 'Введите букву.';
         }
         return 'Не удалось построить иконку.';
     }
@@ -484,6 +496,24 @@
     function setFaviconNotice(text) {
         var note = byId('faviconNotice');
         if (note) note.textContent = text || '';
+    }
+
+    // ПРАВКА 5: галочка «авто» отключает ручной пикер цвета буквы.
+    // Выключенный пикер показывает, что ручной цвет не действует:
+    // просто серый input выглядел бы рабочим.
+    function syncFaviconAutoColor() {
+        var auto = byId('faviconAutoColor');
+        var text = byId('faviconText');
+        if (auto && text) {
+            text.disabled = auto.checked;
+        }
+    }
+
+    var faviconAuto = byId('faviconAutoColor');
+    if (faviconAuto) {
+        faviconAuto.addEventListener('change', syncFaviconAutoColor);
+        // начальное состояние - как в сохранённых настройках
+        syncFaviconAutoColor();
     }
 
     document.addEventListener('click', function (e) {

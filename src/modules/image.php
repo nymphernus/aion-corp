@@ -21,13 +21,13 @@ declare(strict_types=1);
 
 /*
  * ============================================================================
- * Favicon: генератор из буквы и цвета (Stage 9, ПРАВКА 4)
+ * Favicon: генератор из буквы и цветов (Stage 9, ПРАВКА 4 и 5)
  * ============================================================================
  *
  * Раньше favicon был нарисован вручную и лежал файлом favicon.svg с
  * буквой «A». Это хардкод бренда: смени название, и иконка продолжала
  * показывать старую букву, а чтобы поменять, приходилось править SVG
- * руками. Теперь иконку делает сайт из site_settings - буква и цвет
+ * руками. Теперь иконку делает сайт из site_settings: буква и цвета
  * задаются в админке, файл перезаписывается при сохранении.
  *
  * Только PNG. Причины те же, что и у остальных загрузок: SVG-favicon
@@ -36,12 +36,20 @@ declare(strict_types=1);
  * сбрасывать сразу два ключа, иначе старый кандидат продолжал
  * показываться. Один PNG - одна настройка.
  *
- * Буква - латиница и цифры, одна штука. Встроенный шрифт GD
- * (imagestring) умеет только ASCII, а TTF-шрифт ради одной буквы
- * тащить в проект не стали: кириллица в генераторе не поддерживается
- * осознанно, и для неё есть загрузка своей иконки. Заглушки вроде
- * «?» не рисуются - она бы выглядела как рабочая иконка и молча
- * осталась бы после смены буквы.
+ * Размер 128x128, а не 64x64: на вкладке иконка показывается в 16-32px,
+ * но экраны с удвоенной плотностью пикселей берут её из файла как есть,
+ * и 64-пиксельная иконка на Retina выглядит заметно мыльнее.
+ *
+ * Буква рисуется TTF-шрифтом DejaVuSans-Bold (assets/fonts), крупно -
+ * 70% размера иконки: во встроенном шрифте GD глиф занимал четверть
+ * квадрата и выглядел точкой. Если шрифта нет (странная сборка PHP,
+ * вырезанный каталог), рисуется встроенный шрифт - маленький, но
+ * рабочий, и иконка не пропадает вовсе.
+ *
+ * Цвет буквы задаётся вручную или подбирается автоматически по
+ * контрасту с фоном: тёмный фон - светлая буква, светлый - тёмная.
+ * Формула - стандартная яркость ITU-R BT.601, тот же вес каналов, что
+ * в JPEG и в CSS-функции luminance.
  */
 
 if (!function_exists('favicon_letter_error')) {
@@ -51,6 +59,10 @@ if (!function_exists('favicon_letter_error')) {
      * Пустая строка означает «подходит». Отдельная проверка нужна,
      * потому что saveSettings должен сказать админу причину отказа, а
      * generate_favicon() молча вернёт null.
+     *
+     * Кириллица теперь проходит: TTF-шрифт умеет любые глифы, а вот
+     * встроенный шрифт GD (запасной путь без шрифта) - только ASCII,
+     * поэтому кириллица допускается лишь при наличии шрифта.
      */
     function favicon_letter_error(string $letter): string
     {
@@ -58,10 +70,52 @@ if (!function_exists('favicon_letter_error')) {
         if ($letter === '') {
             return 'favicon_letter_empty';
         }
-        if (preg_match('/^[A-Za-z0-9]$/', $letter) !== 1) {
+        $hasFont = is_file(__DIR__ . '/../assets/fonts/DejaVuSans-Bold.ttf');
+        if (mb_strlen($letter, 'UTF-8') !== 1) {
             return 'favicon_letter_unsupported';
         }
-        return '';
+        // Латиница и цифры рисуются всегда. Кириллица - только шрифтом.
+        if (preg_match('/^[A-Za-z0-9]$/', $letter) === 1) {
+            return '';
+        }
+        return $hasFont ? '' : 'favicon_letter_unsupported';
+    }
+}
+
+if (!function_exists('favicon_font_path')) {
+    /**
+     * Путь к шрифту иконки или null, если шрифта нет.
+     */
+    function favicon_font_path(): ?string
+    {
+        $path = __DIR__ . '/../assets/fonts/DejaVuSans-Bold.ttf';
+        return is_file($path) ? $path : null;
+    }
+}
+
+if (!function_exists('favicon_text_color_auto')) {
+    /**
+     * Цвет буквы по контрасту с фоном.
+     *
+     * Возвращается чёрный или белый: смешанный цвет по яркости читается
+     * хуже, чем чистый, а задача иконки - читаться на 16 пикселях.
+     *
+     * @return string чёрный ('#000000') или белый ('#ffffff')
+     */
+    function favicon_text_color_auto(string $bgColor): string
+    {
+        if (preg_match('/^#([0-9a-fA-F]{6})$/', $bgColor, $m) !== 1) {
+            return '#000000';
+        }
+        $hex = $m[1];
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+
+        // BT.601: веса каналов те же, что в JPEG и в CSS luminance.
+        $luminance = (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255;
+
+        return $luminance > 0.6 ? '#000000' : '#ffffff';
     }
 }
 
@@ -73,80 +127,103 @@ if (!function_exists('favicon_png_bytes')) {
      * потом сохранится, а значит рисовать тем же кодом. Побочный
      * эффект тот же - если картинка рисуется, она уже валидна.
      *
+     * @param string $letter    буква или цифра
+     * @param string $bgColor   фон, #rrggbb
+     * @param string $textColor цвет буквы, #rrggbb; 'auto' - по контрасту
+     * @param int $size         сторона квадрата, по умолчанию 128 (Retina)
      * @return string|null бинарный PNG или null, если буква не подходит
      */
-    function favicon_png_bytes(string $letter, string $bgColor): ?string
+    function favicon_png_bytes(string $letter, string $bgColor, string $textColor = 'auto', int $size = 128): ?string
     {
         if (favicon_letter_error($letter) !== '' || !function_exists('imagecreatetruecolor')) {
             return null;
         }
+        $size = max(16, min(512, $size));
 
-        // 64x64 - размер, который вкладка показывает без масштабирования
-        // на обычном экране, и который все браузеры умеют хранить в
-        // кеше как отдельную иконку.
-        $size = 64;
-
-        // Цвет фона: только #rrggbb. Без прозрачности и без градиента -
-        // иконка должна читаться в светлой и тёмной теме браузера, и
-        // произвольная строка сюда пробрасываться не должна.
-        if (preg_match('/^#[0-9a-fA-F]{6}$/', $bgColor) !== 1) {
-            $bgColor = '#7C3AED';
+        // Цвета: только #rrggbb. Произвольная строка сюда не пробрасывается:
+        // значение попадает в input type=color на следующем открытии
+        // формы, и мусор в нём сломал бы сам пикер.
+        if (preg_match('/^#([0-9a-fA-F]{6})$/', $bgColor, $m) !== 1) {
+            // Матч не удался: $m после preg_match пуст, а ниже читается
+            // группа $m[1]. Ключ задать нельзя как в матче - [0] это
+            // полное совпадение, группа живёт в [1].
+            $bgColor = '#C99CFF';
+            $m = [1 => 'C99CFF'];
         }
-        $r = hexdec(substr($bgColor, 1, 2));
-        $g = hexdec(substr($bgColor, 3, 2));
-        $b = hexdec(substr($bgColor, 5, 2));
+        $br = hexdec(substr($m[1], 0, 2));
+        $bg = hexdec(substr($m[1], 2, 2));
+        $bb = hexdec(substr($m[1], 4, 2));
+
+        if ($textColor === 'auto' || $textColor === '') {
+            $textColor = favicon_text_color_auto($bgColor);
+        }
+        if (preg_match('/^#([0-9a-fA-F]{6})$/', $textColor, $m) !== 1) {
+            $textColor = '#000000';
+            $m = [1 => '000000'];
+        }
+        $tr = hexdec(substr($m[1], 0, 2));
+        $tg = hexdec(substr($m[1], 2, 2));
+        $tb = hexdec(substr($m[1], 4, 2));
 
         $im = imagecreatetruecolor($size, $size);
         if ($im === false) {
             return null;
         }
 
-        // imagesavealpha обязателен. Без него GD всё равно рисует
-        // полупрозрачные цвета, но в файл альфа-канал не попадает:
-        // скруглённые углы становились белыми. Рисование начинается
-        // при выключенном смешивании - заливка цвета смешалась бы с
-        // прозрачной подложкой и стала бы полупрозрачной.
-        imagealphablending($im, false);
-        imagesavealpha($im, true);
-
         // Скруглённый квадрат. GD не умеет скруглённые прямоугольники, и
         // тянуть за это curve-функции в проект не хочется: скругление
         // рисуется вручную - сначала весь квадрат заливается
         // прозрачным, потом цветом заливаются полосы и четыре круга в
-        // углах. Восемь imagefilledellipse.
-        $radius = 12;
+        // углах.
+        //
+        // imagesavealpha обязателен: без него GD рисует полупрозрачные
+        // цвета, но в файл альфа не попадает - углы становились белыми.
+        // Заливка идёт при выключенном смешивании, иначе цвет
+        // смешался бы с прозрачной подложкой и стал полупрозрачным.
+        imagealphablending($im, false);
+        imagesavealpha($im, true);
+
+        $radius = (int) round($size * 0.1875); // 24px при 128
         $transparent = imagecolorallocatealpha($im, 0, 0, 0, 127);
         imagefill($im, 0, 0, $transparent);
-        $bg = imagecolorallocate($im, $r, $g, $b);
-        imagefilledrectangle($im, $radius, 0, $size - 1 - $radius, $size - 1, $bg);
-        imagefilledrectangle($im, 0, $radius, $size - 1, $size - 1 - $radius, $bg);
-        imagefilledellipse($im, $radius, $radius, $radius * 2, $radius * 2, $bg);
-        imagefilledellipse($im, $size - 1 - $radius, $radius, $radius * 2, $radius * 2, $bg);
-        imagefilledellipse($im, $radius, $size - 1 - $radius, $radius * 2, $radius * 2, $bg);
-        imagefilledellipse($im, $size - 1 - $radius, $size - 1 - $radius, $radius * 2, $radius * 2, $bg);
+        $bgAlloc = imagecolorallocate($im, $br, $bg, $bb);
+        imagefilledrectangle($im, $radius, 0, $size - 1 - $radius, $size - 1, $bgAlloc);
+        imagefilledrectangle($im, 0, $radius, $size - 1, $size - 1 - $radius, $bgAlloc);
+        imagefilledellipse($im, $radius, $radius, $radius * 2, $radius * 2, $bgAlloc);
+        imagefilledellipse($im, $size - 1 - $radius, $radius, $radius * 2, $radius * 2, $bgAlloc);
+        imagefilledellipse($im, $radius, $size - 1 - $radius, $radius * 2, $radius * 2, $bgAlloc);
+        imagefilledellipse($im, $size - 1 - $radius, $size - 1 - $radius, $radius * 2, $radius * 2, $bgAlloc);
 
-        // Буква рисуется при включённом смешивании: глиф непрозрачный,
-        // и при выключенном белый просто записался бы поверх
-        // пикселей вместе с их альфой, то есть углы буквы стали бы
-        // дырявыми.
+        // Буква - при включённом смешивании: глиф непрозрачный, и при
+        // выключенном его цвет записался бы поверх пикселей вместе с
+        // их альфой, то есть углы буквы стали бы дырявыми.
         imagealphablending($im, true);
 
-        // Буква белым по центру. imagestring рисует в верхнем левом углу
-        // рамки заданного размера, поэтому считаем смещение от реальной
-        // ширины глифа, а не от размера шрифта.
-        $white = imagecolorallocate($im, 255, 255, 255);
-        $font = 5;
-        $letter = strtoupper(trim($letter));
-        $textWidth = imagefontwidth($font);
-        $textHeight = imagefontheight($font);
-        imagestring(
-            $im,
-            $font,
-            (int) (($size - $textWidth) / 2),
-            (int) (($size - $textHeight) / 2),
-            $letter,
-            $white
-        );
+        $letter = mb_strtoupper(mb_substr(trim($letter), 0, 1, 'UTF-8'), 'UTF-8');
+        $textAlloc = imagecolorallocate($im, $tr, $tg, $tb);
+
+        $fontPath = favicon_font_path();
+        if ($fontPath !== null) {
+            // Крупная буква: 70% стороны квадрата, как в оригинальном
+            // SVG. imagettfbbox возвращает рамку глифа: левый-верхний
+            // угол не в (0,0), и смещение обязано учитывать это, иначе
+            // буква уползала бы вниз-вправо.
+            $fontSize = (int) round($size * 0.7);
+            $bbox = imagettfbbox($fontSize, 0, $fontPath, $letter);
+            if ($bbox !== false) {
+                $textWidth = abs($bbox[2] - $bbox[0]);
+                $textHeight = abs($bbox[1] - $bbox[7]);
+                $x = (int) (($size - $textWidth) / 2 - $bbox[0]);
+                $y = (int) (($size + $textHeight) / 2 - $bbox[1]);
+                imagettftext($im, $fontSize, 0, $x, $y, $textAlloc, $fontPath, $letter);
+            }
+        } else {
+            // Запасной путь без шрифта: встроенный шрифт GD, маленький.
+            $font = 5;
+            $x = (int) (($size - imagefontwidth($font)) / 2);
+            $y = (int) (($size - imagefontheight($font)) / 2);
+            imagestring($im, $font, $x, $y, $letter, $textAlloc);
+        }
 
         // Вывод в память: level 9, как и у остальных PNG проекта.
         ob_start();
@@ -165,11 +242,14 @@ if (!function_exists('generate_favicon')) {
      * Путь фиксированный: branding/favicon.png. Один путь, одна
      * настройка site_favicon_png_url, без варианта с именем из POST.
      *
+     * @param string $letter    буква или цифра
+     * @param string $bgColor   фон, #rrggbb
+     * @param string $textColor цвет буквы, #rrggbb; 'auto' - по контрасту
      * @return string|null путь от корня сайта или null, если не вышло
      */
-    function generate_favicon(string $letter, string $bgColor): ?string
+    function generate_favicon(string $letter, string $bgColor, string $textColor = 'auto'): ?string
     {
-        $bytes = favicon_png_bytes($letter, $bgColor);
+        $bytes = favicon_png_bytes($letter, $bgColor, $textColor);
         if ($bytes === null) {
             return null;
         }
@@ -221,7 +301,10 @@ if (!function_exists('store_favicon_upload')) {
             return ['ok' => false, 'url' => '', 'error' => 'branding_image'];
         }
 
-        $size = 64;
+        // 128x128, как у генератора: Retina-экраны берут иконку из
+        // файла как есть, и на удвоенной плотности половинный размер
+        // выглядел бы мыльным.
+        $size = 128;
         $im = imagecreatetruecolor($size, $size);
         if ($im === false) {
             return ['ok' => false, 'url' => '', 'error' => 'branding_image'];

@@ -297,20 +297,25 @@ foreach ($sockets as $id => $type) {
 // как шаблон. Значения ниже - дефолты демо-проекта, их правит админ на
 // вкладке «Настройки сайта».
 //
-// Фавиконов два: svg для современных браузеров и png для старых, которые
-// svg не понимают. Одним ключом не обойтись - старый браузер показал бы
-// иконку браузера по умолчанию.
+// Favicon один и только PNG: его рисует генератор из буквы и цветов,
+// см. modules/image.php (ПРАВКА 5).
 $settings = [
+    // ПРАВКА 1: контакты и карта заполняются дефолтами, а не пустыми
+    // строками. Раньше ссылки соцсетей создавались пустыми, и чистая
+    // база поднималась без единого способа связи: блок «Свяжитесь с
+    // нами» на главной показывал только телефон и почту, а иконки
+    // соцсетей исчезали. Дефолт ведёт на страницу проекта - это честнее,
+    // чем пустота: админ видит незаполненное поле сразу.
     'map_address_text' => 'Москва, ул. Победы, д. 15',
     'map_lat' => '55.7558',
     'map_lng' => '37.6173',
-    'map_zoom' => '14',
+    'map_zoom' => '12',
     'map_snapshot_url' => '',
-    'contact_phone' => '+7 (999) 999-99-99',
+    'contact_phone' => '+7 (987) 654-32-10',
     'contact_email' => 'mail@mail.ru',
-    'contact_vk' => '',
-    'contact_telegram' => '',
-    'contact_whatsapp' => '',
+    'contact_vk' => 'https://github.com/nymphernus/aion-corp',
+    'contact_telegram' => 'https://github.com/nymphernus/aion-corp',
+    'contact_whatsapp' => 'https://github.com/nymphernus/aion-corp',
     // Stage 9: брендинг. Название одно - site_name. Раньше было два ключа
     // («короткое» и «полное»), но различать их было незачем: в шапке,
     // подвале, заголовке вкладки и на главной всё равно требовалось одно
@@ -324,10 +329,13 @@ $settings = [
     // ПРАВКА 4: favicon делает генератор в branding/. Ключ
     // site_favicon_url (svg) удалён миграцией ниже.
     'site_favicon_png_url' => '/assets/images/branding/favicon.png',
-    // Буква и цвет иконки. Их два, потому что буква без цвета даёт
-    // чёрно-белую иконку, а цвет без буквы - просто квадрат.
+    // Буква и цвета иконки. Дефолт - светлый фиолет #C99CFF с чёрной
+    // буквой: так выглядел оригинальный SVG, и генератор повторяет его
+    // по умолчанию. favicon_auto_color = 0 означает ручной цвет буквы.
     'favicon_letter' => 'A',
-    'favicon_bg' => '#7C3AED',
+    'favicon_bg' => '#C99CFF',
+    'favicon_text' => '#000000',
+    'favicon_auto_color' => '0',
 ];
 foreach ($settings as $key => $value) {
     $stmt = db_prepare($mysql, "SELECT COUNT(*) FROM site_settings WHERE setting_key = ?", "s", $key);
@@ -455,12 +463,14 @@ if (file_exists($faviconFile)) {
         $fav[$row['setting_key']] = (string) $row['setting_value'];
     }
     $letter = $fav['favicon_letter'] ?? 'A';
-    $bg = $fav['favicon_bg'] ?? '#7C3AED';
+    $bg = $fav['favicon_bg'] ?? '#C99CFF';
+    $auto = ($fav['favicon_auto_color'] ?? '0') === '1';
+    $text = $auto ? 'auto' : ($fav['favicon_text'] ?? '#000000');
     if (!$dryRun && function_exists('generate_favicon')) {
-        $made = generate_favicon($letter, $bg);
-        mig_log($made !== null ? "  [favicon] сгенерирован из буквы $letter, цвет $bg" : "  [favicon] не удалось сгенерировать");
+        $made = generate_favicon($letter, $bg, $text);
+        mig_log($made !== null ? "  [favicon] сгенерирован из буквы $letter, фон $bg" : "  [favicon] не удалось сгенерировать");
     } else {
-        mig_log("  [favicon] dry-run: был бы сгенерирован из буквы $letter, цвет $bg");
+        mig_log("  [favicon] dry-run: был бы сгенерирован из буквы $letter, фон $bg");
     }
 }
 

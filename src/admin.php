@@ -702,7 +702,7 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
         'map_address_text',
         'site_name', 'site_description', 'site_founded_year',
         'site_logo_url', 'site_favicon_png_url',
-        'favicon_letter', 'favicon_bg',
+        'favicon_letter', 'favicon_bg', 'favicon_text', 'favicon_auto_color',
     ];
 
     $values = [];
@@ -764,7 +764,7 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
         $values['site_logo_url'] = $logo['url'];
     }
 
-    // ПРАВКА 4: favicon - только PNG, и два способа его получить.
+    // ПРАВКА 5: favicon - только PNG, и два способа его получить.
     //
     // Загруженный файл важнее сгенерированного: если админ выбрал свою
     // иконку, генератор не должен тут же переписать её своей буквой.
@@ -789,18 +789,38 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
         if ($letterError !== '') {
             $errors[] = $letterError;
         } else {
-            $path = generate_favicon($letter, (string) ($_POST['favicon_bg'] ?? '#7C3AED'));
+            // Авто-цвет буквы: галочка в форме. В настройке он хранится как
+            // '1'/'0', а цвет буквы при авто - пустая строка: ручной
+            // цвет при включённом авто потерялся бы, и после снятия
+            // галочки пикер показывал бы его же, а не последнее
+            // введённое значение.
+            //
+            // Ручной цвет нормализуется ДО генерации, а не после: иначе
+            // при пустом поле PNG рисовался бы с авто-контрастом, а в
+            // настройку писался бы '#000000', и файл расходился бы с
+            // тем, что форма покажет при следующем открытии.
+            $auto = ($_POST['favicon_auto_color'] ?? '') === '1';
+            if ($auto) {
+                $text = 'auto';
+            } else {
+                $manual = (string) ($_POST['favicon_text'] ?? '');
+                $text = preg_match('/^#[0-9a-fA-F]{6}$/', $manual) === 1 ? $manual : '#000000';
+            }
+
+            $path = generate_favicon($letter, (string) ($_POST['favicon_bg'] ?? '#C99CFF'), $text);
             if ($path === null) {
                 $errors[] = 'favicon_generate';
             } else {
                 $values['site_favicon_png_url'] = $path;
-                // Буква и цвет сохраняются здесь, а не только из
-                // белого списка: там они прошли бы trim без всякой
-                // проверки, и в поле цвета попал бы мусор, который
-                // input type=color не покажет.
+                // Буква и цвета сохраняются здесь, а не только из
+                // белого списка: там они прошли бы trim без проверки, и
+                // в поле цвета попал бы мусор, который input type=color
+                // не покажет.
                 $values['favicon_letter'] = $letter;
                 $bg = (string) ($_POST['favicon_bg'] ?? '');
-                $values['favicon_bg'] = preg_match('/^#[0-9a-fA-F]{6}$/', $bg) === 1 ? $bg : '#7C3AED';
+                $values['favicon_bg'] = preg_match('/^#[0-9a-fA-F]{6}$/', $bg) === 1 ? $bg : '#C99CFF';
+                $values['favicon_auto_color'] = $auto ? '1' : '0';
+                $values['favicon_text'] = $auto ? '' : $text;
             }
         }
     }
@@ -837,9 +857,9 @@ if ($isAdmin && isset($_POST['saveSettings'])) {
     exit();
 }
 
-// ПРАВКА 4: предпросмотр favicon. Отдельный обработчик, потому что ответ
-// здесь - не страница, а поток PNG: он показывается прямо в поле формы,
-// до нажатия «Сохранить».
+// ПРАВКА 4/5: предпросмотр favicon. Отдельный обработчик, потому что
+// ответ здесь - не страница, а поток PNG: он показывается прямо в
+// поле формы, до нажатия «Сохранить».
 //
 // Файл не пишется: generate_favicon() создал бы branding/favicon.png
 // поверх текущей иконки, и «Сохранить» после предпросмотра уже ничего
@@ -856,7 +876,15 @@ if ($isAdmin && isset($_POST['preview_favicon'])) {
         exit($letterError);
     }
 
-    $bytes = favicon_png_bytes($letter, (string) ($_POST['favicon_bg'] ?? '#7C3AED'));
+    // Авто-цветбуквы - та же логика, что в saveSettings.
+    $auto = ($_POST['favicon_auto_color'] ?? '') === '1';
+    $text = $auto ? 'auto' : (string) ($_POST['favicon_text'] ?? '');
+
+    $bytes = favicon_png_bytes(
+        $letter,
+        (string) ($_POST['favicon_bg'] ?? '#C99CFF'),
+        $text
+    );
     if ($bytes === null) {
         http_response_code(500);
         header('Content-Type: text/plain; charset=utf-8');
