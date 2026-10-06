@@ -215,7 +215,19 @@ $resultSocial->free();
                  URL был невозможен. Теперь id на самом блоке, и
                  scroll-margin-top (style.css) опускает его под шапку. -->
             <div class="container_pc" id="assembly">
-                <div class="container_select">
+                <div class="builds-slider-wrap">
+                    <button type="button" class="builds-slider__nav builds-slider__nav--prev"
+                            data-action="scroll-builds" data-direction="-1"
+                            aria-label="Предыдущая сборка"
+                            hidden>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+
+                    <div class="container_select builds-slider" id="buildsSlider">
                         <?php foreach ($homeBuilds as $homeBuild): ?>
                             <?php
                             // Строка памяти собирается из колонок, а не из названия:
@@ -281,6 +293,18 @@ $resultSocial->free();
                             </a>
                         <?php endforeach; ?>
                     </div>
+
+                    <button type="button" class="builds-slider__nav builds-slider__nav--next"
+                            data-action="scroll-builds" data-direction="1"
+                            aria-label="Следующая сборка"
+                            hidden>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
 <section class="cfg" id="configurator">

@@ -310,14 +310,15 @@ body::-webkit-scrollbar-thumb {
 	background-size: cover;
 
 }
-.container_select{
-	display: flex;
-	border-radius: 20px;
-	width: 85%;
-	height: 85%;
-	justify-content: center;
-    align-items: center;
-}
+/* Старое правило .container_select (display: flex, width: 85%,
+   justify-content: center) удалено. Оно оставалось в файле, хотя
+   разметка давно использует .builds-slider, и приносило два вреда:
+   justify-content: center в flex с переполнением отбрасывал первую
+   карточку за левый край ленты, до которого нельзя доскроллить
+   (замер: scrollWidth 800px вместо 1044px, карточка на left=-160px
+   при scrollLeft: 0), а width: 85% на узком экране оставлял под
+   карточку меньше её ширины. Оформление перенесено в блок
+   .builds-slider ниже. */
 
 
 /*СБОРКИ*/
@@ -413,35 +414,141 @@ body::-webkit-scrollbar-thumb {
 
 
 
-/* === Современные карточки сборок ===
+/* === Современные карточки сборок + слайдер ===
    Новый блок поверх старых правил секции сборок. Старые классы
    (.element_select, .select_image, .cont_img, .figure_par, .cont_text)
    в файле остались, но разметка их больше не использует.
 
-   Единственное добавление к спецификации - align-items: stretch в
-   .container_select. Старое правило в секции CONTAINERS задаёт этой же
-   сетке align-items: center, и без сброса карточки в гриде не
-   растягивались бы по высоте, а центрировались по вертикали. Числа
-   спецификации не тронуты. */
-.container_select {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+   Слайдер: на узких экранах карточки листаются стрелками по бокам
+   вместо переноса. Перенос был причиной жалобы «третья пропадает»:
+   при окне 800px сетка давала две колонки, третья карточка вставала
+   на top=1340 при высоте .container_pc 664px, и overflow: hidden её
+   срезал. Лента со scroll-snap держит высоту карточки, а не число
+   колонок, поэтому ничего не теряется.
+
+   Имя .container_select сохранено и дополнено .builds-slider: старый
+   блок правил убран, но разметка секции на имя класса опирается, и
+   переименование задело бы другие правила файла. */
+.builds-slider-wrap {
+    position: relative;
+    max-width: 1440px;
+    margin: 0 auto;
+    /* место под стрелки: они absolute и не должны лежать на карточках */
+    padding: 0 56px;
+}
+.container_select.builds-slider {
+    display: flex;
     gap: 28px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* Тень карточки при hover не должна срезаться скролл-контейнером,
+       а правый отступ в зазор нужен, чтобы последняя карточка могла
+       встать в начало кадра при snap: без него scroll-snap не находит
+       для неё достижимой позиции и листание заканчивается недоездом. */
+    padding: 8px 28px 8px 0;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+/* На узких экранах лента занимает всю ширину: отступы по 48px под
+   стрелки и так съедают почти треть экрана, а карточка должна
+   помещаться целиком (замер: при width: 85% лента была 237px при
+   карточке 272px — не влезала). На широком экране ограничение
+   max-width остаётся: там сетка из трёх колонок, и это часть
+   оформления. */
+@media (max-width: 1024px) {
+    .container_select.builds-slider {
+        width: 100%;
+        max-width: none;
+    }
+}
+.container_select.builds-slider::-webkit-scrollbar {
+    display: none;
+}
+.builds-slider .build {
+    /* ширина фиксированная: скролл-шаг в JS считает её у первой карточки,
+       при auto он был бы разным и стрелки листали бы на разное число */
+    flex: 0 0 320px;
+    scroll-snap-align: start;
+}
+
+@media (min-width: 1025px) {
+    .builds-slider-wrap {
+        padding: 0;
+    }
+    .container_select.builds-slider {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        overflow: visible;
+        /* сетка выравнивает по колонкам, snap здесь не нужен */
+        scroll-snap-type: none;
+    }
+    .builds-slider .build {
+        flex-basis: auto;
+    }
+    /* стрелок на широком экране нет: листать нечего */
+    .builds-slider__nav {
+        display: none !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .builds-slider-wrap {
+        padding: 0 48px;
+    }
+    /* 272px, а не 280: при экране 375px под стрелки уходит 48px с
+       каждой стороны, остаётся 279px. Карточка 280px не влезала
+       целиком и обрезалась справа на 1px (замер: лента 279px). */
+    .builds-slider .build {
+        flex: 0 0 272px;
+    }
+}
+
+/* Стрелки. Показываются через JS: скрытая стрелка означает «в эту
+   сторону листать нечего». display: flex при показе. */
+.builds-slider__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    z-index: 2;
+    transition: 150ms;
+    padding: 0;
+}
+.builds-slider__nav:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.2);
+}
+.builds-slider__nav--prev { left: 4px; }
+.builds-slider__nav--next { right: 4px; }
+.builds-slider__nav[hidden] { display: none; }
+
+/* Контейнер сетки на широком экране. Способ раскладки (flex со
+   scroll-snap на узком, grid из трёх колонок на широком) задан выше,
+   в блоке слайдера. Здесь только рамка, отступы и выравнивание по
+   высоте: без align-items: stretch карточки в гриде центрировались бы
+   по вертикали и были бы разной высоты. */
+.container_select {
     max-width: 1440px;
     margin: 0 auto;
     padding: 40px 32px;
     align-items: stretch;
     height: auto;
-}
-@media (max-width: 1024px) {
-    .container_select {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-@media (max-width: 640px) {
-    .container_select {
-        grid-template-columns: 1fr;
-    }
 }
 
 /* === Карточка === */
@@ -956,9 +1063,10 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     .hero__lead {
         font-size: 18px;
     }
-    .container_select {
-        flex-wrap: wrap;
-    }
+    /* .container_select раньше переносился здесь через flex-wrap: wrap,
+       и третья карточка уходила вниз, где её срезал overflow: hidden
+       у .container_pc. Теперь на узких экранах контейнер не переносится,
+       а листается стрелками по бокам (см. блок .builds-slider выше). */
     /* прежние правила для .container_about, .cont_shell_about и
        .about_map в этой медиа-ветке удалены вместе с разметкой секции.
        Адаптив контактов живёт ниже, в своём @media, ближе к правилам. */
@@ -1008,10 +1116,10 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     .cont_shell {
         width: 100%;
     }
-    .container_select {
-        flex-direction: column;
-        height: auto;
-    }
+    /* Секция сборок на мобильном: контейнер по содержимому, без
+       обрезки. Старые flex-wrap и flex-direction: column убраны выше -
+       они превращали слайдер в вёртикальную ленту, и стрелки
+       «влево-вправо» листали бы не туда. */
     .container_pc {
         height: auto;
         overflow: visible;

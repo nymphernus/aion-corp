@@ -759,6 +759,107 @@ document.addEventListener('input', function(e) {
 });
 
 
+/* 7: слайдер готовых сборок.
+   На узком экране карточки не переносятся, а листаются по горизонтали.
+   Стрелки по бокам появляются только когда есть куда листать: в начале
+   скрыта «назад», в конце - «вперёд». На широком экране всё это скрыто
+   через CSS (display: none у .builds-slider__nav), а updateNav решает
+   по факту переполнения.
+
+   Шаг листания берём у реальной карточки и зазора из CSS, а не задаём
+   числом: ширина карточки 320px, но на узком экране 280px, и жёстко
+   прописанный шаг промахивался бы на половину карточки. */
+(function() {
+    const slider = document.getElementById('buildsSlider');
+    if (!slider) return;
+
+    const wrap = slider.closest('.builds-slider-wrap');
+    if (!wrap) return;
+
+    const prev = wrap.querySelector('[data-direction="-1"]');
+    const next = wrap.querySelector('[data-direction="1"]');
+
+    // Погрешность в несколько пикселей: при округлении scrollLeft
+    // браузер даёт 90.00001 вместо 90, и стрелка «вперёд» мигала бы
+    // на последней карточке.
+    const EPS = 8;
+
+    function updateNav() {
+        if (!prev || !next) return;
+
+        const maxScroll = slider.scrollWidth - slider.clientWidth;
+        if (maxScroll <= EPS) {
+            // Переполнения нет: листать некуда, стрелки не нужны.
+            prev.hidden = true;
+            next.hidden = true;
+            return;
+        }
+
+        /* Конец ленты считаем не как scrollWidth - clientWidth, а как
+           последнюю позицию, до которой лента реально доедет.
+           scroll-snap-type: mandatory не даёт остановиться между
+           карточками, поэтому на узком экране scrollLeft упирается в
+           начало последней карточки (замер на 375px: maxScroll 621px,
+           а лента встаёт на 600px). По scrollWidth стрелка «вперёд»
+           считалась бы видимой и на последней карточке, и клик по ней
+           не двигал бы ленту - то есть стрелка врёт. */
+        const cards = slider.querySelectorAll('.build');
+        let reach = maxScroll;
+        if (cards.length) {
+            const last = cards[cards.length - 1];
+            // offsetLeft отсчитывается от прокручиваемого контейнера,
+            // если тот позиционирован, иначе - от ближайшего
+            // позиционированного предка, и значение будет чужим.
+            const origin = slider.getBoundingClientRect().left;
+            const lastLeft = last.getBoundingClientRect().left - origin
+                + slider.scrollLeft;
+            if (lastLeft < reach) reach = lastLeft;
+        }
+
+        const left = slider.scrollLeft;
+        prev.hidden = left <= EPS;
+        next.hidden = left >= reach - EPS;
+    }
+
+    function scrollBy(direction) {
+        const card = slider.querySelector('.build');
+        if (!card) return;
+
+        // зазор берём из computedStyle: в CSS он 28px, и дублировать
+        // число здесь значило бы забыть про него при правке оформления
+        const styles = getComputedStyle(slider);
+        const gap = parseFloat(styles.columnGap || styles.gap) || 0;
+
+        slider.scrollBy({
+            left: (card.offsetWidth + gap) * direction,
+            behavior: 'smooth'
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-action="scroll-builds"]');
+        if (!btn) return;
+        // Стрелка стоит рядом с карточками, но внутри их общей обёртки.
+        // Без preventDefault кнопка отдала бы форму, если бы оказалась
+        // внутри неё.
+        e.preventDefault();
+        scrollBy(parseInt(btn.dataset.direction, 10) || 1);
+    });
+
+    slider.addEventListener('scroll', updateNav, { passive: true });
+    window.addEventListener('resize', updateNav);
+
+    /* Первый замер делаем сразу и повторяем в requestAnimationFrame.
+       Одного rAF мало по двум причинам. Если картинки в карточках
+       грузятся позже скрипта, ширина ленты на прямом вызове ещё
+       старая, и стрелки скрылись бы зря. И в скрытой вкладке rAF не
+       вызывается вовсе, а стрелки остались бы скрытыми до первого
+       клика по странице - на узком экране их бы нечем было открыть. */
+    updateNav();
+    requestAnimationFrame(updateNav);
+})();
+
+
 // 7: блок «Верификация» в модалке пользователя.
 //
 // Четыре состояния на контакт, по ТЗ:
