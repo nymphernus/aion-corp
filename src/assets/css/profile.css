@@ -654,37 +654,129 @@ h1{
     max-height: 80px;
     object-fit: contain;
 }
-/* favicon показывается в натуральную величину - судить надо о том, как
-   его увидит браузер на вкладке, а не о размере превью */
-.branding-preview--icon img {
-    width: 32px;
-    height: 32px;
-}
 .branding-preview img.is-loaded {
     border-radius: 4px;
 }
 
-/* ПРАВКА 5: галочка «авто» рядом с подписью «Цвет буквы». Она часть
-   подписи, а не отдельное поле, поэтому text-transform: none - в
-   подписях формы буквы заглавные, а слово «авто» так и пишется.
-   Выключенный пикер цвета показывает, что ручной цвет не действует:
-   просто серый input вводил бы в заблуждение - выглядит рабочим. */
-.favicon-auto-label {
+/* ПРАВКА 5: favicon в одну-две строки. До этого блок занимал три
+   экрана: превью в боксе с пунктирной рамкой, поля в столбик (колонка
+   админки 463px, а .form-row там переносится), плюс <label> «авто» был
+   вложен в <label> - невалидная вёрстка, из-за которой галочка липла
+   к подписи. Теперь всё в flex-строке с переносом, а «авто» это span
+   внутри подписи: вложенный label внутри label браузеры чинят
+   по-разному. */
+
+.favicon-row {
+    display: flex;
+    gap: 14px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    padding: 10px 0 4px;
+}
+
+.favicon-preview-wrap {
+    flex-shrink: 0;
+}
+
+.favicon-preview {
+    display: block;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+}
+
+.favicon-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Подпись поля: мелкая, заглавная, разрядка. Галочка «авто» живёт
+   внутри неё, поэтому у этой подписи text-transform не применяется
+   к вложенному span - иначе «АВТО» выглядело бы криком. */
+.favicon-field__label {
     font-size: 11px;
     color: var(--text-secondary);
-    font-weight: 400;
-    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* Кнопки прижаты к низу строки, а не висят по центру: с flex-end они
+   встают вровень с полями, и строка читается как одна полоса. */
+.favicon-field--btn {
+    justify-content: flex-end;
+}
+
+.input--compact {
+    width: 60px;
+    padding: 8px 10px;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Свой input[type=color]: без appearance:none браузер рисует поверх
+   свою рамку и служебную полосу, и пикер выглядит сломанным. */
+.favicon-color {
+    width: 60px;
+    height: 38px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
     cursor: pointer;
-    text-transform: none;
-    letter-spacing: 0;
+    appearance: none;
+    -webkit-appearance: none;
 }
-.favicon-auto-label input[type="checkbox"] {
-    vertical-align: middle;
-    margin: 0 3px 0 0;
+
+.favicon-color::-webkit-color-swatch-wrapper {
+    padding: 0;
 }
-#faviconText:disabled {
+
+.favicon-color::-webkit-color-swatch {
+    border: none;
+    border-radius: 5px;
+}
+
+.favicon-color::-moz-color-swatch {
+    border: none;
+    border-radius: 5px;
+}
+
+.favicon-color:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+/* Галочка «авто». span, а не label: подпись поля уже label, и вкладывать
+   в неё ещё один label нельзя. */
+.favicon-auto {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: pointer;
+    margin-left: 2px;
+}
+
+.favicon-auto input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    width: 12px;
+    height: 12px;
+    /* Акцент проекта - --accent; --primary в проекте не существует,
+       и без фолбэка галочка красилась бы дефолтным синим. */
+    accent-color: var(--accent, #2563EB);
 }
 
 @media (max-width: 700px) {

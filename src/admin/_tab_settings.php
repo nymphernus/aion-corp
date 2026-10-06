@@ -147,84 +147,90 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
                                 <p class="form-hint">Отображается в подвале как «© 2022 Название».</p>
                             </div>
 
-                            <div class="modal-row">
-                                <div class="form-group">
-                                    <label class="form-label">Логотип</label>
-                                    <div class="branding-preview">
-                                        <img src="<?= escape(site_setting($settings, 'site_logo_url', '/assets/images/logo.png')) ?>"
-                                             alt="Логотип" id="logoPreview">
-                                    </div>
-                                    <input type="hidden" name="site_logo_url"
-                                           value="<?= escape(site_setting($settings, 'site_logo_url')) ?>">
-                                    <label class="btn btn--secondary btn--sm">
-                                        <input type="file" id="brandingLogoInput"
-                                               name="branding_logo"
-                                               accept="image/png,image/jpeg,image/webp,image/gif"
-                                               style="display:none">
-                                        Загрузить новый логотип
-                                    </label>
-                                    <p class="form-hint">PNG, JPG, WebP до 2 МБ. Ширина уменьшается до 400px</p>
+                            <div class="form-group">
+                                <label class="form-label">Логотип</label>
+                                <div class="branding-preview">
+                                    <img src="<?= escape(site_setting($settings, 'site_logo_url', '/assets/images/logo.png')) ?>"
+                                         alt="Логотип" id="logoPreview">
+                                </div>
+                                <input type="hidden" name="site_logo_url"
+                                       value="<?= escape(site_setting($settings, 'site_logo_url')) ?>">
+                                <label class="btn btn--secondary btn--sm">
+                                    <input type="file" id="brandingLogoInput"
+                                           name="branding_logo"
+                                           accept="image/png,image/jpeg,image/webp,image/gif"
+                                           style="display:none">
+                                    Загрузить новый логотип
+                                </label>
+                                <p class="form-hint">PNG, JPG, WebP до 2 МБ. Ширина уменьшается до 400px</p>
+                            </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="faviconLetter">Favicon</label>
+
+                            <div class="favicon-row">
+                                <div class="favicon-preview-wrap">
+                                    <img src="<?= escape(site_setting($settings, 'site_favicon_png_url', '/assets/images/branding/favicon.png')) ?>"
+                                         alt="Favicon" id="faviconPreview"
+                                         width="48" height="48" class="favicon-preview">
                                 </div>
 
-                                <div class="form-group">
-                                    <label class="form-label" for="faviconLetter">Favicon</label>
-                                    <div class="branding-preview branding-preview--icon">
-                                        <img src="<?= escape(site_setting($settings, 'site_favicon_png_url', '/assets/images/branding/favicon.png')) ?>"
-                                             alt="Favicon" id="faviconPreview" width="64" height="64">
-                                    </div>
+                                <div class="favicon-field">
+                                    <label class="favicon-field__label" for="faviconLetter">Буква</label>
+                                    <input class="input input--compact" name="favicon_letter" id="faviconLetter"
+                                           maxlength="1" inputmode="text" autocomplete="off"
+                                           value="<?= escape(site_setting($settings, 'favicon_letter', 'A')) ?>"
+                                           placeholder="A">
+                                </div>
 
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label class="form-label" for="faviconLetter">Буква</label>
-                                            <input class="input" name="favicon_letter" id="faviconLetter"
-                                                   maxlength="1" inputmode="text" autocomplete="off"
-                                                   value="<?= escape(site_setting($settings, 'favicon_letter', 'A')) ?>"
-                                                   placeholder="A">
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label" for="faviconBg">Цвет фона</label>
-                                            <input type="color" name="favicon_bg" id="faviconBg"
-                                                   value="<?= escape(site_setting($settings, 'favicon_bg', '#C99CFF')) ?>">
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label" for="faviconText">
-                                                Цвет буквы
-                                                <label class="favicon-auto-label">
-                                                    <input type="checkbox" name="favicon_auto_color"
-                                                           id="faviconAutoColor" value="1"
-                                                           <?= site_setting($settings, 'favicon_auto_color') === '1' ? 'checked' : '' ?>>
-                                                    авто
-                                                </label>
-                                            </label>
-                                            <input type="color" name="favicon_text" id="faviconText"
-                                                   value="<?= escape(site_setting($settings, 'favicon_text', '#000000')) ?>">
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label" for="faviconGenerateSpacer">&nbsp;</label>
-                                            <button type="button" class="btn btn--secondary" id="faviconGenerate"
-                                                    data-action="generate-favicon">Сгенерировать</button>
-                                        </div>
-                                    </div>
+                                <div class="favicon-field">
+                                    <label class="favicon-field__label" for="faviconBg">Фон</label>
+                                    <input type="color" name="favicon_bg" id="faviconBg"
+                                           value="<?= escape(site_setting($settings, 'favicon_bg', '#C99CFF')) ?>"
+                                           class="favicon-color">
+                                </div>
 
-                                    <p class="form-hint">
-                                        «Авто» подбирает цвет буквы по контрасту с фоном (тёмный
-                                        фон → светлая буква, светлый → тёмная). Снимите галочку,
-                                        чтобы задать цвет вручную.
-                                    </p>
+                                <div class="favicon-field">
+                                    <label class="favicon-field__label" for="faviconText">
+                                        Буква
+                                        <span class="favicon-auto">
+                                            <input type="checkbox" name="favicon_auto_color"
+                                                   id="faviconAutoColor" value="1"
+                                                   <?= site_setting($settings, 'favicon_auto_color') === '1' ? 'checked' : '' ?>>
+                                            <span>авто</span>
+                                        </span>
+                                    </label>
+                                    <input type="color" name="favicon_text" id="faviconText"
+                                           value="<?= escape(site_setting($settings, 'favicon_text', '#000000')) ?>"
+                                           class="favicon-color">
+                                </div>
 
+                                <div class="favicon-field favicon-field--btn">
+                                    <button type="button" class="btn btn--secondary btn--sm" id="faviconGenerate"
+                                            data-action="generate-favicon">Сгенерировать</button>
+                                </div>
+
+                                <div class="favicon-field favicon-field--btn">
                                     <label class="btn btn--secondary btn--sm">
                                         <input type="file" id="faviconUploadInput"
                                                name="favicon_upload"
                                                accept="image/png,image/jpeg,image/webp"
                                                style="display:none">
-                                        Загрузить свою (PNG/JPG)
+                                        Загрузить свою
                                     </label>
-                                    <input type="hidden" name="site_favicon_png_url"
-                                           id="faviconUrlInput"
-                                           value="<?= escape(site_setting($settings, 'site_favicon_png_url')) ?>">
-                                    <p class="form-hint" id="faviconNotice"></p>
                                 </div>
                             </div>
+
+                            <p class="form-hint">
+                                Буква занимает 70% высоты, иконка 128×128 PNG. «Авто» подбирает
+                                цвет буквы по контрасту с фоном. Загруженная иконка важнее
+                                сгенерированной.
+                            </p>
+                            <p class="form-hint" id="faviconNotice"></p>
+
+                            <input type="hidden" name="site_favicon_png_url" id="faviconUrlInput"
+                                   value="<?= escape(site_setting($settings, 'site_favicon_png_url')) ?>">
+                        </div>
                         </div>
 
                         <div class="modal-actions"><div class="modal-actions-right">
