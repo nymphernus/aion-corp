@@ -1836,11 +1836,23 @@ h1{
     padding: 40px 16px;
 }
 
+/* font-family, а не font: inherit. Шорткат font включает
+   font-size: inherit, а селектор с тегом button сильнее, чем
+   .profile-nav-item, - кнопка брала 16px от родителя вместо 14px
+   и «Мои заказы» и «Выйти» выглядели крупнее соседних пунктов
+   меню, которые сделаны ссылками. */
 button.profile-nav-item {
     background: none;
     border: none;
     cursor: pointer;
-    font: inherit;
+    /* font-family и line-height по отдельности: шорткат font включает
+       font-size и line-height: inherit, а селектор с тегом button
+       сильнее, чем .profile-nav-item. Кнопки брали 16px и line-height
+       normal от родителя вместо 14px и 22.4px у соседних пунктов -
+       «Мои заказы» и «Выйти» выглядели крупнее и выше меню, которое
+       сделано ссылками. */
+    font-family: inherit;
+    line-height: inherit;
     text-align: left;
     width: 100%;
 }
