@@ -1055,7 +1055,6 @@ if ($isAdmin && isset($_POST['socialAction'])) {
     // --- поля ---
     $socialName = trim((string) ($_POST['link_name'] ?? ''));
     $socialUrl = trim((string) ($_POST['link_url'] ?? ''));
-    $socialSort = max(0, min(999, (int) ($_POST['sort_order'] ?? 0)));
     // Галочка не присылается, когда снята: отсутствие поля и есть «нет».
     $socialActive = !empty($_POST['is_active']) ? 1 : 0;
 
@@ -1128,13 +1127,12 @@ if ($isAdmin && isset($_POST['socialAction'])) {
         $stmt = db_prepare(
             $mysql,
             'UPDATE social_links
-                SET link_name = ?, link_url = ?, link_icon = ?, sort_order = ?, is_active = ?
+                SET link_name = ?, link_url = ?, link_icon = ?, is_active = ?
               WHERE link_id = ?',
-            'sssiii',
+            'sssii',
             $socialName,
             $socialUrl,
             $socialIcon,
-            $socialSort,
             $socialActive,
             $socialLinkId
         );
@@ -1142,13 +1140,12 @@ if ($isAdmin && isset($_POST['socialAction'])) {
     } else {
         $stmt = db_prepare(
             $mysql,
-            'INSERT INTO social_links (link_name, link_url, link_icon, sort_order, is_active)
-             VALUES (?, ?, ?, ?, ?)',
-            'sssii',
+            'INSERT INTO social_links (link_name, link_url, link_icon, is_active)
+             VALUES (?, ?, ?, ?)',
+            'sssi',
             $socialName,
             $socialUrl,
             $socialIcon,
-            $socialSort,
             $socialActive
         );
         $stmt->execute();

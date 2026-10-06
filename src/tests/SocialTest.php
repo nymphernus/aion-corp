@@ -169,7 +169,6 @@ final class SocialTest extends AionTestCase
             $this->assertCount(1, $found, 'строка должна появиться в таблице ровно одна');
             $this->assertSame('https://t.me/aioncorp', (string) $found[0]['link_url']);
             $this->assertSame('/assets/images/social/telegram.svg', (string) $found[0]['link_icon']);
-            $this->assertSame(20, (int) $found[0]['sort_order']);
             $this->assertSame(1, (int) $found[0]['is_active']);
         } finally {
             $this->socialRestore($snap);
@@ -216,7 +215,6 @@ final class SocialTest extends AionTestCase
             $this->assertSame((int) $id, (int) $rows[0]['link_id'], 'правка обязана менять ту же строку');
             $this->assertSame('https://t.me/aioncorpnew', (string) $rows[0]['link_url']);
             $this->assertSame('/assets/images/social/viber.svg', (string) $rows[0]['link_icon']);
-            $this->assertSame(5, (int) $rows[0]['sort_order']);
         } finally {
             $this->socialRestore($snap);
         }
@@ -535,65 +533,79 @@ final class SocialTest extends AionTestCase
     /**
      * Порядок упорядочивает строки так же, как на главной.
      */
-    public function testRowsAreOrderedBySortOrderThenId(): void
+    public function testRowsAreOrderedByInsertion(): void
     {
         $this->loginAdmin();
         $snap = $this->socialSnapshot();
 
         try {
+            // Порядок вывода - по добавлению, а не по полю: в форме его
+            // больше нет, и проверять надо именно порядок вставки.
             $this->postSocial([
-                'link_name' => 'Поздняя',
-                'link_url' => 'https://example.org/b',
-                'link_icon' => '/assets/images/social/viber.svg',
-                'sort_order' => '99',
-            ]);
-            $this->postSocial([
-                'link_name' => 'Ранняя',
+                'link_name' => 'Первая',
                 'link_url' => 'https://example.org/a',
                 'link_icon' => '/assets/images/social/ok.svg',
-                'sort_order' => '1',
+            ]);
+            $this->postSocial([
+                'link_name' => 'Вторая',
+                'link_url' => 'https://example.org/b',
+                'link_icon' => '/assets/images/social/viber.svg',
             ]);
 
             $page = $this->httpGet(self::SETTINGS_URL);
-            $early = strpos($page['body'], 'Ранняя');
-            $late = strpos($page['body'], 'Поздняя');
-            $this->assertNotFalse($early, 'обе строки должны быть в таблице');
-            $this->assertNotFalse($late);
-            $this->assertLessThan($late, $early, 'меньший порядок должен идти выше');
+            $first = strpos($page['body'], 'Первая');
+            $second = strpos($page['body'], 'Вторая');
+            $this->assertNotFalse($first, 'обе строки должны быть в таблице');
+            $this->assertNotFalse($second);
+            $this->assertLessThan($second, $first, 'первая добавленная должна идти выше');
+
+            // И в базе порядок тот же: выборка идёт по link_id.
+            //
+            // Сравниваются только имена, которые создал тест, а не весь
+            // список: в таблице могут лежать строки от других проверок, и
+            // точное сравнение падало бы на чужих данных. Проверяем
+            // относительный порядок - это и есть свойство.
+            $rows = $this->dbRows('SELECT link_name FROM social_links ORDER BY link_id ASC');
+            $names = array_map(static fn(array $r): string => (string) $r['link_name'], $rows);
+            $firstPos = array_search('Первая', $names, true);
+            $secondPos = array_search('Вторая', $names, true);
+            $this->assertNotFalse($firstPos, '«Первая» должна быть в выборке');
+            $this->assertNotFalse($secondPos, '«Вторая» должна быть в выборке');
+            $this->assertLessThan(
+                $secondPos,
+                $firstPos,
+                'первая добавленная должна идти выше второй'
+            );
         } finally {
             $this->socialRestore($snap);
         }
     }
 
     /**
-     * Сортировка подбирается с границами.
+     * Поле «Порядок» из формы убрано, и колонка в таблице тоже.
      *
-     * Без этого sort_order = -5 или 99999 сохранился бы как есть, и
-     * порядок вывода поехал бы.
+     * Проверяется, что строка сохраняется вообще: раньше в этой точке
+     * стояла проверка границ sort_order, и после удаления поля она
+     * проверяла бы несуществующее.
      */
-    public function testSortOrderIsClamped(): void
+    public function testRowSavesWithoutSortOrder(): void
     {
         $this->loginAdmin();
         $snap = $this->socialSnapshot();
 
         try {
-            $this->postSocial([
-                'link_name' => 'Отрицательная',
+            $r = $this->postSocial([
+                'link_name' => 'Без порядка',
                 'link_url' => 'https://example.org',
                 'link_icon' => '/assets/images/social/vk.svg',
-                'sort_order' => '-5',
             ]);
-            $this->postSocial([
-                'link_name' => 'Огромная',
-                'link_url' => 'https://example.org',
-                'link_icon' => '/assets/images/social/vk.svg',
-                'sort_order' => '99999',
-            ]);
+            $this->assertSame(302, $r['code'], 'сохранение без поля порядка должно редиректить');
+            $this->assertSame('', $this->badCode($r));
 
-            $rows = $this->rowsByName('Отрицательная');
-            $this->assertSame(0, (int) $rows[0]['sort_order'], 'отрицательный порядок должен стать нулём');
-            $rows = $this->rowsByName('Огромная');
-            $this->assertSame(999, (int) $rows[0]['sort_order'], 'порядок должен упереться в 999');
+            $rows = $this->rowsByName('Без порядка');
+            $this->assertCount(1, $rows, 'строка должна сохраниться');
+            // sort_order остаётся в таблице как резерв и берёт дефолт.
+            $this->assertSame(0, (int) $rows[0]['sort_order'], 'без поля в форме порядок должен быть дефолтным');
         } finally {
             $this->socialRestore($snap);
         }

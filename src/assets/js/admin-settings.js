@@ -668,7 +668,6 @@
         if (cells.length < 4) return;
 
         byId('socialName').value = (cells[1].textContent || '').trim();
-        byId('socialSort').value = (cells[3].textContent || '0').trim();
         byId('socialUrl').value = row.getAttribute('data-link-url') || '';
 
         // Пустая ссылка остаётся пустой и в поле: обрезанного значения у

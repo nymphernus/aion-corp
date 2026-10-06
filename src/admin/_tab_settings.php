@@ -51,14 +51,14 @@ foreach (explode(', ', (string) ($_GET['bad'] ?? '')) as $code) {
 //
 // Строки читаются здесь, а не в admin.php: вкладка настроек и так
 // разбирает на себе и форму, и модалки, а выборка одна и короткая.
-// Порядок тот же, что на главной, - иначе админ правил бы сортировку и
-// не видел бы результата.
+// Порядок вывода - по добавлению. Поле sort_order в таблице осталось
+// как резерв, но в форме его больше нет: порядок вручную не задают.
 $socialLinks = [];
 $stmt = db_prepare(
     $mysql,
-    'SELECT link_id, link_name, link_url, link_icon, sort_order, is_active
+    'SELECT link_id, link_name, link_url, link_icon, is_active
        FROM social_links
-      ORDER BY sort_order ASC, link_id ASC',
+      ORDER BY link_id ASC',
     ''
 );
 $stmt->execute();
@@ -193,7 +193,6 @@ if (is_dir($socialIconDir)) {
                                         <th class="social-table__icon" title="Иконка"></th>
                                         <th>Название</th>
                                         <th class="social-table__url">Ссылка</th>
-                                        <th class="social-table__sort">Порядок</th>
                                         <th class="social-table__actions"></th>
                                     </tr>
                                 </thead>
@@ -227,7 +226,6 @@ if (is_dir($socialIconDir)) {
                                             <span class="settings-list__hint">не задана</span>
     <?php endif; ?>
                                         </td>
-                                        <td class="social-table__sort"><?= (int) $social['sort_order'] ?></td>
                                         <td class="social-table__actions">
                                             <button type="button" class="btn-icon btn-icon--muted"
                                                     data-action="edit-social"
@@ -594,21 +592,13 @@ if (is_dir($socialIconDir)) {
                             </label>
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label" for="socialSort">Порядок</label>
-                                <input class="input" type="number" name="sort_order"
-                                       id="socialSort" value="10" min="0" max="999">
-                                <p class="form-hint">Меньше - выше в списке</p>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Показ</label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="is_active"
-                                           id="socialActive" value="1" checked>
-                                    Показывать на главной
-                                </label>
-                            </div>
+                        <div class="form-group">
+                            <label class="form-label">Показ</label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="is_active"
+                                       id="socialActive" value="1" checked>
+                                Показывать на главной
+                            </label>
                         </div>
 
                         <div class="modal-actions"><div class="modal-actions-right">
