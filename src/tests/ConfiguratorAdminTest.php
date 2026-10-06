@@ -22,6 +22,22 @@ declare(strict_types=1);
 
 final class ConfiguratorAdminTest extends AionTestCase
 {
+    /**
+     * Уборка строк, созданных тестом.
+     *
+     * Упавший тест до своей уборки не доходит, а строка уже
+     * записана: после прогона на сломанном коде в таблице оставалось
+     * 'Тест до 123456', и следующий прогон видел посторонние данные.
+     * Родительский tearDown вызывается в конце, а не вместо
+     * этого: он удаляет тестовых пользователей и cookie-jar, и его
+     * пропуск оставил бы мусор другого рода.
+     */
+    protected function tearDown(): void
+    {
+        $this->cleanupConfiguratorRows();
+        parent::tearDown();
+    }
+
     private function loginAsAdmin(): void
     {
         $adminPass = getenv('ADMIN_PASSWORD');
@@ -46,6 +62,19 @@ final class ConfiguratorAdminTest extends AionTestCase
         $page = $this->httpGet('/admin.php?tab=configurator');
         $this->assertSame(200, $page['code']);
         return $this->extractCsrf($page['body']);
+    }
+
+    /**
+     * Имя строки фикстуры: маркер для уборки плюс уникальный хвост.
+     *
+     * Хвост нужен потому, что два теста подряд стартуют в пределах
+     * одной секунды: имена из одного time() совпали бы, и второй
+     * тест увидел бы строку первого - как будто она существовала
+     * до него.
+     */
+    private static function tmpName(string $prefix): string
+    {
+        return $prefix . substr((string) time(), -6) . '_' . bin2hex(random_bytes(3));
     }
 
     private function fetchOs(string $name): ?int
@@ -106,7 +135,7 @@ final class ConfiguratorAdminTest extends AionTestCase
     public function testAddOsInsertsRow(): void
     {
         $this->loginAsAdmin();
-        $name = 'Тест ОС ' . substr((string) time(), -6);
+        $name = self::tmpName('tmp_os_');
 
         $this->assertNull($this->fetchOs($name), 'тестовая ОС не должна существовать заранее');
 
@@ -142,8 +171,8 @@ final class ConfiguratorAdminTest extends AionTestCase
     public function testEditOsUpdatesRow(): void
     {
         $this->loginAsAdmin();
-        $before = 'Тест до ' . substr((string) time(), -6);
-        $after = 'Тест после';
+        $before = self::tmpName('tmp_os_до_');
+        $after = self::tmpName('tmp_os_после_');
 
         $add = $this->httpPost('/admin.php?tab=configurator', [
             'csrf_token' => $this->freshToken(),
@@ -177,7 +206,7 @@ final class ConfiguratorAdminTest extends AionTestCase
     public function testAddPresetInsertsRow(): void
     {
         $this->loginAsAdmin();
-        $name = 'Тест пресет ' . substr((string) time(), -6);
+        $name = self::tmpName('tmp_preset_');
 
         $this->assertNull($this->fetchPreset($name), 'тестовый пресет не должен существовать заранее');
 
@@ -212,8 +241,8 @@ final class ConfiguratorAdminTest extends AionTestCase
     public function testEditPresetUpdatesRow(): void
     {
         $this->loginAsAdmin();
-        $before = 'Пресет до ' . substr((string) time(), -6);
-        $after = 'Пресет после';
+        $before = self::tmpName('tmp_preset_до_');
+        $after = self::tmpName('tmp_preset_после_');
 
         $add = $this->httpPost('/admin.php?tab=configurator', [
             'csrf_token'    => $this->freshToken(),

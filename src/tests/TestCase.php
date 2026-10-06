@@ -35,6 +35,50 @@ class AionTestCase extends PhpUnitTestCase
     }
 
     /**
+     * Префиксы имён строк конфигуратора, которые создают тесты.
+     *
+     * Узкий маркер `tmp_`, а не слово «Тест». Причина в том, что
+     * таблицы конфигуратора общие с админкой: пресет с именем
+     * «Тестовая сборка», заведённый администратором вручную,
+     * попал бы под `LIKE 'Тест%'` и был бы удалён чужим тестом.
+     *
+     * Второй край от широкого списка префиксов: их пришлось бы
+     * дополнять руками каждое новое имя фикстуры, и одна
+     * забытая строка означала бы, что после провала теста мусор
+     * остаётся в базе. Один префикс на всё имя читается сразу.
+     */
+    protected const CONFIGURATOR_TEST_PREFIXES = ['tmp_os_', 'tmp_preset_'];
+
+    /**
+     * Удалить строки конфигуратора, созданные тестами.
+     *
+     * Вызывается из tearDown, потому что упавший на середине тест
+     * не доходит до своей уборки: строка, заведённая проверкой
+     * добавления, осталась бы в базе и попала бы в следующий
+     * прогон как посторонние данные.
+     *
+     * Префикс передаётся параметром запроса, а не склейкой строки:
+     * в LIKE иначе легко проскочить кавычку.
+     *
+     * @param string[] $prefixes
+     */
+    protected function cleanupConfiguratorRows(array $prefixes = self::CONFIGURATOR_TEST_PREFIXES): void
+    {
+        try {
+            $mysql = connect();
+        } catch (Throwable) {
+            return;
+        }
+        foreach ($prefixes as $prefix) {
+            $s = db_prepare($mysql, "DELETE FROM configurator_presets WHERE preset_name LIKE ?", 's', $prefix . '%');
+            $s->execute();
+            $s = db_prepare($mysql, "DELETE FROM configurator_os WHERE os_name LIKE ?", 's', $prefix . '%');
+            $s->execute();
+        }
+        $mysql->close();
+    }
+
+    /**
      * @return array{code: int, body: string, location: string}
      */
     protected function httpGet(string $path): array
