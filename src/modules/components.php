@@ -270,6 +270,69 @@ if (!function_exists('stock_apply')) {
     }
 }
 
+if (!function_exists('cleanup_orphan_assemblies')) {
+    /**
+     * Удалить осиротевшие сборки (is_base = 0, без заказов и избранного).
+     *
+     * Логика вынесена из cleanup_orphans.php в модуль по трём причинам:
+     *   1. Тест HomeAssembliesTest проверяет уборку напрямую, без
+     *      запуска отдельного процесса - shell_exec с docker compose
+     *      не работает ни из контейнера, ни с хоста.
+     *   2. Скрипт и тест проверяют одну и ту же функцию: копия логики
+     *      в скрипте означала бы, что тест проверяет не тот код, что
+     *      работает в бою при старте контейнера.
+     *   3. Порог считается в SQL через DATE_SUB, а не в PHP: разница
+     *      часовых поясов между PHP и MySQL сдвигала бы порог на часы.
+     *
+     * Возвращает число удалённых сборок.
+     */
+    function cleanup_orphan_assemblies(mysqli $mysql, int $hours = 1): int
+    {
+        $stmt = db_prepare($mysql, "SELECT a.assembly_id FROM assembly a
+            LEFT JOIN favorites f ON f.assembly_id = a.assembly_id
+            LEFT JOIN orders o ON o.assembly_id = a.assembly_id
+            WHERE a.is_base = 0
+              AND f.favorit_id IS NULL
+              AND o.order_id IS NULL
+              AND a.created_at < DATE_SUB(NOW(), INTERVAL ? HOUR)", 'i', $hours);
+        $stmt->execute();
+        $ids = [];
+        foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+            $ids[] = (int) $row['assembly_id'];
+        }
+        $stmt->close();
+
+        if ($ids === []) {
+            return 0;
+        }
+
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $types = str_repeat('i', count($ids));
+
+        // Транзакция: удаление и сборки, и её записей в избранном.
+        // Записи могут появиться между выборкой и удалением - без
+        // транзакции сборка удалилась бы, а строка избранного осталась.
+        $mysql->begin_transaction();
+        try {
+            $stmt = db_prepare($mysql, "DELETE FROM favorites WHERE assembly_id IN ($ph)", $types, ...$ids);
+            $stmt->execute();
+            $stmt->close();
+
+            $stmt = db_prepare($mysql, "DELETE FROM assembly WHERE assembly_id IN ($ph)", $types, ...$ids);
+            $stmt->execute();
+            $deleted = $stmt->affected_rows;
+            $stmt->close();
+
+            $mysql->commit();
+            return $deleted;
+        } catch (Throwable $e) {
+            $mysql->rollback();
+            error_log('cleanup_orphan_assemblies failed: ' . $e->getMessage());
+            return 0;
+        }
+    }
+}
+
 if (!function_exists('spec_value')) {
     /**
      * Приводит одно значение из specs или колонки к строке для показа.

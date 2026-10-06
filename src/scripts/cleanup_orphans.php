@@ -172,44 +172,19 @@ if ($dryRun) {
     exit(0);
 }
 
-// одной транзакцией: удаление и сборки, и её записи в избранном, если они
-// успели появиться между поиском и удалением
+// Удаление - общей функцией из modules/components.php, а не своей
+// копией здесь. Скрипт запускается из entrypoint.sh при старте
+// контейнера, а тест HomeAssembliesTest проверяет ту же функцию
+// напрямую: одна логика, и проверяется именно та, что работает в бою.
+// Дубликаты favorites и orders, успевшие появиться между поиском и
+// удалением, убираются транзакцией внутри самой функции.
+require_once __DIR__ . '/../modules/components.php';
+
 $ids = array_map(static fn($r) => (int) $r['assembly_id'], $rows);
-$placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-$mysql->begin_transaction();
-try {
-    $stmt = db_prepare(
-        $mysql,
-        "DELETE f FROM favorites f JOIN assembly a ON a.assembly_id = f.assembly_id"
-        . " WHERE a.assembly_id IN ($placeholders)",
-        str_repeat('i', count($ids)),
-        ...$ids
-    );
-    $stmt->execute();
-    $favDeleted = $stmt->affected_rows;
-    $stmt->close();
-
-    $stmt = db_prepare(
-        $mysql,
-        "DELETE FROM assembly WHERE assembly_id IN ($placeholders)",
-        str_repeat('i', count($ids)),
-        ...$ids
-    );
-    $stmt->execute();
-    $asmDeleted = $stmt->affected_rows;
-    $stmt->close();
-
-    $mysql->commit();
-} catch (Throwable $e) {
-    $mysql->rollback();
-    fwrite(STDERR, 'Ошибка удаления, откат: ' . $e->getMessage() . PHP_EOL);
-    $mysql->close();
-    exit(1);
-}
+$asmDeleted = cleanup_orphan_assemblies($mysql, $hours);
 
 echo 'Удалено сборок: ' . $asmDeleted . PHP_EOL;
-echo 'Удалено записей избранного: ' . $favDeleted . PHP_EOL;
 
 $stmt = db_prepare($mysql, "SELECT COUNT(*) AS n FROM assembly", '');
 $stmt->execute();

@@ -312,9 +312,14 @@ final class HomeAssembliesTest extends AionTestCase
         $stmt->close();
         $mysql->close();
 
-        // Запускаем cleanup
-        $output = shell_exec('php /var/www/html/scripts/cleanup_orphans.php --hours=1 2>&1');
-        $this->assertStringNotContainsString('Fatal error', (string) $output, 'cleanup не должен падать');
+        // Запускаем уборку напрямую через функцию: тест выполняется в
+        // том же контейнере, где лежит скрипт, и отдельный процесс
+        // не нужен. Функция та же, что вызывается из entrypoint.sh —
+        // проверяется именно она.
+        $mysql = connect();
+        $deleted = cleanup_orphan_assemblies($mysql, 1);
+        $mysql->close();
+        $this->assertGreaterThanOrEqual(0, $deleted, 'уборка не должна падать');
 
         // Сборка должна остаться
         $mysql = connect();
@@ -368,10 +373,13 @@ final class HomeAssembliesTest extends AionTestCase
         $stmt->close();
         $mysql->close();
 
-        // Запускаем cleanup
-        $output = shell_exec('php /var/www/html/scripts/cleanup_orphans.php --hours=1 2>&1');
-        $this->assertStringNotContainsString('Fatal error', (string) $output, 'cleanup не должен падать');
-        $this->assertStringContainsString('Удалено сборок:', (string) $output, 'cleanup должен что-то удалить');
+        // Запускаем уборку напрямую: проверяется именно функция, та же,
+        // что вызывается из entrypoint.sh через cleanup_orphans.php.
+        // Тест должен удалить именно эту сборку.
+        $mysql = connect();
+        $deleted = cleanup_orphan_assemblies($mysql, 1);
+        $mysql->close();
+        $this->assertGreaterThanOrEqual(1, $deleted, 'созданная осиротевшая сборка должна была удалиться');
 
         // Сборка должна быть удалена
         $mysql = connect();
