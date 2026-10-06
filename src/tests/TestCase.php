@@ -24,6 +24,12 @@ class AionTestCase extends PhpUnitTestCase
 
     protected function tearDown(): void
     {
+        // Возврат остатков здесь, а не в каждом тесте: тест, который
+        // купил сборку, не должен был бы помнить про склад. Забытый
+        // возврат стоил единицы остатка на каждом прогоне - восемь
+        // самых дешёвых компонентов уехали с 10 до 7 за два прогона.
+        $this->restoreStock();
+
         foreach ($this->cleanupLogins as $login) {
             $this->deleteTestUser($login);
         }
@@ -48,6 +54,95 @@ class AionTestCase extends PhpUnitTestCase
      * остаётся в базе. Один префикс на всё имя читается сразу.
      */
     protected const CONFIGURATOR_TEST_PREFIXES = ['tmp_os_', 'tmp_preset_'];
+
+    /**
+     * Остатки компонентов до операции: component_id => amount.
+     *
+     * @var array<int, int>
+     */
+    protected array $stockSnapshot = [];
+
+    /**
+     * Запомнить остатки, которые тест сейчас изменит.
+     *
+     * Покупка списывает склад, и тест обязан вернуть его: иначе
+     * каждый прогон уменьшал бы остаток на единицу, и через десять
+     * прогонов товар ушёл бы в минус на живой базе.
+     *
+     * @param int[] $componentIds
+     */
+    protected function snapshotStock(array $componentIds): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $componentIds)));
+        if ($ids === []) {
+            return;
+        }
+
+        $mysql = connect();
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $types = str_repeat('i', count($ids));
+
+        $stmt = db_prepare(
+            $mysql,
+            "SELECT component_id, amount FROM components WHERE component_id IN ($ph)",
+            $types,
+            ...$ids
+        );
+        $stmt->execute();
+        foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+            $this->stockSnapshot[(int) $row['component_id']] = (int) $row['amount'];
+        }
+        $stmt->close();
+        $mysql->close();
+    }
+
+    /**
+     * Вернуть остатки к снимку.
+     *
+     * Компоненты, которых в снимке не было, не трогаются: это те,
+     * которых тест не касался.
+     */
+    protected function restoreStock(): void
+    {
+        if ($this->stockSnapshot === []) {
+            return;
+        }
+
+        $mysql = connect();
+        foreach ($this->stockSnapshot as $id => $amount) {
+            $stmt = db_prepare($mysql, "UPDATE components SET amount = ? WHERE component_id = ?", 'ii', $amount, $id);
+            $stmt->execute();
+            $stmt->close();
+        }
+        $this->stockSnapshot = [];
+        $mysql->close();
+    }
+
+    protected function componentAmount(int $componentId): int
+    {
+        $mysql = connect();
+        $stmt = db_prepare($mysql, "SELECT amount FROM components WHERE component_id = ?", 'i', $componentId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mysql->close();
+
+        return $row === null ? -1 : (int) $row['amount'];
+    }
+
+    /**
+     * @param int[] $componentIds
+     */
+    protected function setComponentAmounts(array $componentIds, int $amount): void
+    {
+        $mysql = connect();
+        foreach ($componentIds as $id) {
+            $stmt = db_prepare($mysql, "UPDATE components SET amount = ? WHERE component_id = ?", 'ii', $amount, (int) $id);
+            $stmt->execute();
+            $stmt->close();
+        }
+        $mysql->close();
+    }
 
     /**
      * Удалить строки конфигуратора, созданные тестами.

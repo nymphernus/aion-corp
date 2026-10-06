@@ -148,15 +148,52 @@ final class AssemblyTest extends AionTestCase
         $this->assertSame(1, $this->countRows('favorites', $uid, $n));
 
         // 5. buy → 302, запись в orders
+        //
+        // Перед покупкой запоминаются остатки всех компонентов сборки.
+        // Покупка списывает по единице за каждый слот, а заказ тест
+        // удаляет: без возврата остатков каждый прогон уменьшал бы
+        // склад навсегда, и через десять прогонов товар ушёл бы в
+        // минус на живой базе.
+        $this->snapshotStock(array_keys(assembly_demand($this->assemblyRow($n))));
+
         $t4 = $this->freshToken('/assembly.php');
         $buy = $this->httpPost('/assembly.php', ['buy' => '1', 'csrf_token' => $t4]);
         $this->assertSame(302, $buy['code']);
         $this->assertSame(1, $this->countRows('orders', $uid, $n));
 
+        // Списание видно сразу же: заказ есть, а остаток меньше.
+        // Иначе тест проходил бы и на коде без списания вовсе.
+        foreach (assembly_demand($this->assemblyRow($n)) as $componentId => $slots) {
+            $this->assertSame(
+                $this->stockSnapshot[$componentId] - $slots,
+                $this->componentAmount($componentId),
+                'остаток компонента должен уменьшиться на число занятых им слотов'
+            );
+        }
+
         // Связи чистим сразу, чтобы тест не оставлял после себя ничего,
         // кроме самой сборки. Сборку убирает tearDownAfterClass.
         $this->deleteLink('favorites', $uid, $n);
         $this->deleteLink('orders', $uid, $n);
+    }
+
+    /**
+     * Строка сборки целиком: assembly_demand() разбирает её по именам
+     * колонок, а не по позициям.
+     *
+     * @return array<string, mixed>
+     */
+    private function assemblyRow(int $assemblyId): array
+    {
+        $mysql = connect();
+        $stmt = db_prepare($mysql, "SELECT * FROM assembly WHERE assembly_id = ?", 'i', $assemblyId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mysql->close();
+
+        $this->assertNotEmpty($row, 'сборка должна существовать');
+        return $row;
     }
 
     private function countRows(string $table, int $uid, int $assemblyId): int

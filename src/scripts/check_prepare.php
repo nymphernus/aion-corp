@@ -25,8 +25,33 @@ declare(strict_types=1);
 
 $files = array_slice($argv, 1);
 if ($files === []) {
-    $files = [__DIR__ . '/../admin.php'];
+    $files = [__DIR__ . '/..'];
 }
+
+// Каталог разворачивается в список файлов: перечислять тридцать путей
+// в командной строке неудобно, а проверять надо всё дерево - ошибка
+// с числом плейсхолдеров не знает границ модулей.
+$expanded = [];
+foreach ($files as $arg) {
+    if (is_dir($arg)) {
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($arg, FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+            $path = $file->getPathname();
+            // тесты проверяют HTTP, а не текст запросов, и vendor -
+            // чужая копия инструментария
+            if (str_contains($path, '/tests/') || str_contains($path, '/vendor/')) {
+                continue;
+            }
+            $expanded[] = $path;
+        }
+        continue;
+    }
+    $expanded[] = $arg;
+}
+$files = array_values(array_unique($expanded));
 
 $totalChecked = 0;
 $totalBad = 0;
@@ -42,12 +67,15 @@ foreach ($files as $file) {
     $problems = [];
 
     // Однострочный вызов: всё в одной строке.
-    $single = "/db_prepare\(\s*\\\$mysql,\s*'(?<sql>[^']+)',\s*'(?<types>[a-z]*)',\s*(?<args>.*)\);\s*$/m";
+    $single = "/db_prepare\(\s*\\\$mysql,\s*(?P<q>['\"])(?<sql>[^'\"]+)(?P=q),\s*(?P<tq>['\"])(?<types>[a-z]*)(?P=tq),\s*(?<args>.*)\);\s*$/m";
     // Многострочный: SQL и типы на следующих строках.
-    $multi = "/db_prepare\(\s*\\\$mysql,\s*'(?<sql>[^']+)',\s*'(?<types>[a-z]*)',\s*(?<args>.*?)\s*\);/s";
+    $multi = "/db_prepare\(\s*\\\$mysql,\s*(?P<q>['\"])(?<sql>[^'\"]+)(?P=q),\s*(?P<tq>['\"])(?<types>[a-z]*)(?P=tq),\s*(?<args>.*?)\s*\);/s";
 
     if (preg_match_all($single, $code, $m1, PREG_SET_ORDER)) {
         foreach ($m1 as $m) {
+            if (skip_call($m['sql'])) {
+                continue;
+            }
             $checked++;
             $sql = $m['sql'];
             $types = $m['types'];
@@ -55,15 +83,15 @@ foreach ($files as $file) {
 
             $q = substr_count($sql, '?');
             $t = strlen($types);
-            $a = count_top_level_args($args);
+            $a = args_count($args);
 
-            if ($q !== $t || $q !== $a) {
+            if ($q !== $t || ($a !== null && $q !== $a)) {
                 $problems[] = sprintf(
-                    "  '?'=%d, типы=%d ('%s'), значений=%d\n    %s",
+                    "  '?'=%d, типы=%d ('%s'), значений=%s\n    %s",
                     $q,
                     $t,
                     $types,
-                    $a,
+                    $a === null ? 'неизвестно' : $a,
                     preg_replace('/\s+/', ' ', $sql)
                 );
             }
@@ -74,6 +102,9 @@ foreach ($files as $file) {
     $rest = preg_replace($single, '', $code);
     if ($rest !== null && preg_match_all($multi, $rest, $m2, PREG_SET_ORDER)) {
         foreach ($m2 as $m) {
+            if (skip_call($m['sql'])) {
+                continue;
+            }
             $checked++;
             $sql = $m['sql'];
             $types = $m['types'];
@@ -81,15 +112,15 @@ foreach ($files as $file) {
 
             $q = substr_count($sql, '?');
             $t = strlen($types);
-            $a = count_top_level_args($args);
+            $a = args_count($args);
 
-            if ($q !== $t || $q !== $a) {
+            if ($q !== $t || ($a !== null && $q !== $a)) {
                 $problems[] = sprintf(
-                    "  '?'=%d, типы=%d ('%s'), значений=%d\n    %s",
+                    "  '?'=%d, типы=%d ('%s'), значений=%s\n    %s",
                     $q,
                     $t,
                     $types,
-                    $a,
+                    $a === null ? 'неизвестно' : $a,
                     preg_replace('/\s+/', ' ', $sql)
                 );
             }
@@ -107,6 +138,41 @@ foreach ($files as $file) {
 
 echo "\nвсего: {$totalChecked}, расхождений: {$totalBad}\n";
 exit($totalBad > 0 ? 1 : 0);
+
+/**
+ * Вызов, который нельзя посчитать по тексту.
+ *
+ * SQL с интерполяцией пропускается: там "SELECT ... IN ($ph)", где
+ * число плейсхолдеров подставляется переменной, и сверка дала бы
+ * ложное расхождение - ноль '?' против непустой строки типов. Такие
+ * запросы разбираются только вручную.
+ *
+ * @param string $sql
+ * @return bool
+ */
+function skip_call(string $sql): bool
+{
+    return str_contains($sql, '$');
+}
+
+/**
+ * Число значений, либо null, если оно неизвестно по тексту.
+ *
+ * null у вызовов с распаковкой (...$args): там количество
+ * определяется типом переменной, а не скобками в коде. Сверка
+ * плейсхолдеров с типами для таких вызовов остаётся в силе - это
+ * как раз тот случай, где ошибка в строке типов невидима глазом.
+ *
+ * @return int|null
+ */
+function args_count(string $args): ?int
+{
+    if (str_contains($args, '...')) {
+        return null;
+    }
+
+    return count_top_level_args($args);
+}
 
 /**
  * Число аргументов через запятые верхнего уровня.

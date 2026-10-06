@@ -14,4 +14,7 @@ declare(strict_types=1);
 define('BASE_URL', getenv('BASE_URL') ?: 'http://localhost:8080');
 
 require_once __DIR__ . '/../modules/connect.php';
+// Модуль компонентов нужен тестам складских остатков: assembly_demand(),
+// stock_apply() и StockShortage живут там, а не в самой странице.
+require_once __DIR__ . '/../modules/components.php';
 require_once __DIR__ . '/TestCase.php';

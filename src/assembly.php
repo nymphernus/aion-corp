@@ -143,13 +143,76 @@ if (isset($_POST['buy'])) {
         $row = $stmt->get_result()->fetch_array();
 
         if (!isset($row[0])) {
-            // Используем AUTO_INCREMENT вместо MAX()+1
-            $stmt = db_prepare($mysql, "INSERT INTO `orders` (`user_id`,`assembly_id`,`status`) VALUES(?,?,?)", "iis", $userId, $idA, 'Обрабатывается');
-            $stmt->execute();
+            // Что занимаем: остатки компонентов сборки. Проверка идёт
+            // после проверки «уже куплен», иначе повторное нажатие
+            // «Купить» списывало бы товар второй раз.
+            $demand = assembly_demand($assemb);
+
+            $shortage = stock_shortage($mysql, $demand);
+            if ($shortage !== null) {
+                // Молчаливый отказ хуже явного: клик по «Купить» делал
+                // ничего, и покупатель не понимал, что произошло.
+                csrf_rotate();
+                header('Location: /assembly.php?id=' . $idA . '&error=out_of_stock&part=' . $shortage[0]);
+                exit();
+            }
+
+            $mysql->begin_transaction();
+            try {
+                // Используем AUTO_INCREMENT вместо MAX()+1
+                $stmt = db_prepare($mysql, "INSERT INTO `orders` (`user_id`,`assembly_id`,`status`) VALUES(?,?,?)", "iis", $userId, $idA, 'Обрабатывается');
+                $stmt->execute();
+
+                stock_apply($mysql, $demand, -1);
+
+                $mysql->commit();
+            } catch (StockShortage $e) {
+                // Товар закончился между проверкой и списанием: другой
+                // покупатель забрал его раньше. Откат убирает и заказ,
+                // и списание, поэтому следов не остаётся.
+                $mysql->rollback();
+                error_log('Buy out of stock: ' . $e->getMessage());
+                csrf_rotate();
+                header('Location: /assembly.php?id=' . $idA . '&error=out_of_stock');
+                exit();
+            } catch (Throwable $e) {
+                // Заказ без списанных остатков - это проданный в минус
+                // товар: остаток в каталоге есть, а товара нет.
+                $mysql->rollback();
+                error_log('Buy failed: ' . $e->getMessage());
+                csrf_rotate();
+                header('Location: /assembly.php?id=' . $idA . '&error=buy_failed');
+                exit();
+            }
         }
         csrf_rotate();
         header('Location: /profile.php');
         exit();
+    }
+}
+
+// Отказ покупки показывается на этой же странице: код в адресе, текст
+// из карты - тот же приём, что в profile.php и в админке. Название
+// конкретного товара приходит отдельным числом и читается из базы:
+// подставлять его в адрес нельзя, а молчаливый отказ ни о чём не
+// говорит покупателю.
+$assemblyErrors = [
+    'out_of_stock' => 'Комплектующие закончились. Напишите администратору - он пополнит остатки.',
+    'buy_failed'   => 'Не удалось оформить заказ. Попробуйте ещё раз.',
+];
+
+$assemblyError = null;
+$errorKey = (string) ($_GET['error'] ?? '');
+if (isset($assemblyErrors[$errorKey])) {
+    $assemblyError = $assemblyErrors[$errorKey];
+
+    $partId = (int) ($_GET['part'] ?? 0);
+    if ($partId > 0) {
+        $part = component_by_id($mysql, $partId);
+        if ($part !== null) {
+            $assemblyError = 'Компонент «' . $part['component_name'] . '» закончился. '
+                . 'Напишите администратору - он пополнит остатки.';
+        }
     }
 }
 ?>
@@ -159,6 +222,9 @@ $extraCss = ['/assets/css/configurator.css'];
 $extraJs  = [];
 require __DIR__ . '/partials/header.php';
 ?>
+<?php if ($assemblyError !== null): ?>
+            <div class="alert alert--error"><?= escape($assemblyError) ?></div>
+<?php endif; ?>
 <div class="build-layout">
 
             <div class="build-components">

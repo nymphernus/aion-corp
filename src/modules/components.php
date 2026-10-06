@@ -59,6 +59,169 @@ if (!function_exists('component_by_id')) {
     }
 }
 
+if (!class_exists('StockShortage')) {
+    /**
+     * Остатка не хватило.
+     *
+     * Отдельный класс, а не сообщение в RuntimeException: покупка,
+     * у которой не хватило товара, и покупка, которая упала из-за БД, -
+     * разные ситуации для посетителя. Первая возвращает его на страницу
+     * сборки с объяснением, вторая - отдаёт ошибку сервера.
+     */
+    class StockShortage extends RuntimeException
+    {
+    }
+}
+
+if (!function_exists('assembly_demand')) {
+    /**
+     * Сколько единиц каждого компонента занимает сборка.
+     *
+     * Ключ - component_id, значение - количество, то есть карта, а не
+     * список. Список с повторами списал бы одну единицу вместо двух,
+     * если один компонент стоит в двух слотах: остаток завышался бы
+     * на каждую такую сборку, и товар уходил бы в минус.
+     *
+     * Колонки перечислены явно. Обход всех значений строки assembly
+     * записал бы в компоненты assembly_price и os - там цена сборки и
+     * название операционной системы, а не идентификаторы.
+     *
+     * @param array<string, mixed> $assemb Строка таблицы assembly
+     * @return array<int, int> component_id => количество
+     */
+    function assembly_demand(array $assemb): array
+    {
+        $slots = [
+            'cpu_id',
+            'motherboard_id',
+            'gpu_id',
+            'ram_id',
+            'case_id',
+            'cooler_id',
+            'power_supply_id',
+            'ssd_id',
+            'ssd_2_id',
+            'hdd_id',
+            'dvd_id',
+        ];
+
+        $need = [];
+        foreach ($slots as $slot) {
+            $id = (int) ($assemb[$slot] ?? 0);
+            if ($id > 0) {
+                $need[$id] = ($need[$id] ?? 0) + 1;
+            }
+        }
+
+        return $need;
+    }
+}
+
+if (!function_exists('stock_shortage')) {
+    /**
+     * Первый компонент, которого не хватает: [id, название] либо null.
+     *
+     * Одна выборка на всю сборку, а не запрос на каждый слот: слотов
+     * до одиннадцати, а проверка нужна до того, как что-то записано.
+     * Название возвращается для сообщения - отказ «закончилось» без
+     * указания какого товара ничем не помогает покупателю.
+     *
+     * Отсутствующая в таблице строка считается нехваткой с пустым
+     * названием: списание по ней и так ничего не изменит, но сделка
+     * с таким товаром проходить не должна.
+     *
+     * @param array<int, int> $need
+     * @return array{0: int, 1: string}|null
+     */
+    function stock_shortage(mysqli $mysql, array $need): ?array
+    {
+        if (!$need) {
+            return null;
+        }
+
+        $ids = array_keys($need);
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $types = str_repeat('i', count($ids));
+
+        $stmt = db_prepare(
+            $mysql,
+            "SELECT component_id, component_name, amount FROM components WHERE component_id IN ($ph)",
+            $types,
+            ...$ids
+        );
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(int) $row['component_id']] = $row;
+        }
+
+        foreach ($need as $id => $count) {
+            $row = $byId[$id] ?? null;
+            $have = $row === null ? 0 : (int) $row['amount'];
+            if ($have < $count) {
+                return [$id, $row === null ? '' : (string) $row['component_name']];
+            }
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('stock_apply')) {
+    /**
+     * Списать или вернуть единицы компонентов по карте потребностей.
+     *
+     * $delta = -1 при покупке, +1 при возврате.
+     *
+     * Проверка остатка стоит внутри UPDATE, а не только до транзакции:
+     * два запроса, пришедших одновременно, предварительную проверку
+     * проходят оба, и без условия в самом запросе второй списал бы в
+     * минус. Ноль затронутых строк означает нехватку - вызывающий
+     * откатывает транзакцию, и заказ не остаётся.
+     *
+     * @param array<int, int> $need
+     * @throws StockShortage когда остатка не хватило
+     */
+    function stock_apply(mysqli $mysql, array $need, int $delta): void
+    {
+        foreach ($need as $id => $count) {
+            if ($count < 1) {
+                continue;
+            }
+
+            if ($delta < 0) {
+                $stmt = db_prepare(
+                    $mysql,
+                    "UPDATE components SET amount = amount - ? WHERE component_id = ? AND amount >= ?",
+                    'iii',
+                    $count,
+                    $id,
+                    $count
+                );
+            } else {
+                $stmt = db_prepare(
+                    $mysql,
+                    "UPDATE components SET amount = amount + ? WHERE component_id = ?",
+                    'ii',
+                    $count,
+                    $id
+                );
+            }
+
+            $stmt->execute();
+            $affected = $stmt->affected_rows;
+            $stmt->close();
+
+            if ($delta < 0 && $affected !== 1) {
+                throw new StockShortage('Недостаточно компонента, id ' . $id);
+            }
+        }
+    }
+}
+
 if (!function_exists('spec_value')) {
     /**
      * Приводит одно значение из specs или колонки к строке для показа.
