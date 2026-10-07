@@ -166,6 +166,13 @@ $_SESSION['user_name'] = $user['user_name'];
 $_SESSION['user_login'] = $user['user_login'];
 $_SESSION['user_group'] = $user['user_group'];
 
+// Журнал действий: вход пишется только для администратора, вход
+// обычного пользователя - не действие в админке. Группа читается из
+// $user, а не перечитывается из базы: строка только что взята оттуда.
+if ($user['user_group'] === 'admin') {
+    admin_log($mysql, 'auth.login_success', 'user', (int) $user['user_id'], ['login' => $login]);
+}
+
 $mysql->close();
 header('Location: /profile.php');
 exit();

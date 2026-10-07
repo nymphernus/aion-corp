@@ -23,6 +23,10 @@ require_once __DIR__ . '/icons.php';
 // обработчику в admin.php, который подключает connect.php, но не должен
 // знать про порядок require внутри модулей.
 require_once __DIR__ . '/image.php';
+// журнал действий администратора. Здесь, а не в admin.php: логин и
+// логаут пишутся в validation/, и оба не должны знать про порядок
+// require внутри админки.
+require_once __DIR__ . '/admin_log.php';
 
 if (!function_exists('connect')) {
     function connect(): mysqli
