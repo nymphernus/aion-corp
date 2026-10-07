@@ -244,6 +244,34 @@ SVG. Прежний файл `favicon.svg` с буквой «A» продолж�
 
 ---
 
+## Журнал действий
+
+Вкладка `/admin.php?tab=log` («Журнал» в аккордеоне «Панель
+управления»). Каждое действие администратора пишется в таблицу
+`admin_actions`: вход и выход, CRUD компонентов, сборок, пользователей,
+соцсетей, пресетов и ОС, смена статуса заказа, настройки, брендинг,
+карта и файлы.
+
+- **Код действия** — `<сущность>.<операция>` (`component.create`,
+  `order.status_change`, `auth.login_success`); неизвестный код
+  показывается на вкладке как есть, поэтому новое действие не требует
+  правки подписей заранее.
+- **Детали** — JSON ключевых полей: имя объекта, переход `from → to`
+  у статуса заказа, список ключей настроек. Для удалений имя читается
+  до `DELETE`, чтобы в журнале осталась читаемая копия.
+- **Кто** — `user_login` хранится копией, а не только `user_id`:
+  запись остаётся читаемой после переименования или удаления
+  пользователя, по нему же работает фильтр.
+- **Фильтры** — пользователь, действие, диапазон дат; сортировка по
+  дате убывания, 50 строк на страницу.
+- **Ротация** — записи старше 90 дней удаляются при каждом запуске
+  `scripts/migrate.php` (входит в `docker/entrypoint.sh`), отдельной
+  настройки очистки нет.
+- Журнал не ломает основное действие: ошибка записи уходит в
+  `error_log`, а выполнение продолжается.
+
+---
+
 ## Переменные окружения
 
 Значения по умолчанию — из `.env.example`.
@@ -418,12 +446,12 @@ src/
 ├── assembly.php       страница сборки, покупка, сохранение
 ├── profile.php        профиль покупателя: избранное, заказы
 ├── admin.php          админка: вкладки, обработчики POST
-├── modules/           connect, csrf, auth, site, image, components, configurator, pagination, ui, icons
+├── modules/           connect, csrf, auth, site, image, components, configurator, pagination, ui, icons, admin_log
 ├── partials/          header, footer, сайдбар профиля, модалки
-├── admin/             вкладки админки (_tab_assemblies, _tab_configurator, _tab_orders, ...)
+├── admin/             вкладки админки (_tab_assemblies, _tab_configurator, _tab_orders, _tab_log, ...)
 ├── validation/        логин, регистрация, сброс пароля, выход
 ├── scripts/           CLI: migrate, seed, cleanup_orphans, find_duplicate_components, create_admin, check_prepare
-├── tests/             PHPUnit (188 тестов)
+├── tests/             PHPUnit (219 тестов) + JS-тесты (node --test)
 └── assets/            css, js (theme.js, slider.js, admin-*.js), images, fonts
 ```
 
