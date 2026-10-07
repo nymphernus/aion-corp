@@ -67,38 +67,167 @@ $power_supply = component_by_id($mysql, $assemb['power_supply_id']);
 $ssd          = component_by_id($mysql, $assemb['ssd_id']);
 $gpu          = component_by_id($mysql, $assemb['gpu_id']);
 
-$compId[0] = $cpu['component_id'];
-$compId[1] = $motherboard['component_id'];
-$compId[3] = $ram['component_id'];
-$compId[4] = $case['component_id'];
-$compId[5] = $cooler['component_id'];
-$compId[6] = $power_supply['component_id'];
-$compId[7] = $ssd['component_id'];
-$compId[8] = $assemb['assembly_price'];
-
-if ($assemb['os']) {
-    $compId[12] = $assemb['os'];
-}
-
-if ($gpu) {
-    $compId[2] = $gpu['component_id'];
-}
-
-// второй накопитель, жёсткий диск и привод есть не в каждой сборке
+// Второй накопитель и жёсткий диск есть не в каждой сборке. Привод
+// не читается: категория «Привод» снята в Stage 8, и заполнить слот
+// dvd_id больше нечем.
 $ssd2 = component_by_id($mysql, $assemb['ssd_2_id']);
 $hdd  = component_by_id($mysql, $assemb['hdd_id']);
-$dvd  = component_by_id($mysql, $assemb['dvd_id']);
 
-if ($ssd2) {
-    $compId[9] = $ssd2['component_id'];
+// Признак базовой сборки - флаг is_base, а не номер: номер у сборки
+// витрины может быть любым. Только пользовательским сборкам доступен
+// подбор допкомпонентов.
+$isBase = ((int) ($assemb['is_base'] ?? 0)) === 1;
+
+/**
+ * Компоненты категории для селекта допкомпонента.
+ *
+ * Текущий выбор попадает в список независимо от остатка: при amount = 0
+ * он выпал бы из выборки, значение селекта сбросилось бы молча, а в
+ * NOT NULL-колонку ушёл бы ноль - ровно тот случай, что закрыт
+ * проверкой cfg_assembly_parts_in_category в админке.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function extra_slot_options(mysqli $mysql, int $categoryId, int $currentId): array
+{
+    $stmt = db_prepare(
+        $mysql,
+        'SELECT component_id, component_name, component_price
+           FROM components
+          WHERE category_id = ? AND (amount > 0 OR component_id = ?)
+          ORDER BY component_price ASC, component_name ASC',
+        'ii',
+        $categoryId,
+        $currentId
+    );
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    return $rows;
 }
 
-if ($hdd) {
-    $compId[10] = $hdd['component_id'];
+// Списки и цены нужны только пользовательским сборкам: у базовой допы
+// выбирать нечем, а запросы на странице витрины лишние.
+$extraHddList = [];
+$extraSsdList = [];
+$extraOldPrice = ['ssd_2_id' => 0, 'hdd_id' => 0];
+if (!$isBase) {
+    $extraSsdList = extra_slot_options($mysql, 9, (int) ($assemb['ssd_2_id'] ?? 0));
+    $extraHddList = extra_slot_options($mysql, 8, (int) ($assemb['hdd_id'] ?? 0));
+
+    $extraOldPrice['ssd_2_id'] = (int) ($ssd2['component_price'] ?? 0);
+    $extraOldPrice['hdd_id'] = (int) ($hdd['component_price'] ?? 0);
 }
 
-if ($dvd) {
-    $compId[11] = $dvd['component_id'];
+/**
+ * Применить выбор допкомпонентов к пользовательской сборке.
+ *
+ * Вызывается до обработчиков save и buy, а не внутри них: $assemb
+ * читает и assembly_demand(), и проверка остатков, и списание. Запись
+ * в базу без обновления $assemb означала бы, что покупатель видит одну
+ * цену, а склад списывает другую.
+ *
+ * Цена пересчитывается дельтой, а не суммой с нуля: assembly_price у
+ * пользовательской сборки равна сумме восьми основных компонентов плюс
+ * цена ОС. Пересчёт «из компонентов» потерял бы ОС и поднял бы цену
+ * вслед за правкой прайса у магазина.
+ *
+ * @param array<string, mixed> $assemb изменяется на месте
+ * @param array<string, mixed>|null $ssd2 изменяется на месте
+ * @param array<string, mixed>|null $hdd  изменяется на месте
+ */
+function apply_extra_slots(mysqli $mysql, array &$assemb, ?array &$ssd2, ?array &$hdd): void
+{
+    global $extraOldPrice;
+
+    $slots = ['ssd_2_id' => 9, 'hdd_id' => 8];
+
+    $posted = false;
+    foreach ($slots as $slot => $categoryId) {
+        if (array_key_exists('extra_' . $slot, $_POST)) {
+            $posted = true;
+        }
+    }
+    if (!$posted) {
+        return;
+    }
+
+    $selected = [];
+    foreach ($slots as $slot => $categoryId) {
+        $id = (int) ($_POST['extra_' . $slot] ?? 0);
+
+        if ($id > 0) {
+            $stmt = db_prepare(
+                $mysql,
+                'SELECT component_id, component_name, component_price
+                   FROM components
+                  WHERE component_id = ? AND category_id = ?',
+                'ii',
+                $id,
+                $categoryId
+            );
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            // Чужой компонент отклоняем целиком, а не молча выкидываем:
+            // иначе форма сохранилась бы с не тем, что человек выбрал.
+            if ($row === null) {
+                csrf_rotate();
+                header('Location: /assembly.php?id=' . (int) $assemb['assembly_id'] . '&error=extra_part');
+                exit();
+            }
+            $selected[$slot] = $row;
+        } else {
+            $selected[$slot] = null;
+        }
+    }
+
+    $delta = 0;
+    foreach ($slots as $slot => $categoryId) {
+        $delta += (int) ($selected[$slot]['component_price'] ?? 0)
+            - (int) ($extraOldPrice[$slot] ?? 0);
+    }
+
+    $newPrice = max(0, (int) $assemb['assembly_price'] + $delta);
+
+    // NULLIF пишет настоящий NULL, а не ноль: колонки nullable, и нулевой
+    // component_id в других местах читать нельзя.
+    $stmt = db_prepare(
+        $mysql,
+        'UPDATE assembly
+            SET ssd_2_id = NULLIF(?, 0), hdd_id = NULLIF(?, 0), assembly_price = ?
+          WHERE assembly_id = ?',
+        'iiii',
+        (int) ($selected['ssd_2_id']['component_id'] ?? 0),
+        (int) ($selected['hdd_id']['component_id'] ?? 0),
+        $newPrice,
+        (int) $assemb['assembly_id']
+    );
+    $stmt->execute();
+    $stmt->close();
+
+    $ssd2 = $selected['ssd_2_id'];
+    $hdd = $selected['hdd_id'];
+
+    $assemb['ssd_2_id'] = $selected['ssd_2_id'] === null
+        ? null
+        : (int) $selected['ssd_2_id']['component_id'];
+    $assemb['hdd_id'] = $selected['hdd_id'] === null
+        ? null
+        : (int) $selected['hdd_id']['component_id'];
+    $assemb['assembly_price'] = $newPrice;
+
+    $extraOldPrice['ssd_2_id'] = (int) ($selected['ssd_2_id']['component_price'] ?? 0);
+    $extraOldPrice['hdd_id'] = (int) ($selected['hdd_id']['component_price'] ?? 0);
+}
+
+// Запрос приходит только с форм пользовательской сборки: у базовой секции
+// с выбором допов на странице нет, и пустой POST означал бы, что прислали
+// руками.
+if (!$isBase && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    apply_extra_slots($mysql, $assemb, $ssd2, $hdd);
 }
 
 $isLoggedIn = isset($_SESSION['user_id']);
@@ -179,6 +308,7 @@ if (isset($_POST['buy'])) {
 $assemblyErrors = [
     'out_of_stock' => 'Комплектующие закончились. Напишите администратору - он пополнит остатки.',
     'buy_failed'   => 'Не удалось оформить заказ. Попробуйте ещё раз.',
+    'extra_part'   => 'Выбранный допкомпонент не подходит к этой позиции. Обновите страницу и выберите заново.',
 ];
 
 $assemblyError = null;
@@ -199,7 +329,20 @@ if (isset($assemblyErrors[$errorKey])) {
 <?php
 $pageTitle = 'Сборка ПК';
 $extraCss = ['/assets/css/configurator.css'];
-$extraJs  = [];
+$extraJs  = ['/assets/js/assembly-extra.js'];
+
+// Скрытые поля для всех трёх форм собираются один раз: селекты допов
+// лежат в левой колонке, а кнопки «Сохранить» и «Купить» - в правой, и
+// поле одной колонки не может оказаться внутри формы другой. JS
+// синхронизирует значения перед отправкой.
+$extraHidden = '';
+if (!$isBase) {
+    $extraHidden = '<input type="hidden" name="extra_ssd_2_id" value="'
+        . (int) ($assemb['ssd_2_id'] ?? 0) . '">'
+        . '<input type="hidden" name="extra_hdd_id" value="'
+        . (int) ($assemb['hdd_id'] ?? 0) . '">';
+}
+
 require __DIR__ . '/partials/header.php';
 ?>
 <?php if ($assemblyError !== null): ?>
@@ -290,7 +433,59 @@ if (!empty($assemb['os'])) {
                 </div>
     <?php
 }
+
+// Допкомпоненты доступны только пользовательской сборке: у базовой витрины
+// состав задан админом, и покупатель не должен его менять.
+if (!$isBase):
+    // База для пересчёта на клиенте: текущая цена минус нынешние допы.
+    // JS складывает из неё новые допы, а сервер делает то же дельтой,
+    // поэтому цифры на экране и в базе сходятся.
+    $extraBasePrice = (int) $assemb['assembly_price']
+        - $extraOldPrice['ssd_2_id']
+        - $extraOldPrice['hdd_id'];
 ?>
+                <section class="extra-components"
+                         id="extraComponents"
+                         data-base-price="<?= $extraBasePrice ?>"
+                         data-price-ssd2="<?= $extraOldPrice['ssd_2_id'] ?>"
+                         data-price-hdd="<?= $extraOldPrice['hdd_id'] ?>">
+                    <h2 class="extra-components__title">Дополнительные компоненты</h2>
+                    <p class="extra-components__hint">
+                        Цена пересчитывается сразу. Изменения при��менятся, когда вы
+                        сохраните сборку в избранное или купите её.
+                    </p>
+
+                    <div class="extra-row">
+                        <label class="form-label" for="extraSsd2">Дополнительный SSD</label>
+                        <select class="input extra-select" id="extraSsd2" name="extra_ssd_2_id">
+                            <option value="0" data-price="0">— не выбран —</option>
+<?php foreach ($extraSsdList as $extraOpt): ?>
+                            <option value="<?= (int) $extraOpt['component_id'] ?>"
+                                    data-price="<?= (int) $extraOpt['component_price'] ?>"
+<?= (int) ($assemb['ssd_2_id'] ?? 0) === (int) $extraOpt['component_id'] ? ' selected' : '' ?>>
+                                <?= escape((string) $extraOpt['component_name']) ?>
+                                · <?= number_format((int) $extraOpt['component_price'], 0, '.', ' ') ?> ₽
+                            </option>
+<?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="extra-row">
+                        <label class="form-label" for="extraHdd">Жёсткий диск</label>
+                        <select class="input extra-select" id="extraHdd" name="extra_hdd_id">
+                            <option value="0" data-price="0">— не выбран —</option>
+<?php foreach ($extraHddList as $extraOpt): ?>
+                            <option value="<?= (int) $extraOpt['component_id'] ?>"
+                                    data-price="<?= (int) $extraOpt['component_price'] ?>"
+<?= (int) ($assemb['hdd_id'] ?? 0) === (int) $extraOpt['component_id'] ? ' selected' : '' ?>>
+                                <?= escape((string) $extraOpt['component_name']) ?>
+                                · <?= number_format((int) $extraOpt['component_price'], 0, '.', ' ') ?> ₽
+                            </option>
+<?php endforeach; ?>
+                        </select>
+                    </div>
+                </section>
+<?php endif; ?>
             </div>
 
             <aside class="build-summary">
@@ -311,7 +506,7 @@ if (!empty($assemb['os'])) {
                     Сборка №<?= (int)$assemb['assembly_id'] ?>
                 </div>
 
-                <div class="build-summary__price">
+                <div class="build-summary__price" id="buildPrice">
                     <?= number_format($assemb['assembly_price'], 0, '.', ' ') ?> ₽
                 </div>
 
@@ -322,19 +517,19 @@ if (!empty($assemb['os'])) {
                         <p class="build-summary__hint">Войдите, чтобы сохранить или купить</p>
                     <?php elseif (isset($_GET['check-purchased'])): ?>
                         <form method="post" class="build-summary__form">
-                            <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                            <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>"><?= $extraHidden ?>
                             <button type="submit" name="save" class="btn btn--secondary">Сохранить</button>
                             <button type="submit" name="buy" class="btn btn--primary" disabled>Купить</button>
                         </form>
                     <?php elseif (isset($_GET['check-saved'])): ?>
                         <form method="post" class="build-summary__form">
-                            <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                            <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>"><?= $extraHidden ?>
                             <button type="submit" name="save" class="btn btn--secondary" disabled>Сохранить</button>
                             <button type="submit" name="buy" class="btn btn--primary">Купить</button>
                         </form>
                     <?php else: ?>
                         <form method="post" class="build-summary__form">
-                            <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+                            <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>"><?= $extraHidden ?>
                             <button type="submit" name="save" class="btn btn--secondary">Сохранить</button>
                             <button type="submit" name="buy" class="btn btn--primary">Купить</button>
                         </form>

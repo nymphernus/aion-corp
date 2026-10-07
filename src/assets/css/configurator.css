@@ -268,6 +268,48 @@
     letter-spacing: -0.01em;
 }
 
+/* Допкомпоненты пользовательской сборки. Секция живёт в колонке
+   карточек, а цена показывается в сводке справа: выбор и итог разнесены
+   по экрану намеренно, рядом с ценой селекты нажимались бы впритык. */
+.extra-components {
+    margin-top: 8px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+}
+
+.extra-components__title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 8px;
+}
+
+.extra-components__hint {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 16px;
+}
+
+.extra-row {
+    margin-bottom: 14px;
+}
+
+.extra-row:last-child {
+    margin-bottom: 0;
+}
+
+.extra-row .form-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.extra-row .input {
+    width: 100%;
+}
+
 .build-summary__actions {
     display: flex;
     flex-direction: column;
