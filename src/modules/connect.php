@@ -30,10 +30,9 @@ if (!function_exists('connect')) {
         $dbhost = getenv('DB_HOST') ?: 'db';
         $dbuser = getenv('DB_USER') ?: 'admin';
         $dbpass = getenv('DB_PASSWORD');
-        // Имя базы берётся из окружения. Раньше здесь стоял захардкоженный
-        // 'aion_bd' на случай пустого DB_NAME - но compose передаёт
-        // MYSQL_DATABASE, и подставить надо именно его: иначе при
-        // переименовании базы приложение молча пошло бы в старую.
+        // MYSQL_DATABASE проверяется первым: compose передаёт именно его, и при
+        // переименовании базы приложение должно пойти в новую, а не молча
+        // остаться в старой.
         $dbname = getenv('MYSQL_DATABASE') ?: (getenv('DB_NAME') ?: 'shop_db');
         
         if ($dbpass === false || $dbpass === '') {

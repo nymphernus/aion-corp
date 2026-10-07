@@ -92,9 +92,8 @@ if (!defined('ADMIN_CONTEXT')) {
                                 if ((int) ($row['asm_is_base'] ?? 0) === 0) {
                                     $row['assembly_name'] = "Сборка " . ($row['assembly_name'] ?? '');
                                 }
-                                // колонка адреса - из user_city, как в таблице пользователей.
-                                // Раньше брала первую часть legacy user_address,
-                                // поэтому показывала устаревшую строку.
+                                // Адрес берётся из user_city, как в таблице пользователей. Первая
+                                // часть legacy user_address показывала бы устаревшую строку.
                                 $addr = trim((string) ($row['user_city'] ?? ''));
                                 $shortAddress = $addr !== '' ? $addr : 'Не указан';
 

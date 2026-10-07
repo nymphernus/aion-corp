@@ -348,7 +348,7 @@ foreach ($allCasesList as $c) {
     </div>
 </dialog>
 
-<!-- БЛОК 4: скрытая форма привязки. Отправляет confirm-действие -->
+<!-- Скрытая форма привязки файла к корпусу. -->
 <form id="attachFileForm" method="post" action="/admin.php?tab=files" style="display:none">
     <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
     <input type="hidden" name="return_params" value="<?= escape(admin_list_query('files')) ?>">

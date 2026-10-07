@@ -21,12 +21,8 @@ if (!isset($settings) || !is_array($settings)) {
     $settings = ($footerMysql instanceof mysqli) ? site_settings($footerMysql) : [];
 }
 
-// Подвал собирается из двух настроек: год основания и название сайта.
-// Раньше здесь была ещё и site_footer_copyright - поле, где копирайт
-// можно было написать целиком. Оно было лишним: год и название всё
-// равно задаются рядом, а строка целиком требовала дублирования их
-// значений в тексте. Теперь копирайт всегда «© {год} {название}», и
-// подвинуть его можно только этими двумя полями.
+// Копирайт собирается из года основания и названия сайта: строка целиком
+// в настройке требовала бы дублировать оба значения в тексте.
 //
 // © жёстко в шаблоне, а не в настройке: это символ, а не данные.
 $siteName = site_setting($settings, 'site_name', 'Aion Corporation');
@@ -40,18 +36,16 @@ $extraJs = $extraJs ?? [];
         <span><?= escape($footerCopyright) ?></span>
         <span>Designed by <a href="https://github.com/nymphernus">Aleksey Schumann</a></span>
     </footer>
-<?php // Обработчик переключателя темы подключается здесь, а не
-     // постранично: кнопка живёт в шапке, а шапка есть на каждой
-     // странице. В $extraJs scripts.js перечисляют выборочно (главная,
-     // профиль, админка), и на странице сборки его нет - обработчик
-     // темы туда не попадал, хотя кнопка была нарисована. ?>
+<?php // Обработчик темы подключается здесь, а не постранично: кнопка
+     // живёт в шапке, а шапка есть на каждой странице, тогда как
+     // scripts.js в $extraJs перечисляют выборочно. ?>
     <script src="<?= escape(asset_url('/assets/js/theme.js')) ?>"></script>
 <?php foreach ($extraJs as $js): ?>
     <script src="<?= escape(asset_url($js)) ?>"></script>
 <?php endforeach; ?>
 <?php
-// счётчик запросов к базе. Показывается только если переменная
-// DEBUG_SQL_COUNT задана и непуста, в обычной работе блока нет.
+// Счётчик запросов выводится только при заданной DEBUG_SQL_COUNT, в
+// обычной работы блока нет.
 if (getenv('DEBUG_SQL_COUNT') !== false && getenv('DEBUG_SQL_COUNT') !== '' && isset($GLOBALS['db_prepare_calls'])) {
     echo "\n<!-- db_prepare calls: " . (int) $GLOBALS['db_prepare_calls'] . " -->\n";
 }

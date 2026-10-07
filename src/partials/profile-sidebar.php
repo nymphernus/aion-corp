@@ -127,8 +127,8 @@ $isAdminSection = isset($adminLinks[$activeTab]);
                         <a href="/admin.php?tab=settings" class="profile-nav-item<?= $activeTab === 'settings' ? ' active' : '' ?>">Настройки сайта</a>
 <?php endif; ?>
 
-                        <!-- был ссылкой, ушла сразу. Теперь кнопка: выход требует
-                             подтверждения через общую #confirmModal -->
+                        <!-- Выход - кнопка, а не ссылка: требует подтверждения
+                             через общую #confirmModal. -->
                         <button type="button" class="profile-nav-item profile-nav-exit" data-action="logout-confirm">Выйти</button>
                     </nav>
                 </aside>

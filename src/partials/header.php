@@ -78,9 +78,8 @@ $htmlTheme = ($themeCookie === 'light' || $themeCookie === 'dark') ? $themeCooki
           $fullTitle = $pageTitle . ' — ' . $siteName;
       } ?>
     <title><?= escape($fullTitle) ?></title>
-<?php // БАГ 4: описание из site_settings до этого нигде не выводилось, и
-      // поле «Описание» в админке было мёртвым. Идёт и в description
-      // для поисковиков, и в подпись hero на главной. ?>
+<?php // Описание из site_settings идёт и в meta для поисковиков, и в
+      // подпись hero на главной. ?>
 <?php if ($siteDescription !== ''): ?>
     <meta name="description" content="<?= escape($siteDescription) ?>">
 <?php endif; ?>
@@ -89,14 +88,11 @@ $htmlTheme = ($themeCookie === 'light' || $themeCookie === 'dark') ? $themeCooki
 <?php foreach ($extraCss as $css): ?>
     <link rel="stylesheet" href="<?= escape(asset_url($css)) ?>">
 <?php endforeach; ?>
-    <!-- иконка одна и только PNG.
+    <!-- Иконка одна и только PNG.
 
-         Раньше их было две - svg для современных браузеров и png для
-         старых, - и это стоило отдельного ключа настройки, отдельной
-         логики сброса («загрузил png - сбрось svg, иначе старый кандидат
-         продолжит показываться») и вечного риска, что показывается не
-         та картинка. Теперь иконку рисует сайт из site_settings, и
-         кандидат ровно один.
+         Кандидатов два (svg и png) стоили бы отдельного ключа настройки и
+         отдельной логики сброса: загрузил png - сбрось svg, иначе старый
+         кандидат продолжит показываться.
 
          rel="shortcut icon" тоже не нужен: он значил то же самое, а в
          HTML5 правильный способ - просто rel="icon". Короткое имя живёт
