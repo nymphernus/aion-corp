@@ -291,29 +291,11 @@ h1{
     margin-bottom: 0;
 }
 
-.modal {
-    /* глобальный * { margin: 0 } из style.css обнуляет margin:auto,
-       на котором dialog центрируется — возвращаем */
-    margin: auto;
-    border: none;
-    border-radius: var(--radius);
-    padding: 0;
-    max-width: 500px;
-    width: 90%;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-}
-
-.modal::backdrop {
-    background: rgba(0,0,0,0.5);
-}
-
-.modal-form {
-    padding: 32px;
-}
-
-.modal-form h2 {
-    margin: 0 0 24px;
-}
+/* Базовые правила модалки (.modal, .modal-form, .modal-actions,
+   .modal--wide) перенесены в style.css: dialog нужен на любой странице,
+   а этот файл подключается не везде. Правила .modal-section,
+   .modal-value и .modal-form--user остались здесь - они нужны только
+   профилю и админке. */
 
 /* сетка ряда всегда видимых полей (2 колонки на десктопе) */
 .modal-row {
@@ -338,14 +320,6 @@ h1{
     display: block;
 }
 
-.modal-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-top: 24px;
-}
-
 /* кнопки справа даже когда «Удалить» скрыта (hidden) */
 .modal-actions-right {
     display: flex;
@@ -356,11 +330,7 @@ h1{
 /* .modal-links удалён вместе со ссылкой «Мои заказы» —
    в админской модалке пользователя такой перехода быть не должно */
 
-/* широкий вариант модалки — для данных, которые не влезают
-   в 500px (пользователь: имя, фамилия, логин, группа, адрес, телефон) */
-.modal--wide {
-    max-width: 760px;
-}
+/* широкий вариант модалки перенесён в style.css вместе с базовыми */
 
 /* Секции раскладываются по две в ряд, короткие секции встают рядом, а не
 /* 7: раскладка модалки пользователя в две колонки.

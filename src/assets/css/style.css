@@ -1562,3 +1562,51 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     margin-bottom: 24px;
 }
 
+/* ============================================================================
+   Модалка: базовые правила
+   ============================================================================
+   Жили в profile.css, но <dialog> нужен на любой странице - выбор
+   допкомпонентов на странице сборки подключает style.css, а не профиль.
+   Специфичные для профиля и админки (.modal-section, .modal-value,
+   .modal-form--user) остались в profile.css.
+   ========================================================================== */
+
+.modal {
+    /* глобальный * { margin: 0 } обнуляет margin:auto, на котором
+       dialog центрируется - возвращаем */
+    margin: auto;
+    border: none;
+    border-radius: var(--radius);
+    padding: 0;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+.modal::backdrop {
+    background: rgba(0,0,0,0.5);
+}
+
+.modal-form {
+    padding: 32px;
+}
+
+.modal-form h2 {
+    margin: 0 0 24px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+/* Широкий вариант - для данных, которые не влезают в 500px.
+   min() вместо голого 760px: на узком экране ширина вьюпорта
+   ограничивает и max-width, иначе модалка вылезала за края. */
+.modal--wide {
+    max-width: min(760px, 94vw);
+}
+

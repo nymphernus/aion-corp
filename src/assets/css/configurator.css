@@ -268,9 +268,9 @@
     letter-spacing: -0.01em;
 }
 
-/* Допкомпоненты пользовательской сборки. Секция живёт в колонке
-   карточек, а цена показывается в сводке справа: выбор и итог разнесены
-   по экрану намеренно, рядом с ценой селекты нажимались бы впритык. */
+/* Допкомпоненты пользовательской сборки. Секция живёт в колонке карточек,
+   а итоговая цена показывается в сводке справа: выбор и итог разнесены по
+   экрану намеренно, рядом с ценой список занял бы пол-колонки. */
 .extra-components {
     margin-top: 8px;
     padding: 20px;
@@ -279,35 +279,175 @@
     background: var(--bg-card);
 }
 
+.extra-components__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
 .extra-components__title {
     font-size: 20px;
     font-weight: 700;
-    margin: 0 0 8px;
+    margin: 0;
 }
 
 .extra-components__hint {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-secondary);
     margin: 0 0 16px;
 }
 
-.extra-row {
-    margin-bottom: 14px;
+.extra-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.extra-row:last-child {
-    margin-bottom: 0;
+.extra-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
 }
 
-.extra-row .form-label {
-    display: block;
-    margin-bottom: 6px;
+.extra-item__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.extra-item__label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.extra-item__name {
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-word;
+}
+
+.extra-item__price {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+/* Свой класс, а не btn-icon--danger из profile.css: тот файл на этой
+   странице не подключается, и кнопка была бы без единого правила. */
+.extra-item__remove {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    transition: 150ms;
+}
+
+.extra-item__remove:hover {
+    color: var(--error);
+    border-color: var(--error);
+}
+
+.extra-empty {
+    margin: 0;
+    padding: 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+}
+
+/* Модалка выбора допкомпонента */
+
+.extra-picker-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.extra-picker-tab {
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-family: inherit;
     font-size: 14px;
     color: var(--text-secondary);
+    transition: 150ms;
 }
 
-.extra-row .input {
-    width: 100%;
+.extra-picker-tab:hover {
+    color: var(--text);
+}
+
+.extra-picker-tab.is-active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.extra-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.extra-picker-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+    transition: 150ms;
+}
+
+.extra-picker-item:hover,
+.extra-picker-item.is-current {
+    border-color: var(--accent);
+    background: var(--accent-light);
+}
+
+.extra-picker-item__name {
+    /* flex-basis с нуля обязателен: по умолчанию flex: 0 1 auto даёт
+       элементу его естественную ширину, и длинное имя выдавливало цену
+       за правый край модалки вместо переноса. */
+    flex: 1 1 0;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.extra-picker-item__price {
+    flex: none;
+    padding-left: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
 }
 
 .build-summary__actions {

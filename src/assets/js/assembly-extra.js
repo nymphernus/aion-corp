@@ -3,7 +3,12 @@
  *
  * Отдельный файл, а не инлайн-скрипт: политика безопасности в .htaccess
  * запрещает script-src 'self' без nonce, и inline-код просто не выполнился
- * бы. Все числа приходят через data-атрибуты секции - ровно потому же.
+ * бы. Данные приходят через data-slots по той же причине.
+ *
+ * Имена компонентов приходят из базы, поэтому весь DOM собирается через
+ * createElement и textContent. innerHTML с такой строкой выполнил бы
+ * содержимое компонента как разметку: имя вида "<img onerror=...>" стало бы
+ * узлом, а не текстом.
  *
  * Файл подключается на всех сборках, но весь код под условием: у базовой
  * секции #extraComponents на странице нет, и обработчик выходит сразу.
@@ -16,57 +21,216 @@
         return;
     }
 
-    var selects = section.querySelectorAll('.extra-select');
-    if (!selects.length) {
+    var slots;
+    try {
+        slots = JSON.parse(section.dataset.slots || '{}');
+    } catch (e) {
         return;
     }
 
-    /* База = нынешняя цена сборки минус нынешние допы. Сервер считает
-       то же дельтой, поэтому цифра на экране и цена в базе сходятся. */
-    var base = parseInt(section.dataset.basePrice, 10) || 0;
+    /* Порядок слотов задаёт этот список, а не объект: в JSON порядок ключей
+       не гарантирован, и карточки поехали бы в разном порядке при каждой
+       загрузке. */
+    var ORDER = ['ssd_2_id', 'hdd_id'];
+
+    var ssdHidden = document.getElementById('extraSsd2Hidden');
+    var hddHidden = document.getElementById('extraHddHidden');
+    var itemsEl = document.getElementById('extraItems');
+    var emptyEl = document.getElementById('extraEmpty');
+    var modal = document.getElementById('extraPickerModal');
+    var listEl = document.getElementById('extraPickerList');
     var priceEl = document.getElementById('buildPrice');
 
-    /* Разделитель тысяч берём из Intl, а не собираем пробелом сами: в
-       шаблоне цену печатает number_format, и обычный пробел отличался бы
-       от серверного на вид. */
+    /* База = нынешняя цена сборки минус нынешние допы. Сервер считает
+       то же дельтой, поэтому цифра на экране совпадает с базой. */
+    var base = parseInt(section.dataset.basePrice, 10) || 0;
     var fmt = new Intl.NumberFormat('ru-RU');
 
-    function selectedPrice(select) {
-        var opt = select.options[select.selectedIndex];
-        if (!opt) {
-            return 0;
-        }
-        return parseInt(opt.dataset.price, 10) || 0;
+    var state = {
+        ssd_2_id: parseInt(ssdHidden.value, 10) || 0,
+        hdd_id: parseInt(hddHidden.value, 10) || 0
+    };
+    var pickerSlot = ORDER[0];
+
+    function itemsOf(slot) {
+        var data = slots[slot];
+        return data && data.items ? data.items : [];
     }
 
-    function recalc() {
-        var total = base;
-        for (var i = 0; i < selects.length; i++) {
-            total += selectedPrice(selects[i]);
-        }
-        if (priceEl) {
-            priceEl.textContent = fmt.format(total) + ' ₽';
-        }
+    function labelOf(slot) {
+        var data = slots[slot];
+        return data && data.label ? data.label : '';
+    }
 
-        /* Скрытые поля во всех трёх формах синхронизируются здесь: до
-           отправки. querySelectorAll, а не getElementById - у форм
-           одинаковые имена полей, и id у них не может быть общим. */
-        var fields = document.querySelectorAll(
-            'input[name="extra_ssd_2_id"], input[name="extra_hdd_id"]'
-        );
-        for (var j = 0; j < fields.length; j++) {
-            var src = document.getElementById(
-                fields[j].name === 'extra_ssd_2_id' ? 'extraSsd2' : 'extraHdd'
-            );
-            if (src) {
-                fields[j].value = src.value;
+    function findItem(slot, id) {
+        var list = itemsOf(slot);
+        for (var i = 0; i < list.length; i++) {
+            if (parseInt(list[i].component_id, 10) === id) {
+                return list[i];
             }
         }
+        return null;
     }
 
-    for (var k = 0; k < selects.length; k++) {
-        selects[k].addEventListener('change', recalc);
+    function rubles(value) {
+        return fmt.format(value) + ' ₽';
     }
 
-    recalc();
+    function render() {
+        itemsEl.textContent = '';
+        var total = base;
+        var count = 0;
+
+        for (var i = 0; i < ORDER.length; i++) {
+            var slot = ORDER[i];
+            var id = state[slot];
+            if (!id) {
+                continue;
+            }
+
+            /* Компонент, которого нет в списке, пропускаем: так бывает,
+               когда он закончился и попал в базу до того, как его списали.
+               Молчаливый пропуск честнее карточки с ценой 0. */
+            var item = findItem(slot, id);
+            if (!item) {
+                continue;
+            }
+
+            var price = parseInt(item.component_price, 10) || 0;
+            total += price;
+            count++;
+
+            var row = document.createElement('div');
+            row.className = 'extra-item';
+
+            var info = document.createElement('div');
+            info.className = 'extra-item__info';
+
+            var label = document.createElement('div');
+            label.className = 'extra-item__label';
+            label.textContent = labelOf(slot);
+
+            var name = document.createElement('div');
+            name.className = 'extra-item__name';
+            name.textContent = item.component_name;
+
+            info.appendChild(label);
+            info.appendChild(name);
+
+            var priceBox = document.createElement('div');
+            priceBox.className = 'extra-item__price';
+            priceBox.textContent = rubles(price);
+
+            var remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'extra-item__remove';
+            remove.textContent = '×';
+            remove.title = 'Убрать';
+            remove.setAttribute('aria-label', 'Убрать');
+            remove.setAttribute('data-action', 'remove-extra');
+            remove.setAttribute('data-slot', slot);
+
+            row.appendChild(info);
+            row.appendChild(priceBox);
+            row.appendChild(remove);
+            itemsEl.appendChild(row);
+        }
+
+        emptyEl.hidden = count > 0;
+        ssdHidden.value = state.ssd_2_id || '0';
+        hddHidden.value = state.hdd_id || '0';
+
+        if (priceEl) {
+            priceEl.textContent = rubles(total);
+        }
+    }
+
+    function openPicker(slot) {
+        pickerSlot = slot;
+
+        var tabs = modal.querySelectorAll('.extra-picker-tab');
+        for (var i = 0; i < tabs.length; i++) {
+            tabs[i].classList.toggle('is-active', tabs[i].dataset.slot === slot);
+        }
+
+        listEl.textContent = '';
+
+        var list = itemsOf(slot);
+        if (list.length === 0) {
+            var hint = document.createElement('p');
+            hint.className = 'form-hint';
+            hint.textContent = 'Нет доступных компонентов';
+            listEl.appendChild(hint);
+            return;
+        }
+
+        var currentId = state[slot];
+
+        for (var j = 0; j < list.length; j++) {
+            var item = list[j];
+            var id = parseInt(item.component_id, 10);
+
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'extra-picker-item'
+                + (id === currentId ? ' is-current' : '');
+            btn.setAttribute('data-action', 'pick-extra');
+            btn.setAttribute('data-slot', slot);
+            btn.setAttribute('data-id', String(id));
+
+            var nameEl = document.createElement('span');
+            nameEl.className = 'extra-picker-item__name';
+            nameEl.textContent = item.component_name;
+
+            var priceSpan = document.createElement('span');
+            priceSpan.className = 'extra-picker-item__price';
+            priceSpan.textContent = rubles(parseInt(item.component_price, 10) || 0);
+
+            btn.appendChild(nameEl);
+            btn.appendChild(priceSpan);
+            listEl.appendChild(btn);
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        var open = e.target.closest('[data-action="open-extra-picker"]');
+        if (open) {
+            e.preventDefault();
+            openPicker(pickerSlot);
+            modal.showModal();
+            return;
+        }
+
+        var close = e.target.closest('[data-action="close-extra-picker"]');
+        if (close) {
+            e.preventDefault();
+            modal.close();
+            return;
+        }
+
+        var tab = e.target.closest('[data-action="extra-picker-tab"]');
+        if (tab) {
+            e.preventDefault();
+            openPicker(tab.dataset.slot);
+            return;
+        }
+
+        var pick = e.target.closest('[data-action="pick-extra"]');
+        if (pick) {
+            e.preventDefault();
+            state[pick.dataset.slot] = parseInt(pick.dataset.id, 10) || 0;
+            modal.close();
+            render();
+            return;
+        }
+
+        var remove = e.target.closest('[data-action="remove-extra"]');
+        if (remove) {
+            e.preventDefault();
+            state[remove.dataset.slot] = 0;
+            render();
+        }
+    });
+
+    render();
 }());
