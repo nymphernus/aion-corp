@@ -19,17 +19,11 @@ if ($userLogin) {
     $validResult = $stmt->get_result();
     $userProfile = $validResult->fetch_assoc();
 
-    // сессия переживает удаление пользователя из базы. Раньше страница
-    // решала, показывать профиль или форму входа, по $_SESSION['user_id'],
-    // а не по наличию строки в users. Из-за этого удалённый пользователь
-    // видел пустой профиль: все поля «Не указано», логин без имени, и любое
-    // сохранение уходило в ноль строк, ничем не выдавая себя. Теперь такой
-    // сессии просто не существует - чистим её и отправляем на форму входа.
-    // Сброс стоит до обработчиков POST: удалённый пользователь не должен
-    // «обновлять» профиль и POST-запросом.
+    // Показывать профиль или форму входа решает наличие строки в users,
+    // а не $_SESSION['user_id']: сессия переживает удаление пользователя.
+    // Сброс стоит до обработчиков POST - удалённый пользователь не
+    // должен «обновлять» профиль POST-запросом.
     if (!$userProfile) {
-        // тот же сброс, что и в validation/exit.php, вынесен в
-        // общий logout_user()
         logout_user();
         header('Location: /profile.php');
         exit();
@@ -58,11 +52,8 @@ if ($userProfile) {
 
     if (isset($_POST['changeAddress']) && isset($_SESSION['user_login'])) {
         csrf_verify();
-        // адрес разбит на поля. Раньше отсюда собиралась строка
-        // «г.$city, ул.$street, д.$home» в user_address, причём без
-        // проверок, а поле называлось user_home - такой колонки нет.
-        // Теперь пишем в шесть колонок, user_address не трогаем: это
-        // legacy-значение из миграции .
+        // Адрес пишется в шесть колонок; user_address не трогаем - это
+        // legacy-значение из миграции.
         $addr = [
             'postal_code' => trim($_POST['user_postal_code'] ?? ''),
             'region' => trim($_POST['user_region'] ?? ''),
@@ -120,16 +111,11 @@ if ($userProfile) {
         exit();
     }
 
-    // смена пароля из профиля.
+    // Проверка текущего пароля обязательна: без неё любой, у кого открыта
+    // сессия, заменил бы пароль, не зная прежнего.
     //
-    // Проверка текущего пароля обязательна: без неё любой, кто открыл
-    // сессию, мог бы заменить пароль, не зная прежнего. Хеш лежит в
-    // $userProfile - это та же строка из users, что идёт в .
-    //
-    // Порядок проверок: сначала текущий пароль, потом длина, потом
-    // совпадение с прежним, потом повтор. Так пользователь видит по
-    // одной причине, а не четыре сразу, и первая в списке - самая
-    // вероятная.
+    // Порядок проверок - от самой вероятной причины: так пользователь
+    // видит одну, а не четыре сразу.
     $passwordError = null;
     if (isset($_POST['changePassword'])) {
         csrf_verify();
@@ -158,12 +144,10 @@ if ($userProfile) {
         }
 
         if ($pwErrors) {
-            // ошибки показываем на карточке, без редиректа: иначе текст
-            // потерялся бы вместе с POST
+            // Ошибки показываем на карточке без редиректа: иначе текст
+            // потерялся бы вместе с POST. Поля пароля остаются пустыми -
+            // вводить заново не придётся.
             $passwordError = implode('. ', $pwErrors);
-            // страница уже отрисована ниже по ветке $userProfile, поэтому
-            // $_POST тут недоступен для повторного заполнения полей: поля
-            // намеренно пустые, пароль заново вводить не придётся
             unset($_POST['current_password'], $_POST['new_password'], $_POST['new_password_confirm']);
         } else {
             $hash = password_hash($new, PASSWORD_BCRYPT);
@@ -178,40 +162,21 @@ if ($userProfile) {
             $stmt->close();
 
             csrf_rotate();
-            // section=security, а не section=card-security. В $sectionMap
-            // ключи info/security/orders/fav, а card-security - это уже
-            // результат отображения. Со значением card-security ключ не
-            // находился, $activeSection откатывался в card-info, и после
-            // успешной смены пароля страница открывалась на «Личной
-            // информации» вместо карточки безопасности
+            // section=security - ключ в $sectionMap; card-security это уже
+            // результат отображения, и с ним ключ не нашёлся бы.
             header('Location: /profile.php?section=security&password_changed=1');
             exit();
         }
     }
 
-    // 7: заявка на верификацию контактов.
+    // Заявка на верификацию контактов живёт внутри card-security: это
+    // часть безопасности аккаунта, а не отдельный раздел.
     //
-    // Блок живёт внутри card-security: подтверждение email и телефона -
-    // часть безопасности аккаунта, отдельной карточки и отдельного пункта
-    // меню нет. Поэтому и редирект после заявки ведёт на section=security,
-    // а не на несуществующий раздел.
+    // Реальной отправки кода нет: кнопка ставит флаг заявки, а
+    // подтверждает администратор вручную в модалке пользователя.
     //
-    // Реальной отправки кода нет и не планируется на этом этапе: кнопка
-    // просто ставит флаг заявки, а подтверждает администратор вручную в
-    // модалке пользователя.
-    //
-    // Заявку принимает только у того, у кого контакт вообще заполнен.
-    // Подтверждать нечего - показывать кнопку при пустом user_email
-    // незачем, и администратору потом пришлось бы подтверждать пустоту.
-    //
-    // Повторную заявку не принимаем: если requested уже стоит, UPDATE не
-    // выполняется. Иначе можно было бы спамить кнопкой, которая по ТЗ
-    // и так исчезает после первого нажатия, а здесь ещё и гонкой между
-    // двумя вкладками.
-    //
-    // Кто именно заявку оставил - не различаем. Для будущей отправки
-    // кода понадобится метка времени, но сейчас её незачем тащить в
-    // схему: единственный потребитель, администратор, смотрит на флаг.
+    // Заявка принимается только при заполненном контакте и только один
+    // раз: если флаг уже стоит, UPDATE не выполняется.
     if (isset($_POST['requestEmailVerification'])) {
         csrf_verify();
 
@@ -285,11 +250,10 @@ if ($userProfile) {
         $stmt = db_prepare($mysql, "DELETE FROM favorites WHERE favorit_id = ?", "i", $_POST['favoritId']);
         $stmt->execute();
 
-        // Удалить саму сборку можно только если она не заказана и не
-        // базовая. Признак базовой - флаг, а не номер: у сборки витрины
-        // номер может быть любым, и под правило «больше трёх» попадала бы
-        // четвёртая базовая сборка - её удалил бы обычный пользователь
-        // из избранного, и она исчезла бы с главной.
+        // Саму сборку удаляем только если она не заказана и не базовая.
+        // Признак базовой - флаг, а не номер: номер у сборки витрины
+        // может быть любым, и под правило «больше трёх» попала бы
+        // четвёртая базовая сборка - её удалил бы обычный пользователь.
         $stmt = db_prepare($mysql, "SELECT is_base FROM assembly WHERE assembly_id = ?", "i", $assemblyId);
         $stmt->execute();
         $assemblyRow = $stmt->get_result()->fetch_assoc();
@@ -302,20 +266,20 @@ if ($userProfile) {
         exit();
     }
 
+    // Обработчики удаления пользователя, заказа и комплектующего переехали
+    // в админку. Старые формы шлют POST сюда, поэтому редиректим на
+    // нужную вкладку вместо 404.
     if (isset($_POST['deleteUser']) && $isAdmin) {
-        // Перенесено в admin.php?tab=users (ШАГ 4)
         header('Location: /admin.php?tab=users');
         exit();
     }
 
     if (isset($_POST['editOrderStatus']) && $isAdmin && isset($_POST['orderId'])) {
-        // Перенесено в admin.php?tab=orders (ШАГ 3)
         header('Location: /admin.php?tab=orders');
         exit();
     }
 
     if (isset($_POST['addComponent']) && $isAdmin) {
-        // Перенесено в admin.php?tab=components (ШАГ 2)
         header('Location: /admin.php?tab=components');
         exit();
     }
@@ -326,31 +290,19 @@ $pageTitle = 'Профиль';
 $extraCss = ['/assets/css/profile.css'];
 $extraJs  = ['/assets/js/scripts.js'];
 
-// подтверждение смены пароля. Текст ставится по флагу в
-// адресе, потому что успешный случай заканчивается редиректом - POST там
-// уже недоступен.
+// Текст ставится по флагу в адресе: успешный случай заканчивается
+// редиректом, и POST там уже недоступен.
 $passwordSuccess = isset($_GET['password_changed']) ? 'Пароль успешно изменён' : null;
 $passwordError   = $passwordError ?? null;
 
-// сообщение об ошибке приходит cookie error_access, которую ставят
-// validation/auth.php и validation/reg.php. Читать её было некому: страница
-// смотрела в $_SESSION['error_access'], который не заполняет никто, поэтому
-// при неверном пароле пользователь возвращался на пустую форму без
-// объяснения, а вёрстка показывала пустую красную полосу.
-//
-// Блок стоит ДО require header.php намеренно: setcookie() работает только
-// пока не отправлен ни один байт вывода, а header.php уже печатает разметку.
+// Сообщение об ошибке приходит cookie error_access, которую ставят
+// validation/auth.php и validation/reg.php.
 $errorMessage = trim((string) ($_COOKIE['error_access'] ?? ''));
-// error_from ставит только reg.php: без него сообщение о неудачной
-// регистрации оказалось бы в свёрнутой форме входа и осталось бы невидимым.
 $errorFrom = ($_COOKIE['error_from'] ?? '') === 'reg' ? 'reg' : 'auth';
 
-// Гасим обе cookie безусловно, а не только когда пришёл error_access.
-// error_from живёт 60 секунд, error_access - одну: если страницу открыли
-// позже, короткая cookie истёк бы, а метка источника осталась и следующая
-// ошибка показалась бы не в той форме. Срок в прошлом удаляет cookie у
-// клиента; одного unset($_COOKIE[...]) мало, массив чистится только в
-// этом запросе.
+// Гасим обе cookie безусловно: error_from живёт 60 секунд, error_access -
+// одну. Без общего гашения короткая cookie истёк бы, метка источника
+// осталась бы, и следующая ошибка показалась бы не в той форме.
 $expire = [
     'expires'  => time() - 3600,
     'path'     => '/profile.php',
@@ -360,6 +312,8 @@ $expire = [
 setcookie('error_access', '', $expire);
 setcookie('error_from', '', $expire);
 
+// Гашение до require header.php: setcookie() работает только пока не
+// отправлен ни один байт вывода, а header.php печатает разметку.
 require __DIR__ . '/partials/header.php';
 ?>
         <div class="container_profile container_profile--fluid">
@@ -439,10 +393,7 @@ require __DIR__ . '/partials/header.php';
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="reg_pass">Пароль</label>
-<?php // minlength/maxlength раньше были null: поле пропускало короткий
-      // пароль, и пользователь уходил по редиректу назад с ошибкой.
-      // Теперь браузер останавливает отправку сам. Сервер всё равно
-      // проверяет - правило одно и то же, 8 и 20 символов. ?>
+<?php // Сервер проверяет ту же границу, что и minlength/maxlength. ?>
 <?php password_field('user_pass', 'reg_pass', 'new-password', 'Минимум 8 символов', 8, 20, true, 36); ?>
                                 </div>
                                 <?php if ($errorFrom === 'reg' && $errorMessage !== ''): ?>
@@ -461,13 +412,8 @@ require __DIR__ . '/partials/header.php';
                     <?php // единый сайдбар (тот же partial, что и в admin.php) ?>
                     <?php $activeTab = 'profile'; ?>
                     <?php
-                    // секцию можно открыть ссылкой, чтобы из модалки
-                    // пользователя в админке попасть в «Мои заказы» без кликов.
-                    // Значение из GET не идёт в разметку как есть - только по белому
-                    // списку, id секции берётся из массива, а не из запроса.
-                    // 'security' добавлен в белый список. id секции берётся из
-                    // этого массива, а не из запроса - значение из GET в
-                    // разметку как не попадает, неизвестный ключ даёт info.
+                    // Значение из GET не идёт в разметку как есть - id секции берётся
+                    // из массива по белому списку.
                     $sectionMap = [
                         'info'     => 'card-info',
                         'orders'   => 'card-builds',
@@ -477,34 +423,26 @@ require __DIR__ . '/partials/header.php';
                     $sectionKey = (string) ($_GET['section'] ?? 'info');
                     $activeSection = $sectionMap[$sectionKey] ?? 'card-info';
 
-                    // какие секции реально есть на этой странице.
-                    // Заказы и избранное рисуются только обычному
-                    // пользователю, но карточка безопасности есть у обоих:
-                    // пароль у администратора такой же пользовательский.
+                    // Какие секции реально есть на странице: заказы только обычному
+                    // пользователю, а карточка безопасности - обоим.
                     //
-                    // Порядок важен: сначала список существующих секций, и
-                    // только потом сверка с GET. Наоборот получалось так, что
-                    // isset() смотрел на ещё не заданную переменную, всегда
-                    // возвращал false, и $activeSection безусловно
-                    // откатывался в card-info - то есть ровно тот баг, ради
-                    // которого правка и делалась. Проверено на выводе: при
-                    // ?section=security карточка оставалась со
-                    // style="display:none".
+                    // Сверка с GET идёт после заполнения списка, а не
+                    // раньше: иначе isset() смотрел бы на ещё не заданную
+                    // переменную и $activeSection откатывался бы в
+                    // card-info всегда.
                     $sectionExists = [
                         'card-info' => true,
                         'card-security' => true,
-                        // 8: избранное теперь у обеих ролей: админ сохраняет
-                        // сборки кнопкой «Сохранить» на странице сборки, и
-                        // без этой карточки удалить их ему было нечем.
+                        // Избранное у обеих ролей: админ сохраняет сборки
+                        // кнопкой «Сохранить», и без этой карточки удалять
+                        // их ему нечем.
                         'card-fav' => true,
                     ];
                     if (!$isAdmin) {
                         $sectionExists['card-builds'] = true;
                     }
-                    // Секцию, которой на странице нет, показывать нельзя:
-                    // иначе страница осталась бы пустой. Сверяем по факту
-                    // наличия карточки, а не по белому списку - список и
-                    // разметка могут разойтись, а здесь источник один
+                    // Показывать секцию, которой на странице нет, нельзя -
+                    // страница осталась бы пустой.
                     if (!isset($sectionExists[$activeSection])) {
                         $activeSection = 'card-info';
                     }
@@ -520,8 +458,7 @@ require __DIR__ . '/partials/header.php';
                             <div class="profile-content">
                             <section class="card" id="card-info" data-section<?= $sectionStyle('card-info') ?>>
 <?php
-// спрайт иконок для кнопок редактирования. Один символ на
-// страницу вместо пяти одинаковых <svg> внутри каждой кнопки
+// Спрайт иконок: один символ на страницу вместо копии <svg> в каждой кнопке.
 $profileInitial = mb_strtoupper(mb_substr((string) ($userProfile['user_name'] ?? '?'), 0, 1, 'UTF-8'), 'UTF-8');
 $profileFullName = trim(($userProfile['user_name'] ?? '') . ' ' . ($userProfile['user_surname'] ?? ''));
 ?>
@@ -582,8 +519,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_name" placeholder="Имя" value="<?= escape($userProfile['user_name'] ?? '') ?>">
-                                        <!-- текстовые кнопки занимали строку и
-                                             сжимали инпут до 78px, теперь иконки -->
+                                        <!-- Текстовая кнопка сжимала инпут до 78px, иконка - нет. -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeName" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
                                         </button>
@@ -591,9 +527,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
                                         </button>
                                     </form>
-                                    <!-- иконка-карандаш вместо текста «Изменить».
-                                         Спрайт один на страницу, символ берётся через <use> -->
-                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
                                                     </button>
                                 </div>
@@ -603,8 +537,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_surname" placeholder="Фамилия" value="<?= escape($userProfile['user_surname'] ?? '') ?>">
-                                        <!-- текстовые кнопки занимали строку и
-                                             сжимали инпут до 78px, теперь иконки -->
+                                        <!-- Текстовая кнопка сжимала инпут до 78px, иконка - нет. -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeSurname" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
                                         </button>
@@ -612,9 +545,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
                                         </button>
                                     </form>
-                                    <!-- иконка-карандаш вместо текста «Изменить».
-                                         Спрайт один на страницу, символ берётся через <use> -->
-                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
                                                     </button>
                                 </div>
@@ -624,8 +555,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                     <form class="profile-field-edit" method="post" action="">
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="text" name="user_email" placeholder="Электронная почта" value="<?= escape($userProfile['user_email'] ?? '') ?>">
-                                        <!-- текстовые кнопки занимали строку и
-                                             сжимали инпут до 78px, теперь иконки -->
+                                        <!-- Текстовая кнопка сжимала инпут до 78px, иконка - нет. -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeEmail" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
                                         </button>
@@ -633,19 +563,15 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
                                         </button>
                                     </form>
-                                    <!-- иконка-карандаш вместо текста «Изменить».
-                                         Спрайт один на страницу, символ берётся через <use> -->
-                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
                                                     </button>
                                 </div>
                                 <div class="profile-field" data-field="address">
 <?php
-                                // адрес собирается из шести полей.
-                                // fallback на legacy user_address
-                                // убран - новые поля единственный источник
-                                // правды, иначе очищенный пользователем адрес
-                                // воскресал бы из старой строки.
+                                // Новые поля - единственный источник правды: fallback на legacy
+                                // user_address воскресил бы очищенный
+                                // пользователем адрес из старой строки.
                                 $addrParts = array_filter([
                                     $userProfile['user_postal_code'] ?? '',
                                     $userProfile['user_region'] ?? '',
@@ -673,8 +599,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <input class="input" type="text" name="user_apartment" placeholder="Квартира" maxlength="20"
                                                value="<?= escape($userProfile['user_apartment'] ?? '') ?>">
                                         <div class="edit-form-actions">
-                                        <!-- текстовые кнопки занимали строку и
-                                             сжимали инпут до 78px, теперь иконки -->
+                                        <!-- Текстовая кнопка сжимала инпут до 78px, иконка - нет. -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeAddress" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
                                         </button>
@@ -683,9 +608,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         </button>
                                         </div>
                                     </form>
-                                    <!-- иконка-карандаш вместо текста «Изменить».
-                                         Спрайт один на страницу, символ берётся через <use> -->
-                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
                                                     </button>
                                 </div>
@@ -696,8 +619,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                         <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
                                         <input class="input" type="tel" name="user_number" placeholder="+7(XXX)XXX-XX-XX" required
                                             pattern="\+7\s?[\(]{0,1}[0-9][0-9]{2}[\)]{0,1}\s?\d{3}[-]{0,1}\d{2}[-]{0,1}\d{2}" value="<?= escape($userProfile['user_number'] ?? '') ?>">
-                                        <!-- текстовые кнопки занимали строку и
-                                             сжимали инпут до 78px, теперь иконки -->
+                                        <!-- Текстовая кнопка сжимала инпут до 78px, иконка - нет. -->
                                         <button type="submit" class="btn-icon btn-icon--success" name="changeNumber" title="Сохранить" aria-label="Сохранить">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-check"></use></svg>
                                         </button>
@@ -705,9 +627,7 @@ if (isset($_GET['error']) && isset($profileErrors[$_GET['error']])):
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg>
                                         </button>
                                     </form>
-                                    <!-- иконка-карандаш вместо текста «Изменить».
-                                         Спрайт один на страницу, символ берётся через <use> -->
-                                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
+                                    <button type="button" class="btn-icon" data-action="edit" title="Изменить" aria-label="Изменить">
                                                         <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#icon-edit"></use></svg>
                                                     </button>
                                 </div>
@@ -846,21 +766,14 @@ $hasPhone = !empty($userProfile['user_number']);
                                         </div>
                                     </div>
                             </section>
-                            <!-- промежуточная админ-карточка удалена —
-     в сайдбаре ссылка на /admin.php, внутри админки свой сайдбар с вкладками -->
-                            <!-- 8: карточка рисуется и админу. Раньше была только у
-                                 обычного пользователя, при том что кнопка
-                                 «Сохранить» на странице сборки работала у
-                                 обеих ролей: админ мог сохранить сборку, но
-                                 удалить её не мог - пункта меню не было, а
-                                 карточка отрисовывалась как display:none. -->
+                            <!-- Карточка рисуется и админу: он сохраняет сборки кнопкой
+                                 «Сохранить» на странице сборки, и без неё удалить их ему нечем. -->
                             <section class="card" id="card-fav" data-section<?= $sectionStyle('card-fav') ?>>
                                 <h2 class="page-title">Избранное</h2>
                                             <!-- обёртка contTable заменена на .table-wrap -->
                                             <div class="table-wrap">
                                                 <?php
-                                                // без лишнего FROM users - фильтр идёт
-                                                // по favorites.user_id, порядок DESC
+                                                // Фильтр идёт по favorites.user_id, лишний FROM users не нужен.
                                                 $sql = "SELECT a.assembly_name, a.assembly_price, a.assembly_id, a.is_base, f.favorit_id
                                                         FROM favorites f
                                                         JOIN assembly a ON a.assembly_id = f.assembly_id
@@ -881,11 +794,10 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 echo '<table class="table"><thead><tr><th>Название сборки</th><th>Стоимость</th><th></th></tr></thead><tbody>';
 
                                                 foreach ($favRows as $row) {
-                                                    // явное поле вместо хрупкого $row[0]
                                                     $favName = $row['assembly_name'] ?? '';
-                                                    // «Сборка » только для результатов конфигуратора:
-                                                    // у них имя вроде «#42», и без префикса в списке
-                                                    // оно ни о чём не говорит. Признак - флаг is_base
+                                                    // Префикс «Сборка » - только для результатов
+                                                    // конфигуратора: у них имя вроде «#42»,
+                                                    // и без префикса оно ни о чём не говорит.
                                                     if ((int) ($row['is_base'] ?? 0) === 0) {
                                                         $favName = "Сборка " . $favName;
                                                     }
@@ -918,14 +830,11 @@ $hasPhone = !empty($userProfile['user_number']);
                                             <!-- обёртка contTable заменена на .table-wrap -->
                                             <div class="table-wrap">
                                                 <?php
-                                                // «Мои сборки» -> «Мои заказы».
-                                                // Таблица и раньше брала заказы из orders, но без
-                                                // номера и даты, а название сборки вело на её
-                                                // страницу. Теперь это список заказов, а детали
-                                                // открываются read-only модалкой.
-                                                // Проверка SHOW COLUMNS на status убрана: admin.php
-                                                // и так требует orders.created_at, поэтому такая
-                                                // «защита» лишь прятала бы ошибку.
+                                                // Таблица заказов с номером и датой; детали открываются
+                                                // read-only модалкой. Проверять наличие orders.status
+                                                // через SHOW COLUMNS незачем: admin.php и так требует
+                                                // orders.created_at, такая «защита» лишь прятала бы
+                                                // ошибку.
                                                 $sql = "SELECT o.order_id, o.status, o.created_at,
                                                                a.assembly_name, a.assembly_price, a.is_base, o.assembly_id
                                                         FROM orders o
@@ -944,15 +853,13 @@ $hasPhone = !empty($userProfile['user_number']);
                                                 if (empty($ordRows)) {
                                                     echo '<div class="profile-empty">Пока нет заказов</div>';
                                                 } else {
-                                                // колонка «№» убрана, пользователю номер заказа не нужен.
-// В модалке он по-прежнему показывается - там он помогает сослаться
-// на заказ при поддержке.
+                                                // Пользователю номер заказа не нужен; в модалке он
+// // показывается - там помогает сослаться на заказ при поддержке.
                                                 echo '<table class="table"><thead><tr><th>Сборка</th><th>Стоимость</th><th>Статус</th><th>Дата</th></tr></thead><tbody>';
 
                                                 foreach ($ordRows as $row) {
-                                                    // явное поле вместо хрупкого $row[0]
                                                     $ordAsmName = $row['assembly_name'] ?? '';
-                                                    // тот же признак, что и в избранном, - флаг is_base
+                                                    // Тот же признак, что и в избранном - флаг is_base
                                                     if ((int) ($row['is_base'] ?? 0) === 0) {
                                                         $ordAsmName = "Сборка " . $ordAsmName;
                                                     }
@@ -983,10 +890,8 @@ $hasPhone = !empty($userProfile['user_number']);
                                             </div>
 
                                             <!--
-                                                просмотр заказа только для чтения.
-                                                Ни формы, ни кнопок сохранения - одна кнопка
-                                                «Закрыть». Все поля заполняет JS из data-row
-                                                строки, поэтому модалка ничего не отправляет.
+                                                Модалка только для чтения: ни формы, ни кнопок
+                                                сохранения. Поля заполняет JS из data-row строки.
                                             -->
                                             <dialog id="userOrderModal" class="modal">
                                                 <div class="modal-form">

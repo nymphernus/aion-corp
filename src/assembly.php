@@ -8,22 +8,14 @@ if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 csrf_token();
 
-// Проверка CSRF для всех POST-запросов
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
 }
 
 if (isset($_POST['price'])) {
-    // бюджет на железо и выбранная ОС.
-    // ОС добавляется к цене сверх бюджета, сам configure() это учитывает.
-    // Поле preference удалено вместе с блоком «Что важнее»: сборка
-    // собирается по бюджету, распределение всегда сбалансированное.
-    //
-    // Вторым аргументом идёт os_id, а не название и не 'windows'/'linux':
-    // цену и название configure() перечитывает из configurator_os сам.
-    // Строка в форме означала бы, что стоимость ОС можно подделать
-    // прямо из формы. Приведение к int - единственная проверка: любое
-    // другое значение даёт 0, то есть сборку без ОС.
+    // Вторым аргументом идёт os_id, а не название: цену и название
+    // configure() перечитывает из configurator_os сам. Строка в форме
+    // означала бы, что стоимость ОС можно подделать прямо из формы.
     configure(
         (int)$_POST['price'],
         (int)($_POST['os_id'] ?? 0)
@@ -46,7 +38,6 @@ require_once 'modules/components.php';
 $mysql = connect();
 mysqli_set_charset($mysql, 'utf8');
 
-// Проверяем существование сборки
 $checkStmt = db_prepare($mysql, "SELECT assembly_id FROM assembly WHERE assembly_id = ?", "i", $idA);
 $checkStmt->execute();
 $checkResult = $checkStmt->get_result();
@@ -56,21 +47,17 @@ if ($checkResult->num_rows === 0) {
     exit();
 }
 
-// Получаем данные о сборке через prepared statements
 $stmt = db_prepare($mysql, "SELECT * FROM assembly WHERE assembly_id = ?", "i", $idA);
 $stmt->execute();
 $assemb = $stmt->get_result()->fetch_assoc();
 
-// справочник сокетов из таблицы sockets, один раз на страницу. Раньше
-// имена сокетов были захардкожены в конфигураторе тремя значениями, а в
-// базе их семь, включая LGA1851 и AM5.
+// Справочник сокетов берётся один раз на страницу: девять карточек
+// компонентов используют его для подписей.
 $socketTypes = socket_types($mysql);
 
-// Компоненты тянутся целиком, а не по два поля: витрине нужны specs,
-// description и manufacturer, и любая новая колонка после этого доступна без
-// правки запроса. Выборка по первичному ключу, так что SELECT * здесь дёшев.
-// component_by_id() сама вернёт null на пустой или нулевой id, поэтому
-// проверки на непустоту не нужны.
+// Компоненты тянутся целиком: витрине нужны specs, description и
+// manufacturer, и любая новая колонка после этого доступна без правки
+// запроса. Выборка по первичному ключу, так что SELECT * здесь дёшев.
 $cpu          = component_by_id($mysql, $assemb['cpu_id']);
 $motherboard  = component_by_id($mysql, $assemb['motherboard_id']);
 $ram          = component_by_id($mysql, $assemb['ram_id']);
@@ -114,13 +101,8 @@ if ($dvd) {
     $compId[11] = $dvd['component_id'];
 }
 
-setcookie('arrId', serialize($compId), time() + 3600);
-// TODO: убрать после , если не понадобится (save/buy больше не читают arrId).
-
-
-// Используем $_SESSION вместо $_COOKIE
-$userId = $_SESSION['user_id'] ?? null;
 $isLoggedIn = isset($_SESSION['user_id']);
+$userId = $isLoggedIn ? $_SESSION['user_id'] : null;
 
 if (isset($_POST['save']) && $isLoggedIn) {
     $stmt = db_prepare($mysql, "SELECT favorites.assembly_id FROM favorites WHERE assembly_id = ? AND user_id = ?", "ii", $idA, $userId);
@@ -150,8 +132,8 @@ if (isset($_POST['buy'])) {
 
             $shortage = stock_shortage($mysql, $demand);
             if ($shortage !== null) {
-                // Молчаливый отказ хуже явного: клик по «Купить» делал
-                // ничего, и покупатель не понимал, что произошло.
+                // Молчаливый отказ хуже явного: покупатель должен
+                // знать, что товара нет.
                 csrf_rotate();
                 header('Location: /assembly.php?id=' . $idA . '&error=out_of_stock&part=' . $shortage[0]);
                 exit();
@@ -159,7 +141,6 @@ if (isset($_POST['buy'])) {
 
             $mysql->begin_transaction();
             try {
-                // Используем AUTO_INCREMENT вместо MAX()+1
                 $stmt = db_prepare($mysql, "INSERT INTO `orders` (`user_id`,`assembly_id`,`status`) VALUES(?,?,?)", "iis", $userId, $idA, 'Обрабатывается');
                 $stmt->execute();
 
@@ -176,8 +157,9 @@ if (isset($_POST['buy'])) {
                 header('Location: /assembly.php?id=' . $idA . '&error=out_of_stock');
                 exit();
             } catch (Throwable $e) {
-                // Заказ без списанных остатков - это проданный в минус
-                // товар: остаток в каталоге есть, а товара нет.
+                // Откат обязателен: заказ без списанных остатков - это
+                // проданный в минус товар, остаток в каталоге есть, а
+                // товара нет.
                 $mysql->rollback();
                 error_log('Buy failed: ' . $e->getMessage());
                 csrf_rotate();
@@ -191,11 +173,9 @@ if (isset($_POST['buy'])) {
     }
 }
 
-// Отказ покупки показывается на этой же странице: код в адресе, текст
-// из карты - тот же приём, что в profile.php и в админке. Название
-// конкретного товара приходит отдельным числом и читается из базы:
-// подставлять его в адрес нельзя, а молчаливый отказ ни о чём не
-// говорит покупателю.
+// Отказ покупки показывается на этой же странице: код в адресе,
+// текст из карты. Название товара приходит отдельным числом и читается
+// из базы - подставлять его в адрес нельзя.
 $assemblyErrors = [
     'out_of_stock' => 'Комплектующие закончились. Напишите администратору - он пополнит остатки.',
     'buy_failed'   => 'Не удалось оформить заказ. Попробуйте ещё раз.',
@@ -229,16 +209,10 @@ require __DIR__ . '/partials/header.php';
 
             <div class="build-components">
 <?php
-// Карточки компонентов собираются списком, а не двенадцатью копиями
-// разметки. Компонента может не быть - тогда карточка не выводится вовсе,
-// раньше для этого были разные условия в разных местах файла.
-// Второй элемент - ключ иконки из modules/icons.php, а не файл. Раньше
-// здесь лежали имена png, и карточки оперативной памяти и SSD ссылались
-// на configurator-4 и configurator-9: одна и та же картинка на два
-// разных компонента. С ключами иконка выбирается по назначению.
-//
-// configurator-10.png не использовался ни в одной карточке - десятой
-// позиции в списке просто не было, файл был лишним.
+// Карточки компонентов собираются списком: компонента может не быть,
+// и тогда карточка просто не выводится. Второй элемент - ключ иконки
+// из modules/icons.php, а не файл: по файлам карточки памяти и SSD
+// ссылались на configurator-4, одна картинка на два компонента.
 $buildCards = [
     ['Процессор', 'cpu', $cpu],
     ['Материнская плата', 'mb', $motherboard],
@@ -261,12 +235,11 @@ foreach ($buildCards as $buildCard) {
     $pairs = component_specs($component, $socketTypes);
     $brief = component_brief($component, $pairs);
     $description = trim((string) ($component['description'] ?? ''));
-    // Ключ незнакомый - иконки не будет. Раньше тот же случай тихо
-    // отдавал битый src, и в карточке зияла пустая рамка.
-    // 28px, а не 36: duotone в 48x48 держит детали и в 24px, но в 36
-    // иконка занимала бы две трети рамки 56x56 и читалась как картинка
-    // ради картинки. 28 - верхняя граница, на которой подложка и
-    // сплошная деталь ещё различимы.
+    // Ключ незнакомый - иконки не будет, и вместо битого src нужна
+    // заглушка. 28px, а не 36: duotone в 48x48 держит детали и в 24px,
+    // но в 36 иконка занимала бы две трети рамки 56x56 и читалась как
+    // картинка ради картинки. 28 - верхняя граница, на которой подложка
+    // и сплошная деталь ещё различимы.
     $iconSvg = icon($icon, 28, 'comp-card__icon-svg');
     ?>
                 <div class="comp-card">
