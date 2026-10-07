@@ -273,6 +273,28 @@ $tables = [
   PRIMARY KEY (`os_id`),
   KEY `sort_active` (`sort_order`, `is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+    // Журнал действий администратора (вкладка «Журнал» в админке).
+    //
+    // user_login хранится копией, а не только user_id: логин в записи
+    // должен оставаться читаемым и после переименования или удаления
+    // пользователя - по нему же работает фильтр в админке.
+    // ip - varchar(45) под IPv6.
+    'admin_actions' => "CREATE TABLE IF NOT EXISTS `admin_actions` (
+  `action_id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `user_login` varchar(50) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `entity_type` varchar(50) DEFAULT NULL,
+  `entity_id` int DEFAULT NULL,
+  `details` text,
+  `ip` varchar(45) NOT NULL,
+  `user_agent` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`action_id`),
+  KEY `idx_user_time` (`user_id`, `created_at`),
+  KEY `idx_action_time` (`action`, `created_at`),
+  KEY `idx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 ];
 
 mig_log('=== миграция схемы ===');
@@ -283,6 +305,18 @@ foreach ($tables as $name => $ddl) {
     }
     mig_exec($mysql, $dryRun, $ddl);
     mig_log("  [create] $name");
+}
+
+// Очистка журнала действий администратора: записи старше 90 дней
+// удаляются при каждом старте - ротация привязана к migrate.php,
+// отдельного cron для одного DELETE не нужен.
+if (table_exists($mysql, 'admin_actions')) {
+    mig_exec(
+        $mysql,
+        $dryRun,
+        "DELETE FROM `admin_actions` WHERE `created_at` < NOW() - INTERVAL 90 DAY"
+    );
+    mig_log('  [rotate] admin_actions (старше 90 дней)');
 }
 
 // ---------------------------------------------------------------------------
