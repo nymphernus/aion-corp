@@ -596,6 +596,200 @@ foreach ($configuratorSeed as $seedTable => $seedRows) {
     mig_log("  [insert] $seedTable: $inserted строк(и)");
 }
 
+// ---------------------------------------------------------------------------
+// Витрина: базовые сборки
+// ---------------------------------------------------------------------------
+//
+// Сборок не заводил ни один скрипт поставки. На базе, поднятой с нуля,
+// таблица assembly оставалась пустой: главная прячет блок сборок, когда их
+// нет, а /assembly.php?id=1 отдавал 404 - то есть проект разворачивался
+// сразу без товара. Каталог при этом создавался, но витрины на нём не было.
+//
+// Компоненты для сборок заводятся здесь же, а не в seed_components.php:
+// тот включается флагом SEED_DATA и на боевой установке не запускается.
+//
+// Компонент ищется по имени и категории, а не вставляется по заранее
+// известному id. Фиксированный id указал бы на чужие строки там, где
+// каталог уже заполнен, - а на пустой базе наоборот занял бы номера,
+// которые потом достались бы каталогу из seed_components.php.
+//
+// Незаполненная колонка в этой базе лежит пустой строкой, а не NULL, и
+// типы параметров берутся из значений - как в seed_components.php. Тип,
+// записанный строкой, отдал бы в числовую колонку 0 вместо пустого
+// значения, и фильтры вроде capacity_gb > 0 стали бы вести себя иначе.
+
+$showcase = require __DIR__ . '/base_showcase.php';
+
+if (table_exists($mysql, 'components') && table_exists($mysql, 'assembly')) {
+    $stmt = db_prepare($mysql, 'SELECT COUNT(*) FROM `assembly` WHERE `is_base` = 1', '');
+    $stmt->execute();
+    $baseCount = (int) $stmt->get_result()->fetch_row()[0];
+    $stmt->close();
+
+    if ($baseCount > 0) {
+        mig_log("  [skip] assembly: базовые сборки уже есть ($baseCount)");
+    } else {
+        // Имя -> id. Заполняется и для найденных, и для вставленных: сборки
+        // ссылаются на компоненты по имени, а не по номеру.
+        $componentIds = [];
+
+        foreach ($showcase['components'] as $component) {
+            $stmt = db_prepare(
+                $mysql,
+                'SELECT `component_id` FROM `components` WHERE `component_name` = ? AND `category_id` = ?',
+                'si',
+                $component['name'],
+                $component['category_id']
+            );
+            $stmt->execute();
+            $found = $stmt->get_result()->fetch_row()[0] ?? null;
+            $stmt->close();
+
+            if ($found !== null) {
+                $componentIds[$component['name']] = (int) $found;
+                continue;
+            }
+
+            if ($dryRun) {
+                mig_log("  [dry] components: {$component['name']}");
+                $componentIds[$component['name']] = 0;
+                continue;
+            }
+
+            $values = [
+                $component['name'],
+                $component['description'],
+                $component['category_id'],
+                $component['socket_id'],
+                $component['video_core'],
+                $component['tdp'],
+                null, // image
+                $component['price'],
+                10,   // amount
+                $component['manufacturer'],
+                $component['model'],
+                $component['specs'],
+                $component['ram_type'],
+                $component['capacity_gb'],
+                $component['frequency_mhz'],
+                $component['memory_type'],
+                $component['wattage'],
+                $component['interface'],
+                $component['form_factor'],
+                $component['rpm'],
+                $component['cooler_type'],
+            ];
+
+            $types = '';
+            foreach ($values as $value) {
+                $types .= is_int($value) ? 'i' : 's';
+            }
+
+            $stmt = db_prepare(
+                $mysql,
+                'INSERT INTO `components`
+                    (`component_name`, `description`, `category_id`, `socket_id`, `video_core`, `tdp`,
+                     `image`, `component_price`, `amount`, `manufacturer`, `model`, `specs`,
+                     `ram_type`, `capacity_gb`, `frequency_mhz`, `memory_type`,
+                     `wattage`, `interface`, `form_factor`, `rpm`, `cooler_type`)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                $types,
+                ...$values
+            );
+            $stmt->execute();
+            $componentIds[$component['name']] = (int) $mysql->insert_id;
+            $stmt->close();
+            mig_log("  [insert] components: {$component['name']} -> id " . $componentIds[$component['name']]);
+        }
+
+        // Слоты сборки. Порядок колонок в INSERT совпадает с порядком
+        // значений - здесь он важен, потому что параметры позиционные.
+        $assemblySlots = [
+            'cpu_id',
+            'motherboard_id',
+            'gpu_id',
+            'ram_id',
+            'case_id',
+            'cooler_id',
+            'power_supply_id',
+            'ssd_id',
+            'ssd_2_id',
+            'hdd_id',
+            'dvd_id',
+        ];
+
+        $requiredSlots = [
+            'cpu_id', 'motherboard_id', 'ram_id', 'case_id',
+            'cooler_id', 'power_supply_id', 'ssd_id',
+        ];
+
+        foreach ($showcase['assemblies'] as $assembly) {
+            $slots = [];
+            $missing = [];
+            foreach ($assemblySlots as $slot) {
+                $name = $assembly[$slot] ?? null;
+                if ($name === null) {
+                    $slots[$slot] = null;
+                    continue;
+                }
+                // Слот может ссылаться на компонент, которого нет ни в
+                // каталоге, ни в списке витрины: тогда подставлять нечего,
+                // и сборка вставилась бы с пустым обязательным слотом.
+                if (!isset($componentIds[$name])) {
+                    $missing[] = $slot;
+                    $slots[$slot] = null;
+                    continue;
+                }
+                $slots[$slot] = $componentIds[$name];
+            }
+
+            $incomplete = array_intersect($requiredSlots, $missing);
+            if ($incomplete !== []) {
+                mig_log(sprintf(
+                    '  [warn] сборка «%s» пропущена: не найдены компоненты для слотов %s',
+                    $assembly['name'],
+                    implode(', ', $incomplete)
+                ));
+                continue;
+            }
+
+            if ($dryRun) {
+                mig_log("  [dry] assembly: {$assembly['name']}");
+                continue;
+            }
+
+            // Пустой слот передаётся нулём, а NULLIF в SQL превращает его в
+            // NULL. Значением null напрямую не обойтись: mysqli с типом 'i'
+            // отправил бы в колонку 0, и сборка без видеокарты получила бы
+            // карту с нулевым id вместо пустого слота.
+            $values = [$assembly['name'], $assembly['tag']];
+            foreach ($assemblySlots as $slot) {
+                $values[] = $slots[$slot] ?? 0;
+            }
+            $values[] = $assembly['price'];
+            $values[] = 1; // is_base
+
+            $types = 'ss' . str_repeat('i', count($assemblySlots)) . 'ii';
+
+            $stmt = db_prepare(
+                $mysql,
+                'INSERT INTO `assembly`
+                    (`assembly_name`, `assembly_tag`,
+                     `cpu_id`, `motherboard_id`, `gpu_id`, `ram_id`, `case_id`,
+                     `cooler_id`, `power_supply_id`, `ssd_id`,
+                     `ssd_2_id`, `hdd_id`, `dvd_id`,
+                     `assembly_price`, `is_base`)
+                 VALUES (?,?,?,?,NULLIF(?,0),?,?,?,?,?,NULLIF(?,0),NULLIF(?,0),NULLIF(?,0),?,?)',
+                $types,
+                ...$values
+            );
+            $stmt->execute();
+            $stmt->close();
+            mig_log("  [insert] assembly: {$assembly['name']} -> id " . $mysql->insert_id);
+        }
+    }
+}
+
 // Одноразовая миграция: три ключа contact_* -> таблица social_links.
 //
 // Там, где три площадки, три ключа в site_settings и три строки в коде

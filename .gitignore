@@ -8,6 +8,10 @@
 node_modules/
 *.log
 backup_*.sql
+# Снимок базы перед docker compose down -v. Правило точечное, а не *.sql:
+# дамп - это данные конкретной машины, а SQL-файлы самого проекта под общий
+# шаблон попадать не должны.
+pre_reset.sql
 tests/phpunit.phar
 src/tests/.phpunit.result.cache
 
