@@ -39,13 +39,27 @@ final class AssemblyExtraTest extends AionTestCase
         );
         $this->assertSame(
             1,
-            $this->xpathCount($user['body'], '//select[@id="extraSsd2"]'),
-            'в блоке должен быть селект дополнительного SSD'
+            $this->xpathCount($user['body'], '//*[@id="extraPickerModal"]'),
+            'в блоке должна быть модалка выбора'
         );
         $this->assertSame(
             1,
-            $this->xpathCount($user['body'], '//select[@id="extraHdd"]'),
-            'в блоке должен быть селект жёсткого диска'
+            $this->xpathCount($user['body'], '//button[@data-action="open-extra-picker"]'),
+            'добавление допов должно идти через кнопку, а не через постоянные селекты'
+        );
+        $this->assertSame(
+            0,
+            $this->xpathCount($user['body'], '//select[@name="extra_ssd_2_id"]'),
+            'постоянного селекта быть не должно: список открывается по кнопке'
+        );
+
+        // Списки для модалки лежат в data-slots, а не в разметке: политика
+        // безопасности запрещает инлайн-скрипты без nonce, и без атрибута
+        // модалка открылась бы пустой.
+        $this->assertMatchesRegularExpression(
+            '/data-slots="\{&quot;ssd_2_id&quot;/',
+            $user['body'],
+            'список компонентов должен передаваться в data-slots'
         );
 
         // Базовую собираем мимо конфигуратора: она нужна только как
@@ -191,6 +205,21 @@ final class AssemblyExtraTest extends AionTestCase
         $id = $this->makeUserAssembly();
         $ssd = $this->pickPart(9, $this->assemblyRow($id)['ssd_id']);
 
+        /* Снимок обязателен: остатки возвращает базовый tearDown, а он
+           берёт значения из снимка, который снимает сам тест. Без этого
+           каждый прогон списывал бы по единице на восьми компонентах
+           дешёвых сборок, и склад тихо уезжал бы в ноль. */
+        $row = $this->assemblyRow($id);
+        $slotColumns = ['cpu_id', 'motherboard_id', 'ram_id', 'case_id', 'cooler_id',
+                        'power_supply_id', 'ssd_id', 'gpu_id', 'ssd_2_id', 'hdd_id', 'dvd_id'];
+        $ids = [(int) $ssd['component_id']];
+        foreach ($slotColumns as $col) {
+            if ((int) ($row[$col] ?? 0) > 0) {
+                $ids[] = (int) $row[$col];
+            }
+        }
+        $this->snapshotStock($ids);
+
         $stockBefore = $this->stockOf((int) $ssd['component_id']);
 
         $r = $this->httpPost('/assembly.php?id=' . $id, [
@@ -205,6 +234,100 @@ final class AssemblyExtraTest extends AionTestCase
             $stockBefore - 1,
             $this->stockOf((int) $ssd['component_id']),
             'допкомпонент должен быть списан'
+        );
+    }
+
+    /**
+     * Имя компонента из базы не становится разметкой.
+     *
+     * Списки уходят в JS через data-slots, а тот строит карточки. Если бы
+     * кто-то вернул innerHTML с подстановкой имени, строка вида
+     * "<img src=x onerror=...>" выполнилась бы у покупателя прямо в списке
+     * выбора. Проверяется от��ёт сервера: имя обязано быть экранировано, а
+     * сам список собираться на клиенте - значит, сырых узлов в разметке
+     * быть не должно вовсе.
+     */
+    public function testComponentNameIsEscapedInSlotData(): void
+    {
+        $this->loginAsAdmin();
+        $id = $this->makeUserAssembly();
+
+        $payload = '<img src=x onerror=alert(1)>';
+        $mysql = connect();
+        $stmt = db_prepare(
+            $mysql,
+            'INSERT INTO components (component_name, component_price, amount, category_id)
+             VALUES (?, ?, ?, ?)',
+            'siii',
+            $payload,
+            1000,
+            5,
+            9
+        );
+        $stmt->execute();
+        $probeId = (int) $mysql->insert_id;
+        $stmt->close();
+        $mysql->close();
+
+        try {
+            $page = $this->httpGet('/assembly.php?id=' . $id);
+            $this->assertSame(200, $page['code']);
+
+            $this->assertStringNotContainsString(
+                '<img src=x onerror',
+                $page['body'],
+                'имя компонента попало в разметку без экранирования'
+            );
+            $this->assertStringContainsString(
+                '&lt;img src=x onerror',
+                $page['body'],
+                'имя должно передаваться экранированным, иначе JSON разберётся и соберёт узел'
+            );
+        } finally {
+            $mysql = connect();
+            $stmt = db_prepare($mysql, 'DELETE FROM components WHERE component_id = ?', 'i', $probeId);
+            $stmt->execute();
+            $stmt->close();
+            $mysql->close();
+        }
+    }
+
+    /**
+     * Клиент не собирает разметку через innerHTML.
+     *
+     * Серверная экранировка закрыта проверкой выше, но она не спасает,
+     * если JS начнёт вставлять имя компонента как разметку. Файл собирает
+     * DOM только через createElement и textContent, поэтому innerHTML в
+     * нём неуместен в принципе: его появление - это либо регрессия, либо
+     * новая функциональность, и в обоих случаях тест должен остановить.
+     */
+    public function testClientScriptHasNoInnerHtml(): void
+    {
+        $file = dirname(__DIR__) . '/assets/js/assembly-extra.js';
+        $this->assertFileExists($file, 'нет файла assembly-extra.js');
+
+        $js = (string) file_get_contents($file);
+
+        /* Комментарии вырезаются: объяснение, почему innerHTML нельзя,
+           само слово содержит - и проверка ниже спотыкалась бы о текст
+           рассуждения, а не о код. */
+        $code = preg_replace('#/\*.*?\*/#s', '', $js);
+        $code = preg_replace('#//[^\n]*#', '', (string) $code);
+
+        $this->assertStringNotContainsString(
+            'innerHTML',
+            $code,
+            'сборка списка через innerHTML выполнит имя компонента как разметку'
+        );
+        $this->assertStringContainsString(
+            'textContent',
+            $code,
+            'списки должны собираться через textContent'
+        );
+        $this->assertStringContainsString(
+            'createElement',
+            $code,
+            'списки должны собираться через createElement'
         );
     }
 

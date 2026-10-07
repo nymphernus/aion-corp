@@ -337,9 +337,9 @@ $extraJs  = ['/assets/js/assembly-extra.js'];
 // синхронизирует значения перед отправкой.
 $extraHidden = '';
 if (!$isBase) {
-    $extraHidden = '<input type="hidden" name="extra_ssd_2_id" value="'
+    $extraHidden = '<input type="hidden" name="extra_ssd_2_id" id="extraSsd2Hidden" value="'
         . (int) ($assemb['ssd_2_id'] ?? 0) . '">'
-        . '<input type="hidden" name="extra_hdd_id" value="'
+        . '<input type="hidden" name="extra_hdd_id" id="extraHddHidden" value="'
         . (int) ($assemb['hdd_id'] ?? 0) . '">';
 }
 
@@ -439,52 +439,68 @@ if (!empty($assemb['os'])) {
 if (!$isBase):
     // База для пересчёта на клиенте: текущая цена минус нынешние допы.
     // JS складывает из неё новые допы, а сервер делает то же дельтой,
-    // поэтому цифры на экране и в базе сходятся.
+    // поэтому цифра на экране и в базе сходятся.
     $extraBasePrice = (int) $assemb['assembly_price']
         - $extraOldPrice['ssd_2_id']
         - $extraOldPrice['hdd_id'];
+
+    // Списки целиком в атрибуте: политика безопасности запрещает инлайн-скрипты
+    // без nonce, а отдельный запрос за списком означал бы второй поход в базу
+    // при каждом открытии модалки. Подписи табов берём отсюда же.
+    $extraSlots = [
+        'ssd_2_id' => ['label' => 'Дополнительный SSD', 'items' => $extraSsdList],
+        'hdd_id'   => ['label' => 'Жёсткий диск', 'items' => $extraHddList],
+    ];
 ?>
                 <section class="extra-components"
                          id="extraComponents"
                          data-base-price="<?= $extraBasePrice ?>"
-                         data-price-ssd2="<?= $extraOldPrice['ssd_2_id'] ?>"
-                         data-price-hdd="<?= $extraOldPrice['hdd_id'] ?>">
-                    <h2 class="extra-components__title">Дополнительные компоненты</h2>
+                         data-slots="<?= escape((string) json_encode($extraSlots, JSON_UNESCAPED_UNICODE)) ?>">
+                    <div class="extra-components__header">
+                        <h2 class="extra-components__title">Дополнительные компоненты</h2>
+                        <button type="button" class="btn btn--secondary btn--sm"
+                                data-action="open-extra-picker">
+                            + Добавить
+                        </button>
+                    </div>
+
                     <p class="extra-components__hint">
-                        Цена пересчитывается сразу. Изменения при��менятся, когда вы
+                        Цена пересчитывается сразу. Изменения применяются, когда вы
                         сохраните сборку в избранное или купите её.
                     </p>
 
-                    <div class="extra-row">
-                        <label class="form-label" for="extraSsd2">Дополнительный SSD</label>
-                        <select class="input extra-select" id="extraSsd2" name="extra_ssd_2_id">
-                            <option value="0" data-price="0">— не выбран —</option>
-<?php foreach ($extraSsdList as $extraOpt): ?>
-                            <option value="<?= (int) $extraOpt['component_id'] ?>"
-                                    data-price="<?= (int) $extraOpt['component_price'] ?>"
-<?= (int) ($assemb['ssd_2_id'] ?? 0) === (int) $extraOpt['component_id'] ? ' selected' : '' ?>>
-                                <?= escape((string) $extraOpt['component_name']) ?>
-                                · <?= number_format((int) $extraOpt['component_price'], 0, '.', ' ') ?> ₽
-                            </option>
-<?php endforeach; ?>
-                        </select>
-                    </div>
+                    <div class="extra-items" id="extraItems"></div>
 
-                    <div class="extra-row">
-                        <label class="form-label" for="extraHdd">Жёсткий диск</label>
-                        <select class="input extra-select" id="extraHdd" name="extra_hdd_id">
-                            <option value="0" data-price="0">— не выбран —</option>
-<?php foreach ($extraHddList as $extraOpt): ?>
-                            <option value="<?= (int) $extraOpt['component_id'] ?>"
-                                    data-price="<?= (int) $extraOpt['component_price'] ?>"
-<?= (int) ($assemb['hdd_id'] ?? 0) === (int) $extraOpt['component_id'] ? ' selected' : '' ?>>
-                                <?= escape((string) $extraOpt['component_name']) ?>
-                                · <?= number_format((int) $extraOpt['component_price'], 0, '.', ' ') ?> ₽
-                            </option>
-<?php endforeach; ?>
-                        </select>
-                    </div>
+                    <p class="extra-empty" id="extraEmpty">
+                        Дополнительные компоненты не выбраны
+                    </p>
                 </section>
+
+                <dialog id="extraPickerModal" class="modal modal--wide">
+                    <div class="modal-form">
+                        <h2>Добавить дополнительный компонент</h2>
+
+                        <div class="extra-picker-tabs" id="extraPickerTabs">
+                            <button type="button" class="extra-picker-tab is-active"
+                                    data-action="extra-picker-tab" data-slot="ssd_2_id">
+                                Дополнительный SSD
+                            </button>
+                            <button type="button" class="extra-picker-tab"
+                                    data-action="extra-picker-tab" data-slot="hdd_id">
+                                Жёсткий диск
+                            </button>
+                        </div>
+
+                        <div class="extra-picker-list" id="extraPickerList"></div>
+
+                        <div class="modal-actions">
+                            <div class="modal-actions-right">
+                                <button type="button" class="btn btn--secondary"
+                                        data-action="close-extra-picker">Закрыть</button>
+                            </div>
+                        </div>
+                    </div>
+                </dialog>
 <?php endif; ?>
             </div>
 
