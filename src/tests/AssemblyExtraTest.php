@@ -230,6 +230,15 @@ final class AssemblyExtraTest extends AionTestCase
         $this->assertSame(302, $r['code']);
         $this->assertStringNotContainsString('error=', $r['location'], 'покупка должна пройти');
 
+        /* Админ после покупки идёт в админку: карточки «Мои заказы» в
+           профиле у него нет, и section=orders откатился бы на личную
+           информацию. */
+        $this->assertStringContainsString(
+            '/admin.php?tab=orders',
+            $r['location'],
+            'админ должен попасть в админку заказов'
+        );
+
         $this->assertSame(
             $stockBefore - 1,
             $this->stockOf((int) $ssd['component_id']),
@@ -329,6 +338,72 @@ final class AssemblyExtraTest extends AionTestCase
             $code,
             'списки должны собираться через createElement'
         );
+    }
+
+    /**
+     * Обычный покупатель после покупки попадает в свои заказы.
+     *
+     * Обратная сторона предыдущего теста: одна проверка на админе оставила
+     * бы ветку пользователя непроверенной, а поломался бы именно редирект -
+     * страница бы ответила 200 и выглядела исправной.
+     */
+    public function testPlainUserLandsOnOwnOrders(): void
+    {
+        $this->loginAsAdmin();
+        $id = $this->makeUserAssembly();
+
+        $login = $this->uniqueLogin('buyer_');
+        $this->trackCleanup($login);
+
+        $mysql = connect();
+        $stmt = db_prepare(
+            $mysql,
+            "INSERT INTO users (user_name, user_login, user_pass, user_group) VALUES (?, ?, ?, ?)",
+            "ssss",
+            'Покупатель',
+            $login,
+            password_hash('password123', PASSWORD_BCRYPT),
+            'user'
+        );
+        $stmt->execute();
+        $userId = (int) $mysql->insert_id;
+        $stmt->close();
+
+        $row = $this->assemblyRow($id);
+        $ids = [];
+        foreach (['cpu_id', 'motherboard_id', 'ram_id', 'case_id', 'cooler_id',
+                  'power_supply_id', 'ssd_id', 'gpu_id', 'ssd_2_id', 'hdd_id', 'dvd_id'] as $col) {
+            if ((int) ($row[$col] ?? 0) > 0) {
+                $ids[] = (int) $row[$col];
+            }
+        }
+        $this->snapshotStock($ids);
+        $mysql->close();
+
+        $this->clearLoginAttempts($login);
+        $in = $this->loginAs($login, 'password123');
+        $this->assertSame(302, $in['code']);
+
+        $r = $this->httpPost('/assembly.php?id=' . $id, [
+            'buy' => '1',
+            'csrf_token' => $this->freshToken('/assembly.php?id=' . $id),
+        ]);
+        $this->assertSame(302, $r['code']);
+        $this->assertStringNotContainsString('error=', $r['location'], 'покупка должна пройти');
+        $this->assertStringContainsString(
+            '/profile.php?section=orders',
+            $r['location'],
+            'обычный покупатель должен попасть в свои заказы'
+        );
+
+        $mysql = connect();
+        $stmt = db_prepare($mysql, 'SELECT COUNT(*) AS c FROM orders WHERE user_id = ?', 'i', $userId);
+        $stmt->execute();
+        $found = (int) $stmt->get_result()->fetch_assoc()['c'];
+        $stmt->close();
+        $mysql->close();
+
+        $this->assertSame(1, $found, 'заказ должен быть записан на покупателя');
     }
 
     /**

@@ -29,3 +29,28 @@ if (!function_exists('logout_user')) {
         session_destroy();
     }
 }
+
+if (!function_exists('current_user_is_admin')) {
+    /**
+     * Админ ли текущий пользователь.
+     *
+     * Группа берётся свежей из базы, а не из сессии - так же, как в
+     * admin.php. Разжалованный админ со старой сессией иначе продолжал бы
+     * считаться админом до конца сессии.
+     *
+     * @param int|null $userId null, если никто не залогинен
+     */
+    function current_user_is_admin(mysqli $mysql, ?int $userId): bool
+    {
+        if ($userId === null || $userId <= 0) {
+            return false;
+        }
+
+        $stmt = db_prepare($mysql, 'SELECT user_group FROM `users` WHERE `user_id` = ?', 'i', $userId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return ($row['user_group'] ?? '') === 'admin';
+    }
+}

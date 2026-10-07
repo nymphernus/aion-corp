@@ -300,9 +300,12 @@ if (isset($_POST['buy'])) {
             }
         }
         csrf_rotate();
-        // В профиль сразу на заказы: заказ только что создан, и открывать
-        // страницу ради этого - лишний клик.
-        header('Location: /profile.php?section=orders');
+        // Админ после покупки идёт в админку заказов: карточки «Мои
+        // заказы» у него нет, section=orders откатился бы на личную
+        // информацию. Обычному пользователю - в профиль на заказы.
+        header('Location: ' . (current_user_is_admin($mysql, $userId)
+            ? '/admin.php?tab=orders'
+            : '/profile.php?section=orders'));
         exit();
     }
 }
