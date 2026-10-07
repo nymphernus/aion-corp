@@ -21,7 +21,6 @@ require __DIR__ . '/partials/header.php';
     </p>
     <div class="error-page__actions">
         <a href="/" class="btn btn--primary">На главную</a>
-        <a href="/#configurator" class="btn btn--secondary">Собрать ПК</a>
     </div>
 </section>
 

@@ -317,6 +317,7 @@ return [
         [
             'name' => 'AeroCool Cylon White',
             'category_id' => 6,
+            'image' => '/assets/images/cases/cylonw.png',
             'socket_id' => null,
             'video_core' => null,
             'tdp' => null,
@@ -338,6 +339,7 @@ return [
         [
             'name' => 'MONTECH FIGHTER 500',
             'category_id' => 6,
+            'image' => '/assets/images/cases/fighter500.png',
             'socket_id' => null,
             'video_core' => null,
             'tdp' => null,
@@ -359,6 +361,7 @@ return [
         [
             'name' => 'Thermaltake View 71 Tempered Glass SNOW Edition RGB',
             'category_id' => 6,
+            'image' => '/assets/images/cases/view71.png',
             'socket_id' => null,
             'video_core' => null,
             'tdp' => null,

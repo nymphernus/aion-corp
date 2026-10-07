@@ -10,9 +10,6 @@ services:
       - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      # Stage 10: схему и минимальные данные создаёт scripts/migrate.php
-      # из php-контейнера при старте. Legacy-путь для «всё сразу»:
-      # docker compose exec -T db mysql ... < src/scripts/legacy_init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
@@ -36,18 +33,10 @@ services:
       DB_HOST: db
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
-      # Имя базы берётся из .env, а не пишется здесь дважды: раньше
-      # MYSQL_DATABASE и DB_NAME были захардкожены по отдельности, и
-      # смена имени в .env не давала ничего - compose читал своё
-      # значение. Теперь источник один, и переименование базы сводится
-      # к правке одной строки в .env.
       DB_NAME: ${MYSQL_DATABASE:-shop_db}
       ADMIN_LOGIN: ${ADMIN_LOGIN:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # 5-d-3: непустое значение включает счётчик запросов к базе,
-      # он печатается в подвале страницы. По умолчанию выключено.
       DEBUG_SQL_COUNT: ${DEBUG_SQL_COUNT:-}
-      # Stage 10: 1 = залить демо-компоненты при старте (seed_components.php)
       SEED_DATA: ${SEED_DATA:-0}
 
 volumes:

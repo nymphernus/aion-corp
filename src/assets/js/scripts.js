@@ -1102,7 +1102,7 @@ document.addEventListener('click', function(e) {
     });
 });
 
-// --- БЛОК 4: привязка файла к корпусу из файлового менеджера ---
+// --- Привязка файла к корпусу из файлового менеджера ---
 let attachContext = { url: '' };
 
 document.addEventListener('click', function(e) {

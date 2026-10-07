@@ -68,7 +68,7 @@ $ssd          = component_by_id($mysql, $assemb['ssd_id']);
 $gpu          = component_by_id($mysql, $assemb['gpu_id']);
 
 // Второй накопитель и жёсткий диск есть не в каждой сборке. Привод
-// не читается: категория «Привод» снята в Stage 8, и заполнить слот
+// не читается: категории «Привод» в каталоге нет, и заполнить слот
 // dvd_id больше нечем.
 $ssd2 = component_by_id($mysql, $assemb['ssd_2_id']);
 $hdd  = component_by_id($mysql, $assemb['hdd_id']);
