@@ -341,6 +341,16 @@ docker compose exec -T php sh -c "cd /var/www/html && php tests/phpunit.phar -c 
 docker compose exec php php /var/www/html/scripts/enrich_components.php --selftest
 ```
 
+### JS-тесты
+
+Запускаются на хосте через встроенный node:test (Node 18+), контейнеры не нужны, зависимостей нет:
+
+```bash
+node --test "src/tests/js/*.test.js"
+```
+
+Тесты покрывают чистые функции в `assets/js/core.js`: парсинг `data-parts`, тексты подсказок favicon-генератора, пересчёт цены сборки с допкомпонентами.
+
 ---
 
 ## Обслуживание
