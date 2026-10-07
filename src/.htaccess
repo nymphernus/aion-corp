@@ -18,3 +18,7 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
 # Убраны maps.gstatic.com, *.googleapis.com, *.ggpht.com и frame-src на
 # Google: после ухода с Google Maps они больше не нужны.
 Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org https://tile.openstreetmap.de; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self' https://nominatim.openstreetmap.org; frame-src 'none';"
+
+# Стандартная страница Apache выглядит как чужой сервер и пугает посетителя.
+# ErrorDocument ловит и отсутствующие .php, и битые ссылки на статику.
+ErrorDocument 404 /404.php

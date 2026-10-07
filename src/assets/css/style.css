@@ -1610,3 +1610,41 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
     max-width: min(760px, 94vw);
 }
 
+/* 404. Отступ сверху учитывает закреплённый хедер, иначе заголовок
+   уезжал бы под него, как это было с плашкой на странице сборки. */
+.error-page {
+    max-width: 560px;
+    margin: 150px auto 60px;
+    padding: 0 24px;
+    text-align: center;
+}
+
+.error-page__code {
+    font-size: 88px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--accent);
+}
+
+.error-page__title {
+    margin: 12px 0 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.error-page__text {
+    margin: 12px 0 24px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.error-page__actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
