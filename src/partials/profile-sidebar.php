@@ -19,13 +19,26 @@ $userName = $userProfile['user_name'] ?? ($_SESSION['user_name'] ?? '');
 $userLogin = $userProfile['user_login'] ?? ($_SESSION['user_login'] ?? '');
 $userInitial = mb_strtoupper(mb_substr((string) $userName, 0, 1, 'UTF-8'), 'UTF-8');
 
-// дашборд убран из $adminTabs, он лежит рядом с аккордеоном
-// отдельным пунктом. Иначе на дашборде подсвечивалось бы и «Панель
-// управления» в summary, и «Дашборд» в подпунктах.
-// files в списке, иначе на вкладке «Изображения» аккордеон
-// рендерится закрытым и подпункт «Изображения» скрывается.
-$adminTabs = ['users', 'orders', 'components', 'files'];
-$isAdminSection = in_array($activeTab, $adminTabs, true);
+// Ссылки аккордеона. Список объявлен здесь, а не у <details>, потому
+// что из его ключей выводится признак «раздел открыт»: держать второй
+// список ради $isAdminSection означало бы, что забытый в нём ключ
+// закрывает аккордеон ровно на той вкладке, которую только что
+// добавили в меню.
+//
+// «Дашборд» и «Настройки сайта» лежат рядом с аккордеоном отдельными
+// пунктами и в список не входят: иначе заголовок «Панель управления»
+// подсвечивался бы на странице, которая ему не принадлежит.
+$adminLinks = [
+    'users' => ['/admin.php?tab=users', 'Пользователи'],
+    'orders' => ['/admin.php?tab=orders', 'Заказы'],
+    'components' => ['/admin.php?tab=components', 'Комплектующие'],
+    'files' => ['/admin.php?tab=files', 'Изображения'],
+    // Конфигуратор и Сборки - содержимое витрины, а не настройки сайта,
+    // поэтому «Настройки» стоят вне аккордеона.
+    'configurator' => ['/admin.php?tab=configurator', 'Конфигуратор'],
+    'assemblies' => ['/admin.php?tab=assemblies', 'Сборки'],
+];
+$isAdminSection = isset($adminLinks[$activeTab]);
 ?>
                 <aside class="profile-sidebar">
                     <div class="profile-user">
@@ -100,19 +113,6 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                             <summary class="profile-nav-item<?= $isAdminSection ? ' active' : '' ?>">Панель управления</summary>
                             <div class="profile-nav-sub">
 <?php
-    $adminLinks = [
-        'users' => ['/admin.php?tab=users', 'Пользователи'],
-        'orders' => ['/admin.php?tab=orders', 'Заказы'],
-        'components' => ['/admin.php?tab=components', 'Комплектующие'],
-        'files' => ['/admin.php?tab=files', 'Изображения'],
-        // Конфигуратор и Сборки - последние в аккордеоне.
-        // Пресеты, ОС и базовые сборки относятся к тому же, что
-        // комплектующие и заказы: это содержимое витрины, а не настройки
-        // сайта, поэтому ключа settings тут нет и «Настройки сайта»
-        // стоят вне аккордеона отдельным пунктом, как и было решено.
-        'configurator' => ['/admin.php?tab=configurator', 'Конфигуратор'],
-        'assemblies' => ['/admin.php?tab=assemblies', 'Сборки'],
-    ];
     foreach ($adminLinks as $key => [$href, $label]):
 ?>
                                 <a href="<?= escape($href) ?>" class="profile-nav-subitem<?= $activeTab === $key ? ' active' : '' ?>"><?= escape($label) ?></a>
@@ -120,17 +120,10 @@ $isAdminSection = in_array($activeTab, $adminTabs, true);
                             </div>
                         </details>
 
-                        <!--
-                            «Настройки сайта» вынесено из аккордеона
-                            отдельным пунктом, по соседству с «Дашбордом». Раздел
-                            не про заказы и комплектующие, а держать его среди
-                            них было вдвое неудобнее: он ещё и закрывался вместе
-                            с ними, то есть после перехода в него аккордеон
-                            выглядел свёрнутым, а раздел открытым.
-                            По той же причине ключа settings нет в $adminTabs -
-                            иначе заголовок «Панель управления» подсвечивался бы
-                            на этой странице.
-                        -->
+                        <!-- «Настройки сайта» вне аккордеона: раздел не про
+                             заказы и комплектующие, а держать его среди них
+                             неудобно — после перехода аккордеон выглядел бы
+                             свёрнутым, а раздел открытым. -->
                         <a href="/admin.php?tab=settings" class="profile-nav-item<?= $activeTab === 'settings' ? ' active' : '' ?>">Настройки сайта</a>
 <?php endif; ?>
 
