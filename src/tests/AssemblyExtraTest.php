@@ -407,6 +407,85 @@ final class AssemblyExtraTest extends AionTestCase
     }
 
     /**
+     * Обработчик кнопок не должен попасть под ранний выход.
+     *
+     * Секции допкомпонентов у базовой сборки на странице нет, и
+     * assembly-extra.js выходит сразу. Пока сохранение и покупка жили
+     * в нём, у базовой сборки кнопки не имели обработчика: type="button"
+     * без подтверждения, клик без отправки формы. Витрина ведёт именно
+     * на базовые сборки, то есть покупка с неё не работала ни разу.
+     *
+     * Страницу теста на этом месте нет - тесты ходят по HTTP без JS,
+     * поэтому проверяется код и то, что файл подключается.
+     */
+    public function testActionListenerIsNotGuarded(): void
+    {
+        $page = $this->httpGet('/assembly.php?id=' . $this->makeBaseAssembly());
+        $this->assertSame(200, $page['code']);
+
+        $this->assertSame(
+            1,
+            $this->xpathCount($page['body'], '//script[contains(@src, "assembly-actions.js")]'),
+            'обработчик кнопок должен подключаться отдельным файлом: под ранним '
+            . 'выходом assembly-extra.js он не регистрировался у базовой сборки'
+        );
+
+        $file = dirname(__DIR__) . '/assets/js/assembly-actions.js';
+        $this->assertFileExists($file, 'нет файла assembly-actions.js');
+
+        $js = (string) file_get_contents($file);
+        $code = preg_replace('#/\*.*?\*/#s', '', $js);
+        $code = preg_replace('#//[^\n]*#', '', (string) $code);
+
+        $listenAt = strpos($code, 'document.addEventListener');
+        $this->assertNotFalse(
+            $listenAt,
+            'assembly-actions.js должен вешать обработчик на документ'
+        );
+
+        /* Ранний выход до подписки - ровно та поломка, что описана в
+           заголовке теста. return внутри функции таким выходом не
+           является, поэтому разбирается вложенность: выходом из
+           файла считается только return, случившийся до входа в
+           тело какой-либо функции. */
+        $head = substr($code, 0, $listenAt);
+        $stack = [];
+        $earlyExit = false;
+
+        for ($i = 0, $len = strlen($head); $i < $len; $i++) {
+            if ($head[$i] === '{') {
+                $before = substr($head, max(0, $i - 200), 200);
+                $isFunction = (bool) preg_match('/function[\s\S]*\)\s*$/', $before);
+                // Первый блок - сама обёртка файла, вложенной функцией
+                // она не считается: её выход как раз и есть ранний.
+                $stack[] = $isFunction && count($stack) >= 1;
+            } elseif ($head[$i] === '}') {
+                array_pop($stack);
+            } elseif ($head[$i] === 'r' && substr($head, $i, 6) === 'return') {
+                if (!in_array(true, $stack, true)) {
+                    $earlyExit = true;
+                    break;
+                }
+            }
+        }
+
+        $this->assertFalse(
+            $earlyExit,
+            'подписка на клик стоит после раннего выхода: обработчик не дойдёт '
+            . 'до конца файла и зарегистрируется не на всех сборках'
+        );
+
+        /* Страховка от возврата обработчика внутрь assembly-extra.js: там он
+           вновь оказался бы под выходом по отсутствию секции допов. */
+        $extra = (string) file_get_contents(dirname(__DIR__) . '/assets/js/assembly-extra.js');
+        $this->assertStringNotContainsString(
+            'confirm-buy',
+            $extra,
+            'подтверждение покупки не должно возвращаться в assembly-extra.js'
+        );
+    }
+
+    /**
      * Кнопки сохранения и покупки спрашивают подтверждения.
      *
      * Кнопки объявлены type="button" намеренно: submit отправил бы форму

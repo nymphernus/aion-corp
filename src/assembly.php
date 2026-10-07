@@ -340,7 +340,7 @@ if (isset($assemblyErrors[$errorKey])) {
 <?php
 $pageTitle = 'Сборка ПК';
 $extraCss = ['/assets/css/configurator.css'];
-$extraJs  = ['/assets/js/assembly-extra.js'];
+$extraJs  = ['/assets/js/assembly-actions.js', '/assets/js/assembly-extra.js'];
 
 // Скрытые поля для всех трёх форм собираются один раз: селекты допов
 // лежат в левой колонке, а кнопки «Сохранить» и «Купить» - в правой, и
