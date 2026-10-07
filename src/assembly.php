@@ -356,12 +356,15 @@ if (!$isBase) {
 
 require __DIR__ . '/partials/header.php';
 ?>
-<?php if ($assemblyError !== null): ?>
+<div class="build-layout">
+<?php // Плашка внутри сетки, а не перед ней: хедер закреплён и закрывает
+       // верх страницы, и над сеткой от её нижней границы плашка уезжала
+       // под него целиком - весь блок попадал в первые 90 пикселей.
+       if ($assemblyError !== null): ?>
             <div class="alert alert--error"><?= escape($assemblyError) ?></div>
 <?php elseif ($assemblyOk !== null): ?>
             <div class="alert alert--success"><?= escape($assemblyOk) ?></div>
 <?php endif; ?>
-<div class="build-layout">
 
             <div class="build-components">
 <?php
