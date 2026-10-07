@@ -55,7 +55,7 @@ if ($tab === '') {
     exit();
 }
 
-$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'files' => true, 'dashboard' => true, 'settings' => true, 'configurator' => true, 'assemblies' => true];
+$allowedTabs = ['users' => true, 'orders' => true, 'components' => true, 'files' => true, 'dashboard' => true, 'settings' => true, 'configurator' => true, 'assemblies' => true, 'log' => true];
 if (!isset($allowedTabs[$tab])) {
     http_response_code(404);
     exit('Раздел не найден');
@@ -64,7 +64,9 @@ if (!isset($allowedTabs[$tab])) {
 // Пагинация считается ДО вывода HTML: header() в paginate() не
 // сработает после старта вывода (headers already sent), и редирект
 // с page=99 превратился бы в пустую таблицу.
-$perPage = 10;
+// Журнал - 50 строк на страницу: записи мелкие, 10 на экран превращают
+// просмотр в бесконечный листание.
+$perPage = $tab === 'log' ? 50 : 10;
 
 // Условие фильтрации общее для COUNT, для выборки и для ссылок пагинации.
 $listWhere = '';
@@ -298,6 +300,57 @@ if ($tab === 'components') {
         $qs[] = 'q=' . urlencode($fQ);
     }
     $listQuery = implode('&', $qs);
+} elseif ($tab === 'log') {
+    // Фильтры журнала действий: пользователь, действие и диапазон дат.
+    // Все четыре идут параметрами (? в запросе), даты допроверяются
+    // форматом - неверная дата фильтром просто не считается.
+    $fLogUser = (string) ($_GET['user_login'] ?? '');
+    $fLogAction = (string) ($_GET['action'] ?? '');
+    $fLogFrom = (string) ($_GET['date_from'] ?? '');
+    $fLogTo = (string) ($_GET['date_to'] ?? '');
+
+    if ($fLogUser !== '') {
+        $listWhere .= ' AND admin_actions.user_login = ?';
+        $listParams[] = $fLogUser;
+        $listTypes .= 's';
+    }
+    if ($fLogAction !== '') {
+        $listWhere .= ' AND admin_actions.action = ?';
+        $listParams[] = $fLogAction;
+        $listTypes .= 's';
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fLogFrom) === 1) {
+        $listWhere .= ' AND admin_actions.created_at >= ?';
+        $listParams[] = $fLogFrom . ' 00:00:00';
+        $listTypes .= 's';
+    } else {
+        $fLogFrom = '';
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fLogTo) === 1) {
+        $listWhere .= ' AND admin_actions.created_at <= ?';
+        $listParams[] = $fLogTo . ' 23:59:59';
+        $listTypes .= 's';
+    } else {
+        $fLogTo = '';
+    }
+    // Сортировка из плана: свежие записи сверху, id разрешает
+    // равные timestamps.
+    $listOrder = 'admin_actions.created_at DESC, admin_actions.action_id DESC';
+
+    $qs = [];
+    if ($fLogUser !== '') {
+        $qs[] = 'user_login=' . urlencode($fLogUser);
+    }
+    if ($fLogAction !== '') {
+        $qs[] = 'action=' . urlencode($fLogAction);
+    }
+    if ($fLogFrom !== '') {
+        $qs[] = 'date_from=' . urlencode($fLogFrom);
+    }
+    if ($fLogTo !== '') {
+        $qs[] = 'date_to=' . urlencode($fLogTo);
+    }
+    $listQuery = implode('&', $qs);
 }
 
 // Блок с COUNT и paginate() нужен только таблицам со списком. У
@@ -313,6 +366,7 @@ if ($tab !== 'dashboard' && $tab !== 'settings' && $tab !== 'configurator' && $t
         'orders' => 'SELECT COUNT(*) FROM users,assembly,orders
                      WHERE users.user_id = orders.user_id AND assembly.assembly_id = orders.assembly_id'
                      . $listWhere,
+        'log' => 'SELECT COUNT(*) FROM admin_actions WHERE 1=1' . $listWhere,
     ][$tab];
     if ($listParams === []) {
         $stmt = db_prepare($mysql, $countSql, '');
@@ -351,8 +405,15 @@ if ($isAdmin && isset($_POST['deleteComponent'])) {
             exit();
         }
 
+        // Имя фиксируется ДО удаления: в журнале остаётся копия,
+        // читаемая и после пропажи строки.
+        $nameStmt = db_prepare($mysql, "SELECT component_name FROM components WHERE component_id = ?", "i", $delId);
+        $nameStmt->execute();
+        $delName = (string) ($nameStmt->get_result()->fetch_row()[0] ?? '');
+
         $stmt = db_prepare($mysql, "DELETE FROM `components` WHERE `component_id` = ?", "i", $delId);
         $stmt->execute();
+        admin_log($mysql, 'component.delete', 'component', $delId, ['name' => $delName]);
     }
 
     csrf_rotate();
@@ -507,6 +568,13 @@ if ($isAdmin && isset($_POST['addComponent'])) {
             $stmt = db_prepare($mysql, $sql, $types, ...array_values($fields));
         }
         $stmt->execute();
+        admin_log(
+            $mysql,
+            $editId > 0 ? 'component.update' : 'component.create',
+            'component',
+            $editId > 0 ? $editId : (int) $mysql->insert_id,
+            ['name' => (string) $name]
+        );
         csrf_rotate();
     }
     header('Location: ' . $location);
@@ -552,6 +620,10 @@ if ($isAdmin && isset($_POST['batchUpload'])) {
                 $errors[] = $file['name'] . ' (' . $stored['error'] . ')';
             }
         }
+    }
+
+    if ($saved > 0) {
+        admin_log($mysql, 'file.batch_upload', 'file', null, ['count' => $saved]);
     }
 
     csrf_rotate();
@@ -610,6 +682,8 @@ if ($isAdmin && $filename !== '') {
         $clear->execute();
     }
 
+    admin_log($mysql, 'file.delete', 'file', null, ['name' => $filename]);
+
     csrf_rotate();
     header('Location: /admin.php?tab=files&unlinked=' . $affected . ($removed ? '&deleted=1' : ''));
     exit;
@@ -621,6 +695,7 @@ if ($isAdmin && isset($_POST['attachFile'])) {
 
     $fileUrl = trim((string) ($_POST['fileUrl'] ?? ''));
     $caseId = (int) ($_POST['caseId'] ?? 0);
+    $attached = false;
 
     // Путь строго в cases/, без traversal, файл есть на диске. Привязка
     // возможна только к категории 6 - условие прямо в UPDATE.
@@ -633,6 +708,14 @@ if ($isAdmin && isset($_POST['attachFile'])) {
              WHERE component_id = ? AND category_id = 6",
             "si", $fileUrl, $caseId);
         $stmt->execute();
+        $attached = $stmt->affected_rows > 0;
+        $stmt->close();
+    }
+
+    // Логируется только успешная привязка: отклонённая проверка путей
+    // - не действие, а отказ, и журнал от них не заполняется.
+    if ($attached) {
+        admin_log($mysql, 'file.attach', 'component', $caseId, ['file' => $fileUrl]);
     }
 
     csrf_rotate();
@@ -755,7 +838,15 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
     $orderId = (int) ($_POST['editOrderStatus'] ?? 0);
     $status = (string) ($_POST['status'] ?? '');
 
-    order_set_status($mysql, $orderId, $status);
+    // Старый статус читается до смены - в details журнала он
+    // показывает переход from -> to, а не только итог.
+    $oldStmt = db_prepare($mysql, "SELECT status FROM orders WHERE order_id = ?", 'i', $orderId);
+    $oldStmt->execute();
+    $oldStatus = (string) ($oldStmt->get_result()->fetch_row()[0] ?? '');
+
+    if (order_set_status($mysql, $orderId, $status) && $oldStatus !== $status) {
+        admin_log($mysql, 'order.status_change', 'order', $orderId, ['from' => $oldStatus, 'to' => $status]);
+    }
 
     csrf_rotate();
     header('Location: ' . admin_list_url('orders'));
@@ -943,6 +1034,15 @@ if ($isAdmin && isset($_POST['editOrderStatus'])) {
 
     site_setting_save($mysql, $values);
 
+    if ($values !== []) {
+        // keys - какие ключи реально ушли в базу: $values собирается
+        // только из присланных полей, отсутствие в списке = не менялся.
+        admin_log($mysql, 'settings.update', 'settings', null, ['keys' => array_keys($values)]);
+    }
+    if ($logo['url'] !== '' || $faviconUpload['ok']) {
+        admin_log($mysql, 'settings.branding_update', 'settings');
+    }
+
     csrf_rotate();
     $location = '/admin.php?tab=settings';
     if ($errors !== []) {
@@ -1017,6 +1117,10 @@ if ($isAdmin && isset($_POST['useFaviconVariant'])) {
             'site_favicon_png_url' => $url,
             'favicon_is_custom' => $which === 'custom' ? '1' : '0',
         ]);
+        // variant - какой из двух вариантов включён: настройка меняется
+        // и здесь, и в saveSettings, и без variant в журнале эти
+        // переходы неразличимы.
+        admin_log($mysql, 'settings.favicon_variant', 'settings', null, ['variant' => $which]);
     }
 
     // Ротация обязательна: без неё следующий «Сохранить» получил бы 403,
@@ -1082,8 +1186,14 @@ if ($isAdmin && isset($_POST['presetAction'])) {
 
     if ($presetAction === 'delete') {
         if ($presetId > 0) {
+            // Имя до удаления - в журнале остаётся читаемая копия.
+            $nameStmt = db_prepare($mysql, 'SELECT preset_name FROM configurator_presets WHERE preset_id = ?', 'i', $presetId);
+            $nameStmt->execute();
+            $delName = (string) ($nameStmt->get_result()->fetch_row()[0] ?? '');
+
             $stmt = db_prepare($mysql, 'DELETE FROM configurator_presets WHERE preset_id = ?', 'i', $presetId);
             $stmt->execute();
+            admin_log($mysql, 'preset.delete', 'preset', $presetId, ['name' => $delName]);
             csrf_rotate();
             header('Location: /admin.php?tab=configurator&saved=1');
         } else {
@@ -1115,6 +1225,10 @@ if ($isAdmin && isset($_POST['presetAction'])) {
     // Редактирование несуществующей строки сообщает об ошибке, а не
     // молча создаёт новую: иначе рассинхронизация между id в форме и
     // строкой в таблице выглядела бы как «изменения не сохранились».
+    // Флаг фиксируется ДО ветвления: в INSERT-ветви $presetId
+    // перезаписывается insert_id, и по нему создание не отличить.
+    $presetIsNew = $presetId <= 0;
+
     if ($presetId > 0) {
         $stmt = db_prepare($mysql, 'SELECT COUNT(*) FROM configurator_presets WHERE preset_id = ?', 'i', $presetId);
         $stmt->execute();
@@ -1149,7 +1263,16 @@ if ($isAdmin && isset($_POST['presetAction'])) {
             $active
         );
         $stmt->execute();
+        $presetId = (int) $mysql->insert_id;
     }
+
+    admin_log(
+        $mysql,
+        $presetIsNew ? 'preset.create' : 'preset.update',
+        'preset',
+        $presetId,
+        ['name' => $name]
+    );
 
     csrf_rotate();
     header('Location: /admin.php?tab=configurator&saved=1');
@@ -1193,8 +1316,14 @@ if ($isAdmin && isset($_POST['osAction'])) {
 
     if ($osAction === 'delete') {
         if ($osId > 0) {
+            // Имя до удаления - в журнале остаётся читаемая копия.
+            $nameStmt = db_prepare($mysql, 'SELECT os_name FROM configurator_os WHERE os_id = ?', 'i', $osId);
+            $nameStmt->execute();
+            $delName = (string) ($nameStmt->get_result()->fetch_row()[0] ?? '');
+
             $stmt = db_prepare($mysql, 'DELETE FROM configurator_os WHERE os_id = ?', 'i', $osId);
             $stmt->execute();
+            admin_log($mysql, 'os.delete', 'os', $osId, ['name' => $delName]);
             csrf_rotate();
             header('Location: /admin.php?tab=configurator&saved=1');
         } else {
@@ -1220,6 +1349,10 @@ if ($isAdmin && isset($_POST['osAction'])) {
     $name = trim((string) $_POST['os_name']);
     $price = (int) $_POST['os_price'];
     $active = !empty($_POST['is_active']) ? 1 : 0;
+
+    // Тот же приём, что у пресетов: флаг до ветвления, INSERT
+    // перезапишет $osId через insert_id.
+    $osIsNew = $osId <= 0;
 
     if ($osId > 0) {
         $stmt = db_prepare($mysql, 'SELECT COUNT(*) FROM configurator_os WHERE os_id = ?', 'i', $osId);
@@ -1253,7 +1386,16 @@ if ($isAdmin && isset($_POST['osAction'])) {
             $active
         );
         $stmt->execute();
+        $osId = (int) $mysql->insert_id;
     }
+
+    admin_log(
+        $mysql,
+        $osIsNew ? 'os.create' : 'os.update',
+        'os',
+        $osId,
+        ['name' => $name]
+    );
 
     csrf_rotate();
     header('Location: /admin.php?tab=configurator&saved=1');
@@ -1396,10 +1538,19 @@ if ($isAdmin && isset($_POST['assemblyAction'])) {
             exit();
         }
 
+        // Имя до удаления - в журнале остаётся читаемая копия.
+        $nameStmt = db_prepare($mysql, 'SELECT assembly_name FROM assembly WHERE assembly_id = ?', 'i', $assemblyId);
+        $nameStmt->execute();
+        $delName = (string) ($nameStmt->get_result()->fetch_row()[0] ?? '');
+
         $stmt = db_prepare($mysql, 'DELETE FROM assembly WHERE assembly_id = ?', 'i', $assemblyId);
         $stmt->execute();
         $deleted = $stmt->affected_rows;
         $stmt->close();
+
+        if ($deleted > 0) {
+            admin_log($mysql, 'assembly.delete', 'assembly', $assemblyId, ['name' => $delName]);
+        }
 
         csrf_rotate();
         header('Location: /admin.php?tab=assemblies&' . ($deleted > 0 ? 'saved=1' : 'bad=not_found'));
@@ -1487,6 +1638,10 @@ if ($isAdmin && isset($_POST['assemblyAction'])) {
 
     $partSet = implode(', ', array_map(static fn(string $c): string => "`$c` = ?", array_keys($asmSlots)));
 
+    // Флаг до ветвления: INSERT ниже перезапишет $assemblyId через
+    // insert_id, и по нему создание не отличить.
+    $assemblyIsNew = $assemblyId <= 0;
+
     if ($assemblyId > 0) {
         // Значения собираются в один массив: в PHP нельзя передать
         // позиционный аргумент после распаковки, а номер сборки идёт
@@ -1510,7 +1665,16 @@ if ($isAdmin && isset($_POST['assemblyAction'])) {
             ...array_merge([$assemblyName, $assemblyTag, $assemblyPrice, $assemblyOsName], $partValues)
         );
         $stmt->execute();
+        $assemblyId = (int) $mysql->insert_id;
     }
+
+    admin_log(
+        $mysql,
+        $assemblyIsNew ? 'assembly.create' : 'assembly.update',
+        'assembly',
+        $assemblyId,
+        ['name' => $assemblyName]
+    );
 
     csrf_rotate();
     header('Location: /admin.php?tab=assemblies&saved=1');
@@ -1532,8 +1696,14 @@ if ($isAdmin && isset($_POST['socialAction'])) {
 
     if ($socialAction === 'delete') {
         if ($socialLinkId > 0) {
+            // Имя до удаления - в журнале остаётся читаемая копия.
+            $nameStmt = db_prepare($mysql, 'SELECT link_name FROM social_links WHERE link_id = ?', 'i', $socialLinkId);
+            $nameStmt->execute();
+            $delName = (string) ($nameStmt->get_result()->fetch_row()[0] ?? '');
+
             $stmt = db_prepare($mysql, 'DELETE FROM social_links WHERE link_id = ?', 'i', $socialLinkId);
             $stmt->execute();
+            admin_log($mysql, 'social.delete', 'social', $socialLinkId, ['name' => $delName]);
         } else {
             // linkId = 0 - «удалить строку, которой нет».
             $socialBad[] = 'social_not_found';
@@ -1617,6 +1787,9 @@ if ($isAdmin && isset($_POST['socialAction'])) {
     // Правка несуществующей строки сообщает об ошибке, а не молча создаёт
     // новую: иначе рассинхронизация между id в форме и строкой в таблице
     // выглядела бы как «изменения не сохранились».
+    // Флаг до ветвления: INSERT ниже перезапишет id через insert_id.
+    $socialIsNew = $socialLinkId <= 0;
+
     if ($socialLinkId > 0) {
         $stmt = db_prepare($mysql, 'SELECT COUNT(*) FROM social_links WHERE link_id = ?', 'i', $socialLinkId);
         $stmt->execute();
@@ -1651,7 +1824,16 @@ if ($isAdmin && isset($_POST['socialAction'])) {
             $socialActive
         );
         $stmt->execute();
+        $socialLinkId = (int) $mysql->insert_id;
     }
+
+    admin_log(
+        $mysql,
+        $socialIsNew ? 'social.create' : 'social.update',
+        'social',
+        $socialLinkId,
+        ['name' => $socialName]
+    );
 
     // Ротация обязательна: токен одноразовый в рамках загрузки страницы,
     // и без неё следующая отправка получила бы 403.
@@ -1833,6 +2015,8 @@ if ($isAdmin && isset($_POST['saveMapSnapshot'])) {
         'map_zoom'         => '15',
     ]);
 
+    admin_log($mysql, 'settings.map_update', 'settings');
+
     csrf_rotate();
     header('Location: /admin.php?tab=settings');
     exit();
@@ -1846,7 +2030,14 @@ if ($isAdmin && isset($_POST['editOrder'])) {
     $orderId = (int) ($_POST['orderId'] ?? 0);
     $status = (string) ($_POST['status'] ?? '');
 
-    order_set_status($mysql, $orderId, $status);
+    // Тот же приём, что в editOrderStatus: from/to до смены.
+    $oldStmt = db_prepare($mysql, "SELECT status FROM orders WHERE order_id = ?", 'i', $orderId);
+    $oldStmt->execute();
+    $oldStatus = (string) ($oldStmt->get_result()->fetch_row()[0] ?? '');
+
+    if (order_set_status($mysql, $orderId, $status) && $oldStatus !== $status) {
+        admin_log($mysql, 'order.status_change', 'order', $orderId, ['from' => $oldStatus, 'to' => $status]);
+    }
 
     csrf_rotate();
     header('Location: ' . admin_list_url('orders'));
@@ -1919,11 +2110,14 @@ if ($isAdmin && isset($_POST['editUser'])) {
 
     if ($editUserId > 0) {
         // Существующий ли пользователь: иначе UPDATE молча затронет 0 строк.
-        $check = db_prepare($mysql, "SELECT user_id FROM users WHERE user_id = ?", "i", $editUserId);
+        // Логин читается здесь же - он идёт в журнал, а не только проверка.
+        $check = db_prepare($mysql, "SELECT user_login FROM users WHERE user_id = ?", "i", $editUserId);
         $check->execute();
-        if (!$check->get_result()->fetch_assoc()) {
+        $checkRow = $check->get_result()->fetch_assoc();
+        if (!$checkRow) {
             $fail('missing');
         }
+        $editLogin = (string) ($checkRow['user_login'] ?? '');
 
         // user_address в UPDATE не участвует: legacy остаётся как есть.
         $stmt = db_prepare($mysql, "UPDATE users SET user_name = ?, user_surname = ?, user_group = ?,
@@ -1942,6 +2136,7 @@ if ($isAdmin && isset($_POST['editUser'])) {
                         $editPhone !== '' ? $editPhone : null,
                         $editUserId);
         $stmt->execute();
+        admin_log($mysql, 'user.update', 'user', $editUserId, ['login' => $editLogin]);
     } else {
         $fail('missing');
     }
@@ -1962,6 +2157,12 @@ if ($isAdmin && isset($_POST['approveEmail'])) {
     $userId = (int) ($_POST['userId'] ?? 0);
 
     if ($userId > 0) {
+        // Логин для журнала читается до UPDATE: он нужен в details,
+        // а после approve строка уже выглядит по-другому.
+        $who = db_prepare($mysql, "SELECT user_login FROM users WHERE user_id = ?", "i", $userId);
+        $who->execute();
+        $whoLogin = (string) ($who->get_result()->fetch_row()[0] ?? '');
+
         $stmt = db_prepare(
             $mysql,
             "UPDATE `users`
@@ -1971,6 +2172,11 @@ if ($isAdmin && isset($_POST['approveEmail'])) {
             $userId
         );
         $stmt->execute();
+        // 0 строк = заявки не было: прямой POST без запроса не должен
+        // оставлять в журнале несуществующее подтверждение.
+        if ($stmt->affected_rows > 0) {
+            admin_log($mysql, 'user.approve_email', 'user', $userId, ['login' => $whoLogin]);
+        }
         $stmt->close();
     }
 
@@ -1984,6 +2190,11 @@ if ($isAdmin && isset($_POST['approvePhone'])) {
     $userId = (int) ($_POST['userId'] ?? 0);
 
     if ($userId > 0) {
+        // Логин для журнала читается до UPDATE - как в approveEmail.
+        $who = db_prepare($mysql, "SELECT user_login FROM users WHERE user_id = ?", "i", $userId);
+        $who->execute();
+        $whoLogin = (string) ($who->get_result()->fetch_row()[0] ?? '');
+
         $stmt = db_prepare(
             $mysql,
             "UPDATE `users`
@@ -1993,6 +2204,9 @@ if ($isAdmin && isset($_POST['approvePhone'])) {
             $userId
         );
         $stmt->execute();
+        if ($stmt->affected_rows > 0) {
+            admin_log($mysql, 'user.approve_phone', 'user', $userId, ['login' => $whoLogin]);
+        }
         $stmt->close();
     }
 
@@ -2018,6 +2232,7 @@ if ($isAdmin && isset($_POST['deleteOrder'])) {
 
         $stmt = db_prepare($mysql, "DELETE FROM orders WHERE order_id = ?", "i", $orderId);
         $stmt->execute();
+        admin_log($mysql, 'order.delete', 'order', $orderId, ['id' => $orderId]);
     }
 
     csrf_rotate();
@@ -2029,6 +2244,11 @@ if ($isAdmin && isset($_POST['deleteUser'])) {
     csrf_verify();
     $userId = $_POST['userId'] ?? 0;
 
+    // Логин читается до удаления: после DELETE копии нигде не остаётся.
+    $who = db_prepare($mysql, "SELECT user_login FROM users WHERE user_id = ?", "i", $userId);
+    $who->execute();
+    $delLogin = (string) ($who->get_result()->fetch_row()[0] ?? '');
+
     $stmt = db_prepare($mysql, "DELETE FROM orders WHERE user_id = ?", "i", $userId);
     $stmt->execute();
 
@@ -2037,6 +2257,8 @@ if ($isAdmin && isset($_POST['deleteUser'])) {
 
     $stmt = db_prepare($mysql, "DELETE FROM users WHERE user_id = ?", "i", $userId);
     $stmt->execute();
+
+    admin_log($mysql, 'user.delete', 'user', (int) $userId, ['login' => $delLogin]);
 
     csrf_rotate();
     header('Location: ' . admin_list_url('users'));
@@ -2098,6 +2320,8 @@ if ($tab === 'dashboard') {
     // снимка карты.
     $settings = site_settings($mysql);
     require __DIR__ . '/admin/_tab_settings.php';
+} elseif ($tab === 'log') {
+    require __DIR__ . '/admin/_tab_log.php';
 } else {
 ?>
                 <section class="card">

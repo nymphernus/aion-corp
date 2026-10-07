@@ -37,6 +37,7 @@ $adminLinks = [
     // поэтому «Настройки» стоят вне аккордеона.
     'configurator' => ['/admin.php?tab=configurator', 'Конфигуратор'],
     'assemblies' => ['/admin.php?tab=assemblies', 'Сборки'],
+    'log' => ['/admin.php?tab=log', 'Журнал'],
 ];
 $isAdminSection = isset($adminLinks[$activeTab]);
 ?>
