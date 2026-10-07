@@ -142,12 +142,40 @@ final class SocialTest extends AionTestCase
     }
 
     /**
+     * Строка с наибольшим link_id из списка.
+     *
+     * Нужна там, где в таблице уже может быть строка с тем же именем:
+     * миграция заводит три площадки, включая Telegram, и брать первую
+     * строку из списка значило бы править чужую.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<string, mixed>
+     */
+    private function newestOf(array $rows): array
+    {
+        if ($rows === []) {
+            $this->fail('ожидалась хотя бы одна строка');
+        }
+        usort(
+            $rows,
+            static fn(array $a, array $b): int => (int) $b['link_id'] <=> (int) $a['link_id']
+        );
+        return $rows[0];
+    }
+
+    /**
      * Добавление строки: она появляется в таблице с введёнными значениями.
+     *
+     * Считается относительно снимка, а не «ровно одна строка»: на свежей
+     * установке миграция уже заводит Telegram, WhatsApp и ВКонтакте, и
+     * проверка абсолютного числа падала бы на правильном коде.
      */
     public function testAddSocialCreatesRow(): void
     {
         $this->loginAdmin();
         $snap = $this->socialSnapshot();
+
+        $before = count($this->rowsByName('Telegram'));
 
         try {
             $r = $this->postSocial([
@@ -166,10 +194,15 @@ final class SocialTest extends AionTestCase
             $this->assertStringContainsString('https://t.me/aioncorp', $page['body']);
 
             $found = $this->rowsByName('Telegram');
-            $this->assertCount(1, $found, 'строка должна появиться в таблице ровно одна');
-            $this->assertSame('https://t.me/aioncorp', (string) $found[0]['link_url']);
-            $this->assertSame('/assets/images/social/telegram.svg', (string) $found[0]['link_icon']);
-            $this->assertSame(1, (int) $found[0]['is_active']);
+            $this->assertCount(
+                $before + 1,
+                $found,
+                'добавление должно создать ровно одну строку'
+            );
+            $added = $this->newestOf($found);
+            $this->assertSame('https://t.me/aioncorp', (string) $added['link_url']);
+            $this->assertSame('/assets/images/social/telegram.svg', (string) $added['link_icon']);
+            $this->assertSame(1, (int) $added['is_active']);
         } finally {
             $this->socialRestore($snap);
         }
@@ -188,6 +221,8 @@ final class SocialTest extends AionTestCase
         $snap = $this->socialSnapshot();
 
         try {
+            $before = count($this->rowsByName('Telegram'));
+
             $add = $this->postSocial([
                 'link_name' => 'Telegram',
                 'link_url' => 'https://t.me/aioncorp',
@@ -197,8 +232,10 @@ final class SocialTest extends AionTestCase
             $this->assertSame(302, $add['code']);
 
             $rows = $this->rowsByName('Telegram');
-            $this->assertCount(1, $rows, 'после добавления должна быть ровно одна такая строка');
-            $id = (string) $rows[0]['link_id'];
+            $this->assertCount($before + 1, $rows, 'после добавления должна появиться одна строка');
+            // Берётся самая свежая, а не первая по списку: с именем
+            // Telegram в таблице уже есть строка от миграции.
+            $id = (string) $this->newestOf($rows)['link_id'];
 
             $edit = $this->postSocial([
                 'link_name' => 'Telegram-канал',
@@ -208,7 +245,11 @@ final class SocialTest extends AionTestCase
             ], 'save', $id);
             $this->assertSame(302, $edit['code'], 'правка должна редиректить');
 
-            $this->assertCount(0, $this->rowsByName('Telegram'), 'старое название должно исчезнуть');
+            $this->assertCount(
+                $before,
+                $this->rowsByName('Telegram'),
+                'старое название должно исчезнуть у правленой строки'
+            );
 
             $rows = $this->rowsByName('Telegram-канал');
             $this->assertCount(1, $rows, 'новая строка должна быть одна, а не две');
