@@ -75,7 +75,7 @@
 
     function render() {
         itemsEl.textContent = '';
-        var total = base;
+        var total = AionCore.computeTotal(state, slots, base);
         var count = 0;
 
         for (var i = 0; i < ORDER.length; i++) {
@@ -94,7 +94,6 @@
             }
 
             var price = parseInt(item.component_price, 10) || 0;
-            total += price;
             count++;
 
             var row = document.createElement('div');

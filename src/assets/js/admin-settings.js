@@ -463,7 +463,7 @@
             // под полем, а не alert - alert сработал бы поверх формы и
             // мешал бы её читать.
             var why = (await resp.text()).trim();
-            setFaviconNotice(faviconNoticeText(why, letter));
+            setFaviconNotice(AionCore.faviconNoticeText(why, letter));
             return;
         }
 
@@ -496,16 +496,6 @@
             };
             reader.readAsDataURL(blob);
         });
-    }
-
-    function faviconNoticeText(code, letter) {
-        if (code === 'favicon_letter_unsupported') {
-            return 'Генератор рисует одну букву. Для «' + letter + '» загрузите свою картинку.';
-        }
-        if (code === 'favicon_letter_empty') {
-            return 'Введите букву.';
-        }
-        return 'Не удалось построить иконку.';
     }
 
     function setFaviconNotice(text) {

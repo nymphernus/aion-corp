@@ -39,6 +39,9 @@ $extraJs = $extraJs ?? [];
 <?php // Обработчик темы подключается здесь, а не постранично: кнопка
      // живёт в шапке, а шапка есть на каждой странице, тогда как
      // scripts.js в $extraJs перечисляют выборочно. ?>
+<?php // core.js - чистые функции (AionCore): подключается раньше
+     // остальных скриптов, админ- и сборочные файлы зовут его. ?>
+    <script src="<?= escape(asset_url('/assets/js/core.js')) ?>"></script>
     <script src="<?= escape(asset_url('/assets/js/confirm.js')) ?>"></script>
     <script src="<?= escape(asset_url('/assets/js/theme.js')) ?>"></script>
 <?php foreach ($extraJs as $js): ?>

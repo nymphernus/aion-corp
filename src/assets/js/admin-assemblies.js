@@ -11,26 +11,6 @@
  * разъезжалось бы при переходе между сборками.
  */
 (function() {
-    /* Разобрать data-parts строки в объект «категория -> компонент».
-     *
-     * Формат «1:5,2:44» выбран из-за CSP: инлайн-скрипт с данными
-     * заблокирован, а JSON в атрибуте пришлось бы разбирать этим же
-     * разбором строки - только на две строки больше. */
-    function readParts(row) {
-        const parts = {};
-        const raw = row.dataset.parts || '';
-        if (!raw) return parts;
-
-        const pairs = raw.split(',');
-        for (let i = 0; i < pairs.length; i++) {
-            const bits = pairs[i].split(':');
-            if (bits.length === 2) {
-                parts[bits[0]] = bits[1];
-            }
-        }
-        return parts;
-    }
-
     /* Открыть модалку сборки.
      *
      * row - строка таблицы для правки или null для добавления. */
@@ -42,7 +22,7 @@
         const title = document.getElementById('assemblyModalTitle');
 
         if (row) {
-            const parts = readParts(row);
+            const parts = AionCore.readParts(row.dataset.parts || '');
 
             document.getElementById('assemblyId').value = row.dataset.assemblyId;
 
