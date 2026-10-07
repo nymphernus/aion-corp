@@ -1293,18 +1293,9 @@ h1{
     color: var(--text-secondary);
 }
 
-.row-btn-danger img {
-    filter: none;
-    transition: filter 150ms;
-}
-
 .row-btn-danger:hover {
     color: var(--error);
     background: rgba(239, 68, 68, 0.08);
-}
-
-.row-btn-danger:hover img {
-    filter: invert(36%) sepia(93%) saturate(2000%) hue-rotate(348deg) brightness(95%);
 }
 
 /* дашборд — четыре блока метрик */

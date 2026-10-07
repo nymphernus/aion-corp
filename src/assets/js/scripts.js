@@ -578,46 +578,10 @@ document.addEventListener('click', function(e) {
     modal.showModal();
 });
 
-// единое подтверждение действия.
-//
-// Колбэк хранится в переменной, кнопки слушает делегированный
-// обработчик ниже. Планировалось клонировать кнопку «Подтвердить»
-// ради отвязки прошлых слушателей - не нужно: слушатель один, он на
-// документе, и подменять ему нечего.
-var confirmCallback = null;
-
-window.confirmAction = function (title, message, onConfirm) {
-    var modal = document.getElementById('confirmModal');
-    if (!modal) return;
-
-    var setText = function (id, value) {
-        var el = modal.querySelector(id);
-        if (el) el.textContent = value;
-    };
-    setText('#confirmTitle', title);
-    setText('#confirmMessage', message);
-
-    confirmCallback = typeof onConfirm === 'function' ? onConfirm : null;
-    modal.showModal();
-};
+// Единое подтверждение вынесено в confirm.js: разметка модалки
+// подключается из header.php на каждой странице, а этот файл - не везде.
 
 document.addEventListener('click', function (e) {
-    var modal = document.getElementById('confirmModal');
-
-    if (e.target.closest('[data-action="confirm-ok"]')) {
-        var callback = confirmCallback;
-        confirmCallback = null;
-        if (modal && modal.open) modal.close();
-        if (callback) callback();
-        return;
-    }
-
-    if (e.target.closest('[data-action="confirm-cancel"]')) {
-        confirmCallback = null;
-        if (modal && modal.open) modal.close();
-        return;
-    }
-
     // выход из аккаунта требует подтверждения
     if (e.target.closest('[data-action="logout-confirm"]')) {
         e.preventDefault();

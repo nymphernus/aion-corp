@@ -232,5 +232,70 @@
         }
     });
 
+    /* Подтверждения перед сохранением и покупкой.
+     *
+     * Кнопки в разметке type="button": отправлять форму без вопроса нельзя,
+     * и браузер уводил бы со страницы раньше, чем человек ответит.
+     * Скрытое поле с именем действия добавляется в момент отправки -
+     * обработчик на сервере различает save и buy именно по нему.
+     *
+     * window.confirmAction живёт в confirm.js, подключённом из подвала,
+     * поэтому на этой странице он доступен так же, как на профиле. */
+    function confirmAndSubmit(action, title, message) {
+        /* Кнопка и скрытое поле носят разные имена: у кнопки префикс
+           confirm-, у поля - нет. Искать по одному имени - верный способ
+           получить btn === null и тихо ничего не сделать. */
+        var btn = document.querySelector('[data-action="confirm-' + action + '"]');
+        if (!btn || btn.disabled) {
+            return;
+        }
+        var form = btn.closest('form');
+        if (!form) {
+            return;
+        }
+
+        if (typeof window.confirmAction !== 'function') {
+            return;
+        }
+
+        window.confirmAction(title, message, function () {
+            /* Форма уже может содержать скрытое поле от прошлого
+               подтверждения: повторное нажатие добавило бы второе, и
+               браузер отправил бы действие дважды. */
+            var stale = form.querySelector('input[name="' + action + '"]');
+            if (stale) {
+                stale.parentNode.removeChild(stale);
+            }
+
+            var hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = action;
+            hidden.value = '1';
+            form.appendChild(hidden);
+            form.submit();
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-action="confirm-save"]')) {
+            e.preventDefault();
+            confirmAndSubmit(
+                'save',
+                'Сохранить сборку?',
+                'Сборка будет добавлена в избранное.'
+            );
+            return;
+        }
+
+        if (e.target.closest('[data-action="confirm-buy"]')) {
+            e.preventDefault();
+            confirmAndSubmit(
+                'buy',
+                'Оформить заказ?',
+                'Комплектующие будут списаны со склада, заказ появится в профиле.'
+            );
+        }
+    });
+
     render();
 }());

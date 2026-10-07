@@ -792,7 +792,15 @@ $hasPhone = !empty($userProfile['user_number']);
                                                         // включает имя нажатой submit-кнопки.
                                                         . "<input type=\"hidden\" name=\"deleteAssembly\" value=\"{$row['assembly_id']}\">"
                                                         . "<button class=\"btn btn--ghost btn--sm row-btn-danger\" type=\"submit\" data-action=\"delete-favorite\" data-name=\"" . htmlspecialchars($favName, ENT_QUOTES) . "\" title=\"Убрать из избранного\">"
-                                                        . "<img src=\"/assets/images/trash-outline.svg\" alt=\"Удалить\" width=\"18\" height=\"18\">"
+                                                        // Инлайн-SVG, а не <img>: currentColor внутри отдельного
+                                                        // документа не наследуется от страницы и резолвится в
+                                                        // чёрный - на тёмной теме иконка пропадала.
+                                                        . "<svg width=\"18\" height=\"18\" viewBox=\"0 0 512 512\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"32\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">"
+                                                        . "<path d=\"M112 112h288\"></path>"
+                                                        . "<path d=\"M200 112v-16a16 16 0 0 1 16-16h80a16 16 0 0 1 16 16v16\"></path>"
+                                                        . "<path d=\"M400 112l-24 288a32 32 0 0 1-32 29H168a32 32 0 0 1-32-29L112 112\"></path>"
+                                                        . "<path d=\"M216 208v144M296 208v144\"></path>"
+                                                        . "</svg>"
                                                         . "</button>"
                                                         . "</form></td>"
                                                         . "</tr>";

@@ -243,7 +243,10 @@ if (isset($_POST['save']) && $isLoggedIn) {
         $stmt->execute();
     }
     csrf_rotate();
-    header('Location: /profile.php');
+    // Остаёмся на странице сборки: после «Сохранить» человек обычно
+    // сразу нажимает «Купить», и уход в профиль обрывал бы это одним
+    // лишним шагом назад.
+    header('Location: /assembly.php?id=' . $idA . '&saved=1');
     exit();
 }
 
@@ -297,7 +300,9 @@ if (isset($_POST['buy'])) {
             }
         }
         csrf_rotate();
-        header('Location: /profile.php');
+        // В профиль сразу на заказы: заказ только что создан, и открывать
+        // страницу ради этого - лишний клик.
+        header('Location: /profile.php?section=orders');
         exit();
     }
 }
@@ -312,6 +317,9 @@ $assemblyErrors = [
 ];
 
 $assemblyError = null;
+$assemblyOk = isset($_GET['saved']) && $_GET['saved'] === '1'
+    ? 'Сборка сохранена в избранное'
+    : null;
 $errorKey = (string) ($_GET['error'] ?? '');
 if (isset($assemblyErrors[$errorKey])) {
     $assemblyError = $assemblyErrors[$errorKey];
@@ -347,6 +355,8 @@ require __DIR__ . '/partials/header.php';
 ?>
 <?php if ($assemblyError !== null): ?>
             <div class="alert alert--error"><?= escape($assemblyError) ?></div>
+<?php elseif ($assemblyOk !== null): ?>
+            <div class="alert alert--success"><?= escape($assemblyOk) ?></div>
 <?php endif; ?>
 <div class="build-layout">
 
@@ -527,27 +537,30 @@ if (!$isBase):
                 </div>
 
                 <div class="build-summary__actions">
+                    <?php // Кнопки не submit, а обычные: перед отправкой показывается
+                           // подтверждение, и браузер не должен уводить со страницы раньше,
+                           // чем человек на неё ответит. ?>
                     <?php if (!$isLoggedIn): ?>
-                        <button type="button" class="btn btn--primary" disabled>Сохранить</button>
+                        <button type="button" class="btn btn--secondary" disabled>Сохранить</button>
                         <button type="button" class="btn btn--primary" disabled>Купить</button>
                         <p class="build-summary__hint">Войдите, чтобы сохранить или купить</p>
                     <?php elseif (isset($_GET['check-purchased'])): ?>
                         <form method="post" class="build-summary__form">
                             <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>"><?= $extraHidden ?>
-                            <button type="submit" name="save" class="btn btn--secondary">Сохранить</button>
-                            <button type="submit" name="buy" class="btn btn--primary" disabled>Купить</button>
+                            <button type="button" class="btn btn--secondary" data-action="confirm-save">Сохранить</button>
+                            <button type="button" class="btn btn--primary" disabled>Купить</button>
                         </form>
                     <?php elseif (isset($_GET['check-saved'])): ?>
                         <form method="post" class="build-summary__form">
                             <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>"><?= $extraHidden ?>
-                            <button type="submit" name="save" class="btn btn--secondary" disabled>Сохранить</button>
-                            <button type="submit" name="buy" class="btn btn--primary">Купить</button>
+                            <button type="button" class="btn btn--secondary" disabled>Сохранить</button>
+                            <button type="button" class="btn btn--primary" data-action="confirm-buy">Купить</button>
                         </form>
                     <?php else: ?>
                         <form method="post" class="build-summary__form">
                             <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>"><?= $extraHidden ?>
-                            <button type="submit" name="save" class="btn btn--secondary">Сохранить</button>
-                            <button type="submit" name="buy" class="btn btn--primary">Купить</button>
+                            <button type="button" class="btn btn--secondary" data-action="confirm-save">Сохранить</button>
+                            <button type="button" class="btn btn--primary" data-action="confirm-buy">Купить</button>
                         </form>
                     <?php endif; ?>
                 </div>

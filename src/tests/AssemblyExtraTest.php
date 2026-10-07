@@ -332,6 +332,75 @@ final class AssemblyExtraTest extends AionTestCase
     }
 
     /**
+     * Кнопки сохранения и покупки спрашивают подтверждения.
+     *
+     * Кнопки объявлены type="button" намеренно: submit отправил бы форму
+     * сразу, и браузер увёл бы со страницы до того, как человек ответит.
+     * Тест ловит возврат к submit - тогда модалка просто не появится, а
+     * страница перезагрузится, и заметить это вручную трудно.
+     */
+    public function testActionButtonsAreNotSubmit(): void
+    {
+        $this->loginAsAdmin();
+        $id = $this->makeUserAssembly();
+
+        /* Три режима страницы, и в каждом своя пара кнопок: у сборки в
+           избранном активна покупка, у купленной - сохранение. Проверка
+           одного режима пропустила бы откат в другом: так тест и обманул
+           при первой попытке. */
+        /* check-saved и check-purchased не дописываются к id, а заменяют
+           его: id берётся из первого же подходящего параметра, и пустое
+           значение дало бы ноль и редирект. */
+        $modes = [
+            ''                => ['confirm-save', 'confirm-buy'],
+            'check-saved'     => ['confirm-buy'],
+            'check-purchased' => ['confirm-save'],
+        ];
+
+        foreach ($modes as $mode => $expected) {
+            $url = $mode === '' ? '/assembly.php?id=' . $id : '/assembly.php?' . $mode . '=' . $id;
+            $page = $this->httpGet($url);
+            $this->assertSame(200, $page['code'], "режим {$mode} недоступен");
+
+            foreach (['confirm-save', 'confirm-buy'] as $action) {
+                $count = $this->xpathCount(
+                    $page['body'],
+                    '//button[@data-action="' . $action . '"]'
+                );
+                if (in_array($action, $expected, true)) {
+                    $this->assertSame(1, $count, "в режиме {$mode} должна быть кнопка {$action}");
+                    $this->assertSame(
+                        1,
+                        $this->xpathCount(
+                            $page['body'],
+                            '//button[@data-action="' . $action . '"][@type="button"]'
+                        ),
+                        "кнопка {$action} должна быть type=button: submit отправила бы форму без вопроса"
+                    );
+                } else {
+                    $this->assertSame(0, $count, "в режиме {$mode} кнопка {$action} должна быть отключена");
+                }
+            }
+
+            $this->assertSame(
+                0,
+                $this->xpathCount($page['body'], '//button[@type="submit"][@name="save" or @name="buy"]'),
+                "в режиме {$mode} не должно быть submit-кнопок отправки"
+            );
+        }
+
+        /* Подтверждение должно быть доступно и на странице сборки: сам
+           confirm.js подключён из подвала, а scripts.js на этой странице
+           не подключается, и обработчик жил бы только там. */
+        $page = $this->httpGet('/assembly.php?id=' . $id);
+        $this->assertSame(
+            1,
+            $this->xpathCount($page['body'], '//script[contains(@src, "confirm.js")]'),
+            'confirm.js должен подключаться глобально, иначе подтверждений не будет'
+        );
+    }
+
+    /**
      * Компонент заданной категории.
      *
      * $skipId исключает компонент: доп не должен совпадать с уже стоящим

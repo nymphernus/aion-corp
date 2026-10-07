@@ -39,6 +39,7 @@ $extraJs = $extraJs ?? [];
 <?php // Обработчик темы подключается здесь, а не постранично: кнопка
      // живёт в шапке, а шапка есть на каждой странице, тогда как
      // scripts.js в $extraJs перечисляют выборочно. ?>
+    <script src="<?= escape(asset_url('/assets/js/confirm.js')) ?>"></script>
     <script src="<?= escape(asset_url('/assets/js/theme.js')) ?>"></script>
 <?php foreach ($extraJs as $js): ?>
     <script src="<?= escape(asset_url($js)) ?>"></script>
