@@ -132,6 +132,7 @@ src/
 ```
 ## Скриншот
 
-<img src="https://user-images.githubusercontent.com/103174654/229752211-483a3cf6-5fd4-4694-bb82-413255d884c6.png" alt="img_1">
+<img width="1913" height="910" alt="home" src="https://github.com/user-attachments/assets/6f60172c-a06d-4bdf-bf34-1e40d7c63013" />
+
 
 
